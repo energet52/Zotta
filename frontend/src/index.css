@@ -10,9 +10,32 @@
   --color-warning: #d69e2e;
   --color-bg: #f7fafc;
   --color-surface: #ffffff;
+  --color-surface-hover: #f1f5f9;
   --color-text: #1a202c;
   --color-text-muted: #718096;
   --color-border: #e2e8f0;
+}
+
+/* Dark theme for Back-Office portal */
+.theme-dark {
+  --color-primary: #38bdf8;
+  --color-primary-light: #7dd3fc;
+  --color-primary-dark: #0c1a2e;
+  --color-accent: #f59e0b;
+  --color-success: #34d399;
+  --color-danger: #f87171;
+  --color-warning: #fbbf24;
+  --color-bg: #0a1628;
+  --color-surface: #111c2e;
+  --color-surface-hover: #1a2740;
+  --color-text: #e2e8f0;
+  --color-text-muted: #64748b;
+  --color-border: #1e2d45;
+
+  --color-surface-alt: #0d1424;
+  --color-cyan: #22d3ee;
+  --color-purple: #a78bfa;
+  --color-pink: #f472b6;
 }
 
 body {

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, FileText, Clock, CheckCircle, XCircle, DollarSign } from 'lucide-react';
+import { ArrowLeft, FileText, Clock, CheckCircle, XCircle, DollarSign, ArrowRightLeft, PenTool } from 'lucide-react';
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
 import { getStatusBadge } from '../../../components/ui/Badge';
 import { loanApi } from '../../../api/endpoints';
+import ContractSignature from '../../../components/ContractSignature';
 
 interface Application {
   id: number;
@@ -17,6 +18,12 @@ interface Application {
   interest_rate: number | null;
   amount_approved: number | null;
   monthly_payment: number | null;
+  proposed_amount: number | null;
+  proposed_rate: number | null;
+  proposed_term: number | null;
+  counterproposal_reason: string | null;
+  contract_signed_at: string | null;
+  contract_typed_name: string | null;
   submitted_at: string | null;
   decided_at: string | null;
   created_at: string;
@@ -41,8 +48,10 @@ export default function ApplicationStatus() {
   const [application, setApplication] = useState<Application | null>(null);
   const [documents, setDocuments] = useState<DocumentInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState('');
+  const [showContract, setShowContract] = useState(false);
 
-  useEffect(() => {
+  const loadData = () => {
     if (!id) return;
     Promise.all([
       loanApi.get(parseInt(id)),
@@ -51,7 +60,50 @@ export default function ApplicationStatus() {
       setApplication(appRes.data);
       setDocuments(docRes.data);
     }).finally(() => setLoading(false));
-  }, [id]);
+  };
+
+  useEffect(() => { loadData(); }, [id]);
+
+  const handleAcceptOffer = async () => {
+    if (!application) return;
+    setActionLoading('accept');
+    try {
+      await loanApi.acceptOffer(application.id);
+      loadData();
+    } catch {} finally { setActionLoading(''); }
+  };
+
+  const handleDeclineOffer = async () => {
+    if (!application) return;
+    setActionLoading('decline');
+    try {
+      await loanApi.declineOffer(application.id);
+      loadData();
+    } catch {} finally { setActionLoading(''); }
+  };
+
+  const handleAcceptCounterproposal = async () => {
+    if (!application) return;
+    setActionLoading('accept_cp');
+    try {
+      await loanApi.acceptCounterproposal(application.id);
+      loadData();
+    } catch {} finally { setActionLoading(''); }
+  };
+
+  const handleRejectCounterproposal = async () => {
+    if (!application) return;
+    setActionLoading('reject_cp');
+    try {
+      await loanApi.rejectCounterproposal(application.id);
+      loadData();
+    } catch {} finally { setActionLoading(''); }
+  };
+
+  const handleContractSigned = () => {
+    setShowContract(false);
+    loadData();
+  };
 
   if (loading) return <div className="text-center py-12 text-gray-400">Loading...</div>;
   if (!application) return <div className="text-center py-12 text-red-500">Application not found</div>;
@@ -62,12 +114,14 @@ export default function ApplicationStatus() {
     const stepIdx = statusOrder.indexOf(stepKey);
 
     if (stepKey === 'decided') {
-      return ['approved', 'declined', 'offer_sent', 'accepted', 'disbursed'].includes(application.status) ? 'complete' : 'pending';
+      return ['approved', 'declined', 'offer_sent', 'accepted', 'disbursed', 'counter_proposed'].includes(application.status) ? 'complete' : 'pending';
     }
     if (stepIdx < currentIdx) return 'complete';
     if (stepIdx === currentIdx) return 'current';
     return 'pending';
   };
+
+  const needsContractSignature = ['approved', 'offer_sent', 'accepted'].includes(application.status) && !application.contract_signed_at;
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -124,12 +178,77 @@ export default function ApplicationStatus() {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-500">Purpose</span>
-              <span className="font-medium capitalize">{application.purpose.replace('_', ' ')}</span>
+              <span className="font-medium capitalize">{application.purpose.replace(/_/g, ' ')}</span>
             </div>
           </div>
         </Card>
 
-        {application.status === 'approved' && (
+        {/* Counterproposal Card */}
+        {application.status === 'counter_proposed' && (
+          <Card className="border-purple-200 bg-purple-50">
+            <h3 className="font-semibold text-purple-800 mb-2 flex items-center">
+              <ArrowRightLeft size={18} className="mr-2" />
+              Counterproposal Received
+            </h3>
+            <p className="text-sm text-purple-700 mb-4">
+              The underwriter has proposed different terms for your loan:
+            </p>
+
+            {/* Comparison Table */}
+            <div className="space-y-2 text-sm mb-4">
+              <div className="flex justify-between items-center">
+                <span className="text-purple-600">Amount</span>
+                <div className="flex items-center space-x-3">
+                  <span className="text-gray-500 line-through">TTD {application.amount_requested.toLocaleString()}</span>
+                  <span className="font-bold text-purple-800">TTD {application.proposed_amount?.toLocaleString()}</span>
+                </div>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-purple-600">Interest Rate</span>
+                <span className="font-bold text-purple-800">{application.proposed_rate}%</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-purple-600">Term</span>
+                <div className="flex items-center space-x-3">
+                  {application.proposed_term !== application.term_months && (
+                    <span className="text-gray-500 line-through">{application.term_months}m</span>
+                  )}
+                  <span className="font-bold text-purple-800">{application.proposed_term} months</span>
+                </div>
+              </div>
+            </div>
+
+            {application.counterproposal_reason && (
+              <div className="p-2 bg-white/50 rounded-lg mb-4">
+                <p className="text-xs text-purple-600 font-medium mb-1">Reason:</p>
+                <p className="text-sm text-purple-800">{application.counterproposal_reason}</p>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                className="flex-1"
+                onClick={handleAcceptCounterproposal}
+                isLoading={actionLoading === 'accept_cp'}
+              >
+                Accept
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1"
+                onClick={handleRejectCounterproposal}
+                isLoading={actionLoading === 'reject_cp'}
+              >
+                Reject
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {/* Approved Offer Card */}
+        {(application.status === 'approved' || application.status === 'offer_sent') && (
           <Card className="border-green-200 bg-green-50">
             <h3 className="font-semibold text-green-800 mb-4">Approved Offer</h3>
             <div className="space-y-3 text-sm">
@@ -141,18 +260,81 @@ export default function ApplicationStatus() {
                 <span className="text-green-700">Interest Rate</span>
                 <span className="font-bold text-green-800">{application.interest_rate}%</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-green-700">Monthly Payment</span>
-                <span className="font-bold text-green-800">TTD {application.monthly_payment?.toLocaleString()}</span>
-              </div>
+              {application.monthly_payment && (
+                <div className="flex justify-between">
+                  <span className="text-green-700">Monthly Payment</span>
+                  <span className="font-bold text-green-800">TTD {application.monthly_payment?.toLocaleString()}</span>
+                </div>
+              )}
               <div className="flex gap-2 mt-4">
-                <Button size="sm" className="flex-1">Accept Offer</Button>
-                <Button size="sm" variant="outline" className="flex-1">Decline</Button>
+                {needsContractSignature ? (
+                  <Button size="sm" className="flex-1" onClick={() => setShowContract(true)}>
+                    <PenTool size={14} className="mr-1" /> Sign Contract & Accept
+                  </Button>
+                ) : (
+                  <Button size="sm" className="flex-1" onClick={handleAcceptOffer} isLoading={actionLoading === 'accept'}>
+                    Accept Offer
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" className="flex-1" onClick={handleDeclineOffer} isLoading={actionLoading === 'decline'}>
+                  Decline
+                </Button>
               </div>
             </div>
           </Card>
         )}
 
+        {/* Accepted / Contract Signed */}
+        {application.status === 'accepted' && (
+          <Card className="border-green-200 bg-green-50">
+            <h3 className="font-semibold text-green-800 mb-2">Offer Accepted</h3>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-green-700">Approved Amount</span>
+                <span className="font-bold text-green-800">TTD {application.amount_approved?.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-green-700">Interest Rate</span>
+                <span className="font-bold text-green-800">{application.interest_rate}%</span>
+              </div>
+              {application.contract_signed_at && (
+                <div className="p-2 bg-white/50 rounded-lg mt-2">
+                  <p className="text-xs text-green-600 font-medium">Contract signed on {new Date(application.contract_signed_at).toLocaleString()}</p>
+                  <p className="text-xs text-green-700">by {application.contract_typed_name}</p>
+                </div>
+              )}
+              {needsContractSignature && (
+                <Button size="sm" className="w-full mt-2" onClick={() => setShowContract(true)}>
+                  <PenTool size={14} className="mr-1" /> Sign Contract
+                </Button>
+              )}
+            </div>
+          </Card>
+        )}
+
+        {/* Disbursed */}
+        {application.status === 'disbursed' && (
+          <Card className="border-cyan-200 bg-cyan-50">
+            <h3 className="font-semibold text-cyan-800 mb-2">Loan Disbursed</h3>
+            <p className="text-sm text-cyan-700">
+              Your loan has been disbursed. Funds should be available in your account.
+            </p>
+            <div className="space-y-2 text-sm mt-3">
+              <div className="flex justify-between">
+                <span className="text-cyan-700">Disbursed Amount</span>
+                <span className="font-bold text-cyan-800">TTD {application.amount_approved?.toLocaleString()}</span>
+              </div>
+              {application.monthly_payment && (
+                <div className="flex justify-between">
+                  <span className="text-cyan-700">Monthly Payment</span>
+                  <span className="font-bold text-cyan-800">TTD {application.monthly_payment?.toLocaleString()}</span>
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
+
+        {/* Declined */}
         {application.status === 'declined' && (
           <Card className="border-red-200 bg-red-50">
             <h3 className="font-semibold text-red-800 mb-2">Application Declined</h3>
@@ -162,7 +344,30 @@ export default function ApplicationStatus() {
             </p>
           </Card>
         )}
+
+        {/* Rejected by Applicant */}
+        {application.status === 'rejected_by_applicant' && (
+          <Card className="border-gray-200 bg-gray-50">
+            <h3 className="font-semibold text-gray-800 mb-2">Offer Declined</h3>
+            <p className="text-sm text-gray-700">
+              You have declined the loan offer. You may submit a new application if needed.
+            </p>
+          </Card>
+        )}
       </div>
+
+      {/* Contract Signature Modal */}
+      {showContract && application && (
+        <ContractSignature
+          applicationId={application.id}
+          loanAmount={application.amount_approved || application.proposed_amount || application.amount_requested}
+          interestRate={application.interest_rate || application.proposed_rate || 0}
+          termMonths={application.proposed_term || application.term_months}
+          monthlyPayment={application.monthly_payment || 0}
+          onSigned={handleContractSigned}
+          onCancel={() => setShowContract(false)}
+        />
+      )}
 
       {/* Documents */}
       <Card>
@@ -175,7 +380,7 @@ export default function ApplicationStatus() {
                   <FileText size={18} className="text-gray-400" />
                   <div>
                     <p className="text-sm font-medium">{doc.file_name}</p>
-                    <p className="text-xs text-gray-500 capitalize">{doc.document_type.replace('_', ' ')}</p>
+                    <p className="text-xs text-gray-500 capitalize">{doc.document_type.replace(/_/g, ' ')}</p>
                   </div>
                 </div>
                 {getStatusBadge(doc.status)}

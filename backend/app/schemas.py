@@ -100,6 +100,15 @@ class LoanApplicationResponse(BaseModel):
     monthly_payment: Optional[float]
     status: str
     assigned_underwriter_id: Optional[int]
+    # Counterproposal
+    proposed_amount: Optional[float] = None
+    proposed_rate: Optional[float] = None
+    proposed_term: Optional[int] = None
+    counterproposal_reason: Optional[str] = None
+    # Contract
+    contract_signed_at: Optional[datetime] = None
+    contract_typed_name: Optional[str] = None
+    # Timestamps
     submitted_at: Optional[datetime]
     decided_at: Optional[datetime]
     created_at: datetime
@@ -202,3 +211,72 @@ class CreditReportResponse(BaseModel):
     pulled_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ── Counterproposal ──────────────────────────────────
+
+class CounterproposalRequest(BaseModel):
+    proposed_amount: float = Field(gt=0)
+    proposed_rate: float = Field(gt=0)
+    proposed_term: int = Field(ge=3, le=84)
+    reason: str = Field(min_length=5)
+
+
+# ── Contract ─────────────────────────────────────────
+
+class ContractSignRequest(BaseModel):
+    signature_data: str  # base64 PNG
+    typed_name: str = Field(min_length=2, max_length=200)
+    agreed: bool
+
+
+class ContractResponse(BaseModel):
+    signature_data: Optional[str] = None
+    typed_name: Optional[str] = None
+    signed_at: Optional[datetime] = None
+
+
+# ── Audit Log ────────────────────────────────────────
+
+class AuditLogResponse(BaseModel):
+    id: int
+    entity_type: str
+    entity_id: int
+    action: str
+    user_id: Optional[int]
+    user_name: Optional[str] = None
+    old_values: Optional[dict] = None
+    new_values: Optional[dict] = None
+    details: Optional[str] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ── Full Application (extended review) ───────────────
+
+class FullApplicationResponse(BaseModel):
+    application: LoanApplicationResponse
+    profile: Optional[ApplicantProfileResponse] = None
+    documents: list[DocumentResponse] = []
+    decisions: list[DecisionResponse] = []
+    audit_log: list[AuditLogResponse] = []
+    contract: Optional[ContractResponse] = None
+
+
+# ── Application Edit ─────────────────────────────────
+
+class ApplicationEditRequest(BaseModel):
+    """Fields that an underwriter can edit on an application.
+    Only non-None fields will be updated."""
+    term_months: Optional[int] = None
+    purpose: Optional[str] = None
+    purpose_description: Optional[str] = None
+    # Profile fields the underwriter can correct
+    monthly_income: Optional[float] = None
+    monthly_expenses: Optional[float] = None
+    existing_debt: Optional[float] = None
+    employer_name: Optional[str] = None
+    job_title: Optional[str] = None
+    employment_type: Optional[str] = None
+    years_employed: Optional[int] = None

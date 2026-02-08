@@ -2,7 +2,7 @@ import { HTMLAttributes, forwardRef } from 'react';
 import { clsx } from 'clsx';
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
-  padding?: 'sm' | 'md' | 'lg';
+  padding?: 'sm' | 'md' | 'lg' | 'none';
 }
 
 const Card = forwardRef<HTMLDivElement, CardProps>(
@@ -11,8 +11,10 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
       <div
         ref={ref}
         className={clsx(
-          'bg-white rounded-xl shadow-sm border border-gray-100',
+          'rounded-xl border transition-colors',
+          'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text)]',
           {
+            'p-0': padding === 'none',
             'p-4': padding === 'sm',
             'p-6': padding === 'md',
             'p-8': padding === 'lg',

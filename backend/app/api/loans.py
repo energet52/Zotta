@@ -13,6 +13,7 @@ from app.database import get_db
 from app.models.user import User
 from app.models.loan import LoanApplication, LoanStatus, LoanPurpose, ApplicantProfile
 from app.models.document import Document, DocumentType, DocumentStatus
+from app.models.audit import AuditLog
 from app.schemas import (
     LoanApplicationCreate,
     LoanApplicationUpdate,
@@ -21,6 +22,7 @@ from app.schemas import (
     ApplicantProfileCreate,
     ApplicantProfileResponse,
     DocumentResponse,
+    ContractSignRequest,
 )
 from app.auth_utils import get_current_user
 from app.config import settings
@@ -255,3 +257,211 @@ async def list_documents(
         select(Document).where(Document.loan_application_id == application_id)
     )
     return result.scalars().all()
+
+
+# ── Counterproposal ─────────────────────────────────
+
+@router.post("/{application_id}/accept-counterproposal", response_model=LoanApplicationResponse)
+async def accept_counterproposal(
+    application_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Consumer accepts the underwriter's counterproposal."""
+    result = await db.execute(
+        select(LoanApplication).where(
+            LoanApplication.id == application_id,
+            LoanApplication.applicant_id == current_user.id,
+            LoanApplication.status == LoanStatus.COUNTER_PROPOSED,
+        )
+    )
+    application = result.scalar_one_or_none()
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found or not in counter-proposed status")
+
+    # Accept the proposed terms
+    application.amount_approved = application.proposed_amount
+    application.interest_rate = application.proposed_rate
+    if application.proposed_term:
+        application.term_months = application.proposed_term
+
+    # Calculate monthly payment
+    if application.proposed_rate and application.proposed_term:
+        r = float(application.proposed_rate) / 100 / 12
+        n = application.proposed_term
+        principal = float(application.proposed_amount or application.amount_requested)
+        if r > 0:
+            pmt = principal * (r * (1 + r) ** n) / ((1 + r) ** n - 1)
+        else:
+            pmt = principal / n
+        application.monthly_payment = round(pmt, 2)
+
+    application.status = LoanStatus.APPROVED
+    application.decided_at = datetime.now(timezone.utc)
+
+    # Audit
+    audit = AuditLog(
+        entity_type="loan_application",
+        entity_id=application_id,
+        action="counterproposal_accepted",
+        user_id=current_user.id,
+        new_values={
+            "accepted_amount": float(application.proposed_amount) if application.proposed_amount else None,
+            "accepted_rate": float(application.proposed_rate) if application.proposed_rate else None,
+            "accepted_term": application.proposed_term,
+        },
+    )
+    db.add(audit)
+    await db.flush()
+    await db.refresh(application)
+    return application
+
+
+@router.post("/{application_id}/reject-counterproposal", response_model=LoanApplicationResponse)
+async def reject_counterproposal(
+    application_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Consumer rejects the underwriter's counterproposal."""
+    result = await db.execute(
+        select(LoanApplication).where(
+            LoanApplication.id == application_id,
+            LoanApplication.applicant_id == current_user.id,
+            LoanApplication.status == LoanStatus.COUNTER_PROPOSED,
+        )
+    )
+    application = result.scalar_one_or_none()
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found or not in counter-proposed status")
+
+    application.status = LoanStatus.REJECTED_BY_APPLICANT
+
+    # Audit
+    audit = AuditLog(
+        entity_type="loan_application",
+        entity_id=application_id,
+        action="counterproposal_rejected",
+        user_id=current_user.id,
+        new_values={"status": "rejected_by_applicant"},
+    )
+    db.add(audit)
+    await db.flush()
+    await db.refresh(application)
+    return application
+
+
+# ── Contract Signature ───────────────────────────────
+
+@router.post("/{application_id}/sign-contract", response_model=LoanApplicationResponse)
+async def sign_contract(
+    application_id: int,
+    data: ContractSignRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Consumer signs the loan contract."""
+    result = await db.execute(
+        select(LoanApplication).where(
+            LoanApplication.id == application_id,
+            LoanApplication.applicant_id == current_user.id,
+        )
+    )
+    application = result.scalar_one_or_none()
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    if application.status not in (LoanStatus.APPROVED, LoanStatus.OFFER_SENT, LoanStatus.ACCEPTED):
+        raise HTTPException(status_code=400, detail="Application must be approved before signing")
+
+    if not data.agreed:
+        raise HTTPException(status_code=400, detail="You must agree to the terms")
+
+    application.contract_signature_data = data.signature_data
+    application.contract_typed_name = data.typed_name
+    application.contract_signed_at = datetime.now(timezone.utc)
+    application.status = LoanStatus.ACCEPTED
+
+    # Audit
+    audit = AuditLog(
+        entity_type="loan_application",
+        entity_id=application_id,
+        action="contract_signed",
+        user_id=current_user.id,
+        new_values={
+            "typed_name": data.typed_name,
+            "signed_at": application.contract_signed_at.isoformat(),
+        },
+    )
+    db.add(audit)
+    await db.flush()
+    await db.refresh(application)
+    return application
+
+
+# ── Accept / Decline Offer ───────────────────────────
+
+@router.post("/{application_id}/accept-offer", response_model=LoanApplicationResponse)
+async def accept_offer(
+    application_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Consumer accepts the approved loan offer."""
+    result = await db.execute(
+        select(LoanApplication).where(
+            LoanApplication.id == application_id,
+            LoanApplication.applicant_id == current_user.id,
+            LoanApplication.status.in_([LoanStatus.APPROVED, LoanStatus.OFFER_SENT]),
+        )
+    )
+    application = result.scalar_one_or_none()
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found or not in approved status")
+
+    application.status = LoanStatus.ACCEPTED
+
+    audit = AuditLog(
+        entity_type="loan_application",
+        entity_id=application_id,
+        action="offer_accepted",
+        user_id=current_user.id,
+        new_values={"status": "accepted"},
+    )
+    db.add(audit)
+    await db.flush()
+    await db.refresh(application)
+    return application
+
+
+@router.post("/{application_id}/decline-offer", response_model=LoanApplicationResponse)
+async def decline_offer(
+    application_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Consumer declines the approved loan offer."""
+    result = await db.execute(
+        select(LoanApplication).where(
+            LoanApplication.id == application_id,
+            LoanApplication.applicant_id == current_user.id,
+            LoanApplication.status.in_([LoanStatus.APPROVED, LoanStatus.OFFER_SENT]),
+        )
+    )
+    application = result.scalar_one_or_none()
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found or not in approved status")
+
+    application.status = LoanStatus.REJECTED_BY_APPLICANT
+
+    audit = AuditLog(
+        entity_type="loan_application",
+        entity_id=application_id,
+        action="offer_declined",
+        user_id=current_user.id,
+        new_values={"status": "rejected_by_applicant"},
+    )
+    db.add(audit)
+    await db.flush()
+    await db.refresh(application)
+    return application

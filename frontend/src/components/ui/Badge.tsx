@@ -1,7 +1,7 @@
 import { clsx } from 'clsx';
 
 interface BadgeProps {
-  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info';
+  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'purple' | 'cyan';
   children: React.ReactNode;
   className?: string;
 }
@@ -12,11 +12,13 @@ export default function Badge({ variant = 'default', children, className }: Badg
       className={clsx(
         'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
         {
-          'bg-gray-100 text-gray-800': variant === 'default',
-          'bg-green-100 text-green-800': variant === 'success',
-          'bg-yellow-100 text-yellow-800': variant === 'warning',
-          'bg-red-100 text-red-800': variant === 'danger',
-          'bg-blue-100 text-blue-800': variant === 'info',
+          'bg-gray-100 text-gray-800 dark-badge-default': variant === 'default',
+          'bg-emerald-500/15 text-emerald-400 dark-badge-success': variant === 'success',
+          'bg-amber-500/15 text-amber-400 dark-badge-warning': variant === 'warning',
+          'bg-red-500/15 text-red-400 dark-badge-danger': variant === 'danger',
+          'bg-sky-500/15 text-sky-400 dark-badge-info': variant === 'info',
+          'bg-purple-500/15 text-purple-400': variant === 'purple',
+          'bg-cyan-500/15 text-cyan-400': variant === 'cyan',
         },
         className
       )}
@@ -40,8 +42,12 @@ export function getStatusBadge(status: string) {
     offer_sent: { variant: 'success', label: 'Offer Sent' },
     accepted: { variant: 'success', label: 'Accepted' },
     rejected_by_applicant: { variant: 'danger', label: 'Rejected' },
-    disbursed: { variant: 'success', label: 'Disbursed' },
+    disbursed: { variant: 'cyan', label: 'Disbursed' },
     cancelled: { variant: 'default', label: 'Cancelled' },
+    counter_proposed: { variant: 'purple', label: 'Counter Proposed' },
+    uploaded: { variant: 'info', label: 'Uploaded' },
+    verified: { variant: 'success', label: 'Verified' },
+    rejected: { variant: 'danger', label: 'Rejected' },
   };
 
   const config = map[status] || { variant: 'default' as const, label: status };

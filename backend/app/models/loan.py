@@ -3,7 +3,7 @@
 import enum
 from datetime import datetime, date
 from sqlalchemy import (
-    String, Numeric, Integer, Enum, DateTime, Date, ForeignKey, Text, func
+    String, Numeric, Integer, Enum, DateTime, Date, ForeignKey, Text, Boolean, func
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -24,6 +24,7 @@ class LoanStatus(str, enum.Enum):
     REJECTED_BY_APPLICANT = "rejected_by_applicant"
     DISBURSED = "disbursed"
     CANCELLED = "cancelled"
+    COUNTER_PROPOSED = "counter_proposed"
 
 
 class LoanPurpose(str, enum.Enum):
@@ -64,6 +65,17 @@ class LoanApplication(Base):
     assigned_underwriter_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id"), nullable=True
     )
+
+    # Counterproposal fields
+    proposed_amount: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    proposed_rate: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
+    proposed_term: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    counterproposal_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Contract fields
+    contract_signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    contract_signature_data: Mapped[str | None] = mapped_column(Text, nullable=True)
+    contract_typed_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     # Timestamps
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

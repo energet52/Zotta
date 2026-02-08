@@ -118,6 +118,8 @@ async def run_decision_engine(
         years_employed=float(profile.years_employed or 0),
         national_id=national_id,
         is_id_verified=profile.id_verified or False,
+        monthly_expenses=float(profile.monthly_expenses or 0),
+        job_title=profile.job_title or "",
     )
 
     rules_output = evaluate_rules(rule_input, rules_config)
@@ -144,7 +146,9 @@ async def run_decision_engine(
             "rules": [
                 {"name": r.rule_name, "passed": r.passed, "message": r.message, "severity": r.severity}
                 for r in rules_output.results
-            ]
+            ],
+            "income_benchmark": rules_output.income_benchmark,
+            "expense_benchmark": rules_output.expense_benchmark,
         },
         suggested_rate=rules_output.suggested_rate,
         suggested_amount=rules_output.max_eligible_amount,

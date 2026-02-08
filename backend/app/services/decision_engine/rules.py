@@ -6,6 +6,11 @@ Rules are defined as JSON config and evaluated against application + scoring dat
 from dataclasses import dataclass, field
 from typing import Optional
 
+from app.services.occupation_benchmarks import (
+    check_income_benchmark,
+    check_expense_benchmark,
+)
+
 
 # Default business rules (can be overridden from DB)
 DEFAULT_RULES = {
@@ -52,6 +57,8 @@ class RuleInput:
     years_employed: float
     national_id: str = ""
     is_id_verified: bool = False
+    monthly_expenses: float = 0.0
+    job_title: str = ""
 
 
 @dataclass
@@ -71,6 +78,8 @@ class RulesOutput:
     suggested_rate: Optional[float] = None
     max_eligible_amount: Optional[float] = None
     reasons: list[str] = field(default_factory=list)
+    income_benchmark: Optional[dict] = None
+    expense_benchmark: Optional[dict] = None
 
 
 def evaluate_rules(
@@ -178,6 +187,24 @@ def evaluate_rules(
         r = RuleResult("id_verification", True, "ID verified")
     results.append(r)
 
+    # Rule 9: Suspicious income (benchmark check)
+    income_check = check_income_benchmark(input_data.monthly_income, input_data.job_title)
+    if income_check["flagged"]:
+        r = RuleResult("income_benchmark", False, income_check["message"], "soft")
+        soft_fails.append(r.message)
+    else:
+        r = RuleResult("income_benchmark", True, income_check["message"])
+    results.append(r)
+
+    # Rule 10: Understated expenses (benchmark check)
+    expense_check = check_expense_benchmark(input_data.monthly_expenses, input_data.job_title)
+    if expense_check["flagged"]:
+        r = RuleResult("expense_benchmark", False, expense_check["message"], "soft")
+        soft_fails.append(r.message)
+    else:
+        r = RuleResult("expense_benchmark", True, expense_check["message"])
+    results.append(r)
+
     # Determine outcome
     suggested_rate = config["interest_rate_by_risk_band"].get(input_data.risk_band, 0)
 
@@ -200,4 +227,6 @@ def evaluate_rules(
         suggested_rate=suggested_rate if outcome != "auto_decline" else None,
         max_eligible_amount=max_for_band if outcome != "auto_decline" else None,
         reasons=reasons,
+        income_benchmark=income_check,
+        expense_benchmark=expense_check,
     )
