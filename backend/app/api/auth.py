@@ -41,8 +41,8 @@ async def register(data: UserCreate, db: AsyncSession = Depends(get_db)):
     profile = ApplicantProfile(user_id=user.id)
     db.add(profile)
 
-    access_token = create_access_token({"sub": user.id, "role": user.role.value})
-    refresh_token = create_refresh_token({"sub": user.id})
+    access_token = create_access_token({"sub": str(user.id), "role": user.role.value})
+    refresh_token = create_refresh_token({"sub": str(user.id)})
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
@@ -55,8 +55,8 @@ async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account is deactivated")
 
-    access_token = create_access_token({"sub": user.id, "role": user.role.value})
-    refresh_token = create_refresh_token({"sub": user.id})
+    access_token = create_access_token({"sub": str(user.id), "role": user.role.value})
+    refresh_token = create_refresh_token({"sub": str(user.id)})
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
