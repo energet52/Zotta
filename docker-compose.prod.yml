@@ -9,13 +9,13 @@ services:
     image: postgres:16-alpine
     restart: always
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-zotta}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zotta_secret}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env.production}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
       POSTGRES_DB: ${POSTGRES_DB:-zotta}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zotta}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -39,8 +39,8 @@ services:
     env_file:
       - .env.production
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-zotta}:${POSTGRES_PASSWORD:-zotta_secret}@db:5432/${POSTGRES_DB:-zotta}
-      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-zotta}:${POSTGRES_PASSWORD:-zotta_secret}@db:5432/${POSTGRES_DB:-zotta}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-zotta}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-zotta}
       REDIS_URL: redis://redis:6379/0
       ENVIRONMENT: production
       DEBUG: "false"
@@ -61,8 +61,8 @@ services:
     env_file:
       - .env.production
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-zotta}:${POSTGRES_PASSWORD:-zotta_secret}@db:5432/${POSTGRES_DB:-zotta}
-      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-zotta}:${POSTGRES_PASSWORD:-zotta_secret}@db:5432/${POSTGRES_DB:-zotta}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-zotta}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-zotta}
       REDIS_URL: redis://redis:6379/0
       ENVIRONMENT: production
     depends_on:

@@ -1,5 +1,8 @@
 version: "3.9"
 
+# LOCAL DEVELOPMENT ONLY. Default credentials below are for local dev.
+# For production, use docker-compose.prod.yml which requires .env.production.
+
 services:
   db:
     image: postgres:16-alpine
