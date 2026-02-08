@@ -1,0 +1,86 @@
+version: "3.9"
+
+# Production Docker Compose for EC2 single-server deployment.
+# Runs everything on one machine: nginx (port 80) -> backend + frontend.
+# Usage: docker compose -f docker-compose.prod.yml up -d --build
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-zotta}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zotta_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-zotta}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zotta}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    restart: always
+    volumes:
+      - uploads:/app/uploads
+    env_file:
+      - .env.production
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-zotta}:${POSTGRES_PASSWORD:-zotta_secret}@db:5432/${POSTGRES_DB:-zotta}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-zotta}:${POSTGRES_PASSWORD:-zotta_secret}@db:5432/${POSTGRES_DB:-zotta}
+      REDIS_URL: redis://redis:6379/0
+      ENVIRONMENT: production
+      DEBUG: "false"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    restart: always
+    command: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=2
+    volumes:
+      - uploads:/app/uploads
+    env_file:
+      - .env.production
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-zotta}:${POSTGRES_PASSWORD:-zotta_secret}@db:5432/${POSTGRES_DB:-zotta}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-zotta}:${POSTGRES_PASSWORD:-zotta_secret}@db:5432/${POSTGRES_DB:-zotta}
+      REDIS_URL: redis://redis:6379/0
+      ENVIRONMENT: production
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  nginx:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  uploads:

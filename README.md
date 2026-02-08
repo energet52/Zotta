@@ -135,20 +135,37 @@ Zotta/
 └── docker-compose.yml
 ```
 
-## Deployment
+## Deployment Options
 
-See [docs/deployment.md](docs/deployment.md) for AWS deployment instructions.
+### Option A: EC2 with Docker Compose (~$12-15/month, $0 when stopped)
+
+The simplest and cheapest option. One command creates an EC2 server and runs everything:
+
+```bash
+cd infrastructure/ec2
+./launch-ec2.sh
+```
+
+See [docs/ec2-deployment.md](docs/ec2-deployment.md) for the full guide.
+
+### Option B: Full AWS (ECS Fargate + RDS + CloudFront) (~$70-80/month)
+
+Production-grade with auto-scaling, managed database, and CDN:
 
 ```bash
 cd infrastructure/scripts
 ./deploy.sh
 ```
 
+See [docs/deployment.md](docs/deployment.md) for the full guide.
+
 ## Documentation
 
+- [Local Setup](docs/local-setup.md) - Run on your own machine (no AWS needed)
+- [EC2 Deployment](docs/ec2-deployment.md) - Deploy to a single AWS server (cheapest)
+- [Full AWS Deployment](docs/deployment.md) - Production-grade AWS deployment
 - [Architecture](docs/architecture.md) - System design and component details
 - [API Reference](http://localhost:8000/docs) - Auto-generated OpenAPI docs (run backend first)
-- [Deployment Guide](docs/deployment.md) - AWS deployment instructions
 - [User Guide](docs/user-guide.md) - How to use the consumer and back-office portals
 
 ## License
