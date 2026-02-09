@@ -7,6 +7,9 @@ from app.models.document import Document
 from app.models.audit import AuditLog
 from app.models.credit_report import CreditReport
 from app.models.chat import ChatSession, ChatMessage
+from app.models.payment import Payment, PaymentSchedule
+from app.models.collection import CollectionRecord, CollectionChat
+from app.models.report import ReportHistory
 
 __all__ = [
     "User",
@@ -19,4 +22,9 @@ __all__ = [
     "CreditReport",
     "ChatSession",
     "ChatMessage",
+    "Payment",
+    "PaymentSchedule",
+    "CollectionRecord",
+    "CollectionChat",
+    "ReportHistory",
 ]

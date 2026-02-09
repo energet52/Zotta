@@ -196,6 +196,11 @@ class DashboardMetrics(BaseModel):
     applications_by_status: dict
     risk_distribution: dict
     monthly_volume: list
+    # Enhanced metrics
+    projected_interest_income: float = 0.0
+    total_principal_disbursed: float = 0.0
+    projected_profit: float = 0.0
+    daily_volume: list = []
 
 
 # ── Credit Report ─────────────────────────────────────
@@ -280,3 +285,181 @@ class ApplicationEditRequest(BaseModel):
     job_title: Optional[str] = None
     employment_type: Optional[str] = None
     years_employed: Optional[int] = None
+
+
+# ── Loan Book ────────────────────────────────────────
+
+class LoanBookEntry(BaseModel):
+    id: int
+    reference_number: str
+    applicant_name: str
+    amount_requested: float
+    amount_approved: Optional[float]
+    term_months: int
+    interest_rate: Optional[float]
+    monthly_payment: Optional[float]
+    status: str
+    risk_band: Optional[str] = None
+    credit_score: Optional[int] = None
+    disbursed_date: Optional[datetime] = None
+    outstanding_balance: Optional[float] = None
+    days_past_due: int = 0
+    next_payment_date: Optional[date] = None
+    purpose: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ── Payment ──────────────────────────────────────────
+
+class PaymentCreate(BaseModel):
+    amount: float = Field(gt=0)
+    payment_type: str = "manual"
+    payment_date: date
+    reference_number: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class PaymentResponse(BaseModel):
+    id: int
+    loan_application_id: int
+    amount: float
+    payment_type: str
+    payment_date: date
+    reference_number: Optional[str]
+    recorded_by: Optional[int]
+    status: str
+    notes: Optional[str]
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PaymentScheduleResponse(BaseModel):
+    id: int
+    loan_application_id: int
+    installment_number: int
+    due_date: date
+    principal: float
+    interest: float
+    amount_due: float
+    amount_paid: float
+    status: str
+    paid_at: Optional[datetime]
+
+    model_config = {"from_attributes": True}
+
+
+class OnlinePaymentRequest(BaseModel):
+    amount: float = Field(gt=0)
+
+
+# ── Collection ───────────────────────────────────────
+
+class CollectionRecordCreate(BaseModel):
+    channel: str
+    notes: Optional[str] = None
+    action_taken: Optional[str] = None
+    outcome: str
+    next_action_date: Optional[date] = None
+    promise_amount: Optional[float] = None
+    promise_date: Optional[date] = None
+
+
+class CollectionRecordResponse(BaseModel):
+    id: int
+    loan_application_id: int
+    agent_id: int
+    agent_name: Optional[str] = None
+    channel: str
+    notes: Optional[str]
+    action_taken: Optional[str]
+    outcome: str
+    next_action_date: Optional[date]
+    promise_amount: Optional[float]
+    promise_date: Optional[date]
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class CollectionChatCreate(BaseModel):
+    message: str
+
+
+class CollectionChatResponse(BaseModel):
+    id: int
+    loan_application_id: int
+    agent_id: Optional[int]
+    phone_number: Optional[str]
+    direction: str
+    message: str
+    channel: str
+    status: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class CollectionQueueEntry(BaseModel):
+    id: int
+    reference_number: str
+    applicant_name: str
+    amount_approved: Optional[float]
+    amount_due: float = 0
+    days_past_due: int = 0
+    last_contact: Optional[datetime] = None
+    next_action: Optional[date] = None
+    total_paid: float = 0
+    outstanding_balance: float = 0
+    phone: Optional[str] = None
+
+
+# ── Report History ───────────────────────────────────
+
+class ReportGenerateRequest(BaseModel):
+    date_from: Optional[date] = None
+    date_to: Optional[date] = None
+    application_id: Optional[int] = None  # For loan statement
+
+
+class ReportHistoryResponse(BaseModel):
+    id: int
+    report_type: str
+    report_name: str
+    generated_by: int
+    parameters: Optional[dict]
+    file_format: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ── Staff Create Application ─────────────────────────
+
+class StaffCreateApplicationRequest(BaseModel):
+    # Applicant info
+    email: EmailStr
+    first_name: str = Field(min_length=1, max_length=100)
+    last_name: str = Field(min_length=1, max_length=100)
+    phone: Optional[str] = None
+    # Profile info
+    date_of_birth: Optional[date] = None
+    national_id: Optional[str] = None
+    gender: Optional[str] = None
+    address_line1: Optional[str] = None
+    city: Optional[str] = None
+    parish: Optional[str] = None
+    employer_name: Optional[str] = None
+    job_title: Optional[str] = None
+    employment_type: Optional[str] = None
+    years_employed: Optional[int] = None
+    monthly_income: Optional[float] = None
+    monthly_expenses: Optional[float] = None
+    existing_debt: Optional[float] = None
+    # Loan details
+    amount_requested: float = Field(gt=0, le=500000)
+    term_months: int = Field(ge=3, le=84)
+    purpose: str
+    purpose_description: Optional[str] = None

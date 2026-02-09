@@ -7,7 +7,7 @@ import {
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
 import Badge, { getStatusBadge } from '../../../components/ui/Badge';
-import { underwriterApi } from '../../../api/endpoints';
+import { underwriterApi, paymentsApi } from '../../../api/endpoints';
 
 // ── Types ───────────────────────────────────────
 interface Profile {
@@ -87,9 +87,18 @@ interface FullApp {
   contract: ContractInfo | null;
 }
 
-type TabKey = 'details' | 'decision' | 'schedule' | 'documents' | 'audit';
+type TabKey = 'details' | 'decision' | 'credit_bureau' | 'schedule' | 'payments' | 'documents' | 'audit';
 
 // ── Helpers ──────────────────────────────────────
+function parseApiError(err: any, fallback = 'Operation failed'): string {
+  const detail = err?.response?.data?.detail;
+  if (Array.isArray(detail)) {
+    return detail.map((e: any) => e.msg || e.message || JSON.stringify(e)).join('; ');
+  }
+  if (typeof detail === 'string') return detail;
+  return fallback;
+}
+
 function formatCurrency(val: number | null | undefined) {
   if (val == null) return '-';
   return `TTD ${Number(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -189,7 +198,7 @@ export default function ApplicationReview() {
       setSuccessMsg('Decision recorded');
       loadData();
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Decision failed');
+      setError(parseApiError(err, 'Decision failed'));
     } finally { setSubmitting(false); }
   };
 
@@ -207,7 +216,7 @@ export default function ApplicationReview() {
       setShowCounterproposal(false);
       loadData();
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Counterproposal failed');
+      setError(parseApiError(err, 'Counterproposal failed'));
     } finally { setSubmitting(false); }
   };
 
@@ -221,7 +230,7 @@ export default function ApplicationReview() {
       setSuccessMsg('Changes saved');
       loadData();
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Edit failed');
+      setError(parseApiError(err, 'Edit failed'));
     } finally { setSubmitting(false); }
   };
 
@@ -238,7 +247,9 @@ export default function ApplicationReview() {
   const tabs: { key: TabKey; label: string; icon: any }[] = [
     { key: 'details', label: 'Application Details', icon: FileText },
     { key: 'decision', label: 'Decision Engine', icon: Shield },
+    { key: 'credit_bureau', label: 'Credit Bureau', icon: Shield },
     { key: 'schedule', label: 'Repayment Schedule', icon: Calculator },
+    { key: 'payments', label: 'Payments', icon: Calculator },
     { key: 'documents', label: 'Documents & Contract', icon: Paperclip },
     { key: 'audit', label: 'Audit History', icon: History },
   ];
@@ -700,6 +711,12 @@ export default function ApplicationReview() {
               )}
             </Card>
           )}
+
+          {/* Tab: Credit Bureau */}
+          {activeTab === 'credit_bureau' && <CreditBureauTab applicationId={parseInt(id!)} />}
+
+          {/* Tab: Payments */}
+          {activeTab === 'payments' && <PaymentsTab applicationId={parseInt(id!)} />}
         </div>
 
         {/* Right Sidebar - Decision Panel */}
@@ -946,6 +963,363 @@ function BenchmarkBar({
       </div>
       {!matchFound && (
         <p className="text-xs text-[var(--color-warning)] mt-1">Using default benchmark (no match for occupation)</p>
+      )}
+    </div>
+  );
+}
+
+
+// ── Credit Bureau Tab ──────────────────────────────
+function CreditBureauTab({ applicationId }: { applicationId: number }) {
+  const [report, setReport] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    underwriterApi.getCreditReport(applicationId)
+      .then(res => setReport(res.data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [applicationId]);
+
+  const handleDownload = async () => {
+    try {
+      const res = await underwriterApi.downloadCreditReport(applicationId);
+      const blob = new Blob([res.data], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `credit_report_${applicationId}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch { alert('Download failed'); }
+  };
+
+  if (loading) return <div className="text-[var(--color-text-muted)] py-8 text-center">Loading credit report...</div>;
+  if (!report) return <Card><p className="text-[var(--color-text-muted)]">No credit report available. Run the decision engine first.</p></Card>;
+
+  const data = report.report_data || {};
+  const summary = data.summary || {};
+  const insights = data.insights || [];
+  const tradelines = data.tradelines || [];
+  const inquiries = data.inquiries || [];
+  const publicRecords = data.public_records || [];
+
+  const riskColors: Record<string, string> = { Low: 'text-emerald-400', Medium: 'text-amber-400', High: 'text-orange-400', 'Very High': 'text-red-400' };
+
+  return (
+    <div className="space-y-4">
+      {/* Summary */}
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-[var(--color-text)]">Credit Bureau Summary</h3>
+          <Button size="sm" variant="outline" onClick={handleDownload}>Download Full Report</Button>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <p className="text-xs text-[var(--color-text-muted)]">Score</p>
+            <p className="text-2xl font-bold text-[var(--color-text)]">{summary.score || report.score || '—'}</p>
+          </div>
+          <div>
+            <p className="text-xs text-[var(--color-text-muted)]">Risk Level</p>
+            <p className={`text-lg font-bold ${riskColors[summary.risk_level || data.risk_level] || 'text-[var(--color-text)]'}`}>
+              {summary.risk_level || data.risk_level || '—'}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-[var(--color-text-muted)]">Total Debt</p>
+            <p className="text-lg font-bold text-[var(--color-text)]">TTD {(summary.total_debt || data.total_outstanding_debt || 0).toLocaleString()}</p>
+          </div>
+          <div>
+            <p className="text-xs text-[var(--color-text-muted)]">Payment Rating</p>
+            <p className="text-lg font-bold text-[var(--color-text)]">{summary.payment_history_rating || '—'}</p>
+          </div>
+        </div>
+      </Card>
+
+      {/* Insights */}
+      {insights.length > 0 && (
+        <Card>
+          <h3 className="font-semibold text-[var(--color-text)] mb-3">Key Insights</h3>
+          <ul className="space-y-1">
+            {insights.map((insight: string, i: number) => (
+              <li key={i} className="flex items-start space-x-2 text-sm">
+                <span className="text-[var(--color-primary)] mt-0.5">•</span>
+                <span className="text-[var(--color-text-muted)]">{insight}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      {/* Tradelines */}
+      {tradelines.length > 0 && (
+        <Card padding="none">
+          <div className="p-4 border-b border-[var(--color-border)]">
+            <h3 className="font-semibold text-[var(--color-text)]">Tradelines ({tradelines.length})</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)]">
+                  <th className="px-4 py-2 text-left">Lender</th>
+                  <th className="px-4 py-2 text-left">Type</th>
+                  <th className="px-4 py-2 text-left">Balance</th>
+                  <th className="px-4 py-2 text-left">Monthly</th>
+                  <th className="px-4 py-2 text-left">Status</th>
+                  <th className="px-4 py-2 text-left">DPD</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tradelines.map((t: any, i: number) => (
+                  <tr key={i} className="border-b border-[var(--color-border)]">
+                    <td className="px-4 py-2">{t.lender}</td>
+                    <td className="px-4 py-2 text-[var(--color-text-muted)]">{t.type}</td>
+                    <td className="px-4 py-2">TTD {(t.current_balance || 0).toLocaleString()}</td>
+                    <td className="px-4 py-2">TTD {(t.monthly_payment || 0).toLocaleString()}</td>
+                    <td className="px-4 py-2">
+                      <Badge variant={t.status === 'current' ? 'success' : 'danger'}>{t.status}</Badge>
+                    </td>
+                    <td className="px-4 py-2">{t.days_past_due || 0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* Inquiries */}
+      {inquiries.length > 0 && (
+        <Card padding="none">
+          <div className="p-4 border-b border-[var(--color-border)]">
+            <h3 className="font-semibold text-[var(--color-text)]">Inquiries ({inquiries.length})</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)]">
+                  <th className="px-4 py-2 text-left">Lender</th>
+                  <th className="px-4 py-2 text-left">Date</th>
+                  <th className="px-4 py-2 text-left">Purpose</th>
+                  <th className="px-4 py-2 text-left">Type</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inquiries.map((inq: any, i: number) => (
+                  <tr key={i} className="border-b border-[var(--color-border)]">
+                    <td className="px-4 py-2">{inq.lender}</td>
+                    <td className="px-4 py-2 text-[var(--color-text-muted)]">{inq.date}</td>
+                    <td className="px-4 py-2">{inq.purpose}</td>
+                    <td className="px-4 py-2">{inq.type || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* Public Records */}
+      {publicRecords.length > 0 && (
+        <Card>
+          <h3 className="font-semibold text-[var(--color-danger)] mb-3">Public Records ({publicRecords.length})</h3>
+          {publicRecords.map((r: any, i: number) => (
+            <div key={i} className="p-3 rounded-lg bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/30 mb-2">
+              <div className="flex justify-between">
+                <span className="font-medium text-[var(--color-danger)]">{r.type}</span>
+                <Badge variant={r.status === 'active' ? 'danger' : 'success'}>{r.status}</Badge>
+              </div>
+              <p className="text-sm text-[var(--color-text-muted)] mt-1">
+                Date: {r.date} | Amount: TTD {(r.amount || 0).toLocaleString()}
+              </p>
+              {r.court && <p className="text-xs text-[var(--color-text-muted)]">{r.court} - {r.case_number}</p>}
+            </div>
+          ))}
+        </Card>
+      )}
+    </div>
+  );
+}
+
+
+// ── Payments Tab ────────────────────────────────────
+function PaymentsTab({ applicationId }: { applicationId: number }) {
+  const [payments, setPayments] = useState<any[]>([]);
+  const [schedule, setSchedule] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ amount: '', payment_type: 'manual', payment_date: new Date().toISOString().split('T')[0], reference_number: '', notes: '' });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    loadData();
+  }, [applicationId]);
+
+  const loadData = async () => {
+    try {
+      const [payRes, schedRes] = await Promise.all([
+        paymentsApi.getHistory(applicationId),
+        paymentsApi.getSchedule(applicationId),
+      ]);
+      setPayments(payRes.data);
+      setSchedule(schedRes.data);
+    } catch { /* ignore */ }
+    setLoading(false);
+  };
+
+  const handleRecord = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await paymentsApi.recordPayment(applicationId, {
+        amount: parseFloat(form.amount),
+        payment_type: form.payment_type,
+        payment_date: form.payment_date,
+        reference_number: form.reference_number || undefined,
+        notes: form.notes || undefined,
+      });
+      setShowForm(false);
+      setForm({ amount: '', payment_type: 'manual', payment_date: new Date().toISOString().split('T')[0], reference_number: '', notes: '' });
+      loadData();
+    } catch { /* ignore */ }
+    setSaving(false);
+  };
+
+  const inputClass = "w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)]";
+  const totalPaid = payments.reduce((s, p) => s + (p.amount || 0), 0);
+
+  if (loading) return <div className="text-[var(--color-text-muted)] py-8 text-center">Loading payments...</div>;
+
+  return (
+    <div className="space-y-4">
+      {/* Summary */}
+      <div className="grid grid-cols-3 gap-4">
+        <Card padding="sm">
+          <p className="text-xs text-[var(--color-text-muted)]">Total Paid</p>
+          <p className="text-lg font-bold text-[var(--color-success)]">TTD {totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+        </Card>
+        <Card padding="sm">
+          <p className="text-xs text-[var(--color-text-muted)]">Payments</p>
+          <p className="text-lg font-bold text-[var(--color-text)]">{payments.length}</p>
+        </Card>
+        <Card padding="sm">
+          <p className="text-xs text-[var(--color-text-muted)]">Schedule Items</p>
+          <p className="text-lg font-bold text-[var(--color-text)]">{schedule.length}</p>
+        </Card>
+      </div>
+
+      {/* Record Payment Button */}
+      <div className="flex justify-end">
+        <Button size="sm" onClick={() => setShowForm(!showForm)}>Record Payment</Button>
+      </div>
+
+      {showForm && (
+        <Card>
+          <h3 className="font-semibold mb-3">Record Payment</h3>
+          <form onSubmit={handleRecord} className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-[var(--color-text-muted)] mb-1">Amount (TTD)</label>
+              <input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} className={inputClass} required step="0.01" />
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--color-text-muted)] mb-1">Date</label>
+              <input type="date" value={form.payment_date} onChange={e => setForm(f => ({ ...f, payment_date: e.target.value }))} className={inputClass} required />
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--color-text-muted)] mb-1">Type</label>
+              <select value={form.payment_type} onChange={e => setForm(f => ({ ...f, payment_type: e.target.value }))} className={inputClass}>
+                <option value="manual">Manual</option>
+                <option value="bank_transfer">Bank Transfer</option>
+                <option value="online">Online</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--color-text-muted)] mb-1">Reference #</label>
+              <input type="text" value={form.reference_number} onChange={e => setForm(f => ({ ...f, reference_number: e.target.value }))} className={inputClass} />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs text-[var(--color-text-muted)] mb-1">Notes</label>
+              <input type="text" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className={inputClass} />
+            </div>
+            <div className="col-span-2 flex justify-end space-x-2">
+              <Button variant="secondary" size="sm" type="button" onClick={() => setShowForm(false)}>Cancel</Button>
+              <Button size="sm" type="submit" isLoading={saving}>Save</Button>
+            </div>
+          </form>
+        </Card>
+      )}
+
+      {/* Payment History */}
+      {payments.length > 0 && (
+        <Card padding="none">
+          <div className="p-4 border-b border-[var(--color-border)]">
+            <h3 className="font-semibold text-[var(--color-text)]">Payment History</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)]">
+                  <th className="px-4 py-2 text-left">Date</th>
+                  <th className="px-4 py-2 text-left">Amount</th>
+                  <th className="px-4 py-2 text-left">Type</th>
+                  <th className="px-4 py-2 text-left">Reference</th>
+                  <th className="px-4 py-2 text-left">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payments.map((p: any) => (
+                  <tr key={p.id} className="border-b border-[var(--color-border)]">
+                    <td className="px-4 py-2">{p.payment_date}</td>
+                    <td className="px-4 py-2 font-medium text-[var(--color-success)]">TTD {p.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                    <td className="px-4 py-2 capitalize text-[var(--color-text-muted)]">{p.payment_type}</td>
+                    <td className="px-4 py-2 font-mono text-xs">{p.reference_number || '—'}</td>
+                    <td className="px-4 py-2"><Badge variant={p.status === 'completed' ? 'success' : 'warning'}>{p.status}</Badge></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* Payment Schedule */}
+      {schedule.length > 0 && (
+        <Card padding="none">
+          <div className="p-4 border-b border-[var(--color-border)]">
+            <h3 className="font-semibold text-[var(--color-text)]">Payment Schedule</h3>
+          </div>
+          <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-[var(--color-surface)]">
+                <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)]">
+                  <th className="px-4 py-2 text-left">#</th>
+                  <th className="px-4 py-2 text-left">Due Date</th>
+                  <th className="px-4 py-2 text-right">Principal</th>
+                  <th className="px-4 py-2 text-right">Interest</th>
+                  <th className="px-4 py-2 text-right">Due</th>
+                  <th className="px-4 py-2 text-right">Paid</th>
+                  <th className="px-4 py-2 text-left">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {schedule.map((s: any) => {
+                  const statusVariant = s.status === 'paid' ? 'success' : s.status === 'overdue' ? 'danger' : s.status === 'partial' ? 'warning' : 'info';
+                  return (
+                    <tr key={s.id} className="border-b border-[var(--color-border)]">
+                      <td className="px-4 py-2 text-[var(--color-text-muted)]">{s.installment_number}</td>
+                      <td className="px-4 py-2">{s.due_date}</td>
+                      <td className="px-4 py-2 text-right">{Number(s.principal).toFixed(2)}</td>
+                      <td className="px-4 py-2 text-right text-[var(--color-text-muted)]">{Number(s.interest).toFixed(2)}</td>
+                      <td className="px-4 py-2 text-right font-medium">{Number(s.amount_due).toFixed(2)}</td>
+                      <td className="px-4 py-2 text-right text-[var(--color-success)]">{Number(s.amount_paid).toFixed(2)}</td>
+                      <td className="px-4 py-2"><Badge variant={statusVariant}>{s.status}</Badge></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
     </div>
   );

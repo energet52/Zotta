@@ -1,5 +1,5 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ClipboardList, BarChart3, LogOut, Shield } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, BarChart3, LogOut, Shield, BookOpen, AlertTriangle, PlusCircle, CreditCard } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { clsx } from 'clsx';
 
@@ -16,6 +16,9 @@ export default function BackOfficeLayout() {
   const navItems = [
     { to: '/backoffice', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/backoffice/queue', icon: ClipboardList, label: 'Queue' },
+    { to: '/backoffice/loans', icon: BookOpen, label: 'Loan Book' },
+    { to: '/backoffice/collections', icon: AlertTriangle, label: 'Collections' },
+    { to: '/backoffice/new-application', icon: PlusCircle, label: 'New Application' },
     { to: '/backoffice/reports', icon: BarChart3, label: 'Reports' },
   ];
 

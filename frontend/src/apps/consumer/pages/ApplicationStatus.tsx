@@ -4,7 +4,7 @@ import { ArrowLeft, FileText, Clock, CheckCircle, XCircle, DollarSign, ArrowRigh
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
 import { getStatusBadge } from '../../../components/ui/Badge';
-import { loanApi } from '../../../api/endpoints';
+import { loanApi, paymentsApi } from '../../../api/endpoints';
 import ContractSignature from '../../../components/ContractSignature';
 
 interface Application {
@@ -369,6 +369,11 @@ export default function ApplicationStatus() {
         />
       )}
 
+      {/* Online Payment for Disbursed Loans */}
+      {application && application.status === 'disbursed' && (
+        <ConsumerPaymentSection applicationId={application.id} monthlyPayment={application.monthly_payment || 0} />
+      )}
+
       {/* Documents */}
       <Card>
         <h3 className="font-semibold mb-4">Uploaded Documents</h3>
@@ -392,5 +397,59 @@ export default function ApplicationStatus() {
         )}
       </Card>
     </div>
+  );
+}
+
+
+function ConsumerPaymentSection({ applicationId, monthlyPayment }: { applicationId: number; monthlyPayment: number }) {
+  const [amount, setAmount] = useState(String(monthlyPayment || ''));
+  const [paying, setPaying] = useState(false);
+  const [success, setSuccess] = useState('');
+  const [error, setError] = useState('');
+
+  const handlePay = async () => {
+    if (!amount || parseFloat(amount) <= 0) return;
+    setPaying(true);
+    setError('');
+    try {
+      const res = await paymentsApi.payOnline(applicationId, { amount: parseFloat(amount) });
+      setSuccess(`Payment of TTD ${parseFloat(amount).toLocaleString()} processed successfully! Ref: ${res.data.reference_number}`);
+      setAmount(String(monthlyPayment || ''));
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || 'Payment failed');
+    }
+    setPaying(false);
+  };
+
+  return (
+    <Card>
+      <h3 className="font-semibold mb-4 flex items-center space-x-2">
+        <DollarSign size={18} className="text-emerald-500" />
+        <span>Make a Payment</span>
+      </h3>
+      {success && (
+        <div className="mb-4 p-3 rounded-lg bg-emerald-50 text-emerald-700 text-sm">{success}</div>
+      )}
+      {error && (
+        <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm">{error}</div>
+      )}
+      <div className="flex items-end space-x-3">
+        <div className="flex-1">
+          <label className="block text-sm text-gray-600 mb-1">Amount (TTD)</label>
+          <input
+            type="number"
+            value={amount}
+            onChange={e => setAmount(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            min="0.01"
+            step="0.01"
+          />
+        </div>
+        <Button onClick={handlePay} isLoading={paying} disabled={!amount || parseFloat(amount) <= 0}>
+          Pay Now
+        </Button>
+      </div>
+      <p className="text-xs text-gray-500 mt-2">Monthly payment: TTD {monthlyPayment.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+    </Card>
   );
 }

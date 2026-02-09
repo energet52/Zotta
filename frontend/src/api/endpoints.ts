@@ -50,6 +50,16 @@ export const underwriterApi = {
     api.patch(`/underwriter/applications/${id}/edit`, data),
   counterpropose: (id: number, data: { proposed_amount: number; proposed_rate: number; proposed_term: number; reason: string }) =>
     api.post(`/underwriter/applications/${id}/counterpropose`, data),
+  // Loan Book
+  getLoanBook: (status?: string) =>
+    api.get('/underwriter/loans', { params: status ? { status } : {} }),
+  // Credit Bureau
+  getCreditReport: (id: number) => api.get(`/underwriter/applications/${id}/credit-report`),
+  downloadCreditReport: (id: number) =>
+    api.get(`/underwriter/applications/${id}/credit-report/download`, { responseType: 'blob' }),
+  // Staff create
+  createOnBehalf: (data: Record<string, unknown>) =>
+    api.post('/underwriter/applications/create-on-behalf', data),
 };
 
 // ── Verification ───────────────────────────────
@@ -63,4 +73,31 @@ export const verificationApi = {
 export const reportsApi = {
   getDashboard: () => api.get('/reports/dashboard'),
   exportLoanBook: () => api.get('/reports/export/loan-book', { responseType: 'blob' }),
+  getReportTypes: () => api.get('/reports/types'),
+  generateReport: (reportType: string, params: { date_from?: string; date_to?: string; application_id?: number }) =>
+    api.post(`/reports/generate/${reportType}`, params),
+  getHistory: () => api.get('/reports/history'),
+  downloadHistorical: (id: number) =>
+    api.get(`/reports/history/${id}/download`, { responseType: 'blob' }),
+};
+
+// ── Payments ───────────────────────────────────
+export const paymentsApi = {
+  recordPayment: (appId: number, data: { amount: number; payment_type: string; payment_date: string; reference_number?: string; notes?: string }) =>
+    api.post(`/payments/${appId}/record`, data),
+  getHistory: (appId: number) => api.get(`/payments/${appId}/history`),
+  getSchedule: (appId: number) => api.get(`/payments/${appId}/schedule`),
+  payOnline: (appId: number, data: { amount: number }) =>
+    api.post(`/payments/${appId}/pay-online`, data),
+};
+
+// ── Collections ────────────────────────────────
+export const collectionsApi = {
+  getQueue: () => api.get('/collections/queue'),
+  getHistory: (appId: number) => api.get(`/collections/${appId}/history`),
+  addRecord: (appId: number, data: Record<string, unknown>) =>
+    api.post(`/collections/${appId}/record`, data),
+  getChat: (appId: number) => api.get(`/collections/${appId}/chat`),
+  sendWhatsApp: (appId: number, data: { message: string }) =>
+    api.post(`/collections/${appId}/send-whatsapp`, data),
 };

@@ -7,7 +7,7 @@ pulling credit bureau data and producing a final Decision record.
 from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.loan import LoanApplication, LoanStatus, ApplicantProfile
@@ -107,6 +107,28 @@ async def run_decision_engine(
     rules_config = {"rules": active_rules.rules} if active_rules else DEFAULT_RULES
     rules_version = active_rules.version if active_rules else 1
 
+    # Check bureau data for active judgments / problematic debt
+    has_court_judgment = False
+    has_active_debt = False
+    public_records = bureau_data.get("public_records", [])
+    for rec in public_records:
+        if rec.get("type") == "Judgment" and rec.get("status") == "active":
+            has_court_judgment = True
+        if rec.get("status") == "active":
+            has_active_debt = True
+
+    # Check for duplicate applications within 30 days
+    from datetime import timedelta
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    dup_result = await db.execute(
+        select(func.count(LoanApplication.id)).where(
+            LoanApplication.applicant_id == application.applicant_id,
+            LoanApplication.id != application_id,
+            LoanApplication.created_at >= thirty_days_ago,
+        )
+    )
+    has_duplicate = (dup_result.scalar() or 0) > 0
+
     rule_input = RuleInput(
         credit_score=scoring_result.total_score,
         risk_band=scoring_result.risk_band,
@@ -120,6 +142,11 @@ async def run_decision_engine(
         is_id_verified=profile.id_verified or False,
         monthly_expenses=float(profile.monthly_expenses or 0),
         job_title=profile.job_title or "",
+        employment_type=profile.employment_type or "",
+        term_months=application.term_months,
+        has_active_debt_bureau=has_active_debt,
+        has_court_judgment=has_court_judgment,
+        has_duplicate_within_30_days=has_duplicate,
     )
 
     rules_output = evaluate_rules(rule_input, rules_config)
@@ -144,7 +171,7 @@ async def run_decision_engine(
         scoring_breakdown=scoring_result.breakdown,
         rules_results={
             "rules": [
-                {"name": r.rule_name, "passed": r.passed, "message": r.message, "severity": r.severity}
+                {"id": r.rule_id, "name": r.rule_name, "passed": r.passed, "message": r.message, "severity": r.severity}
                 for r in rules_output.results
             ],
             "income_benchmark": rules_output.income_benchmark,

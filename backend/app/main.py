@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import engine, Base
-from app.api import auth, loans, underwriter, verification, reports, whatsapp
+from app.api import auth, loans, underwriter, verification, reports, whatsapp, payments, collections
 
 
 @asynccontextmanager
@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Zotta Lending API",
     description="API for the Zotta consumer lending platform",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -42,8 +42,10 @@ app.include_router(underwriter.router, prefix="/api/underwriter", tags=["Underwr
 app.include_router(verification.router, prefix="/api/verification", tags=["Verification"])
 app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
 app.include_router(whatsapp.router, prefix="/api/whatsapp", tags=["WhatsApp"])
+app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
+app.include_router(collections.router, prefix="/api/collections", tags=["Collections"])
 
 
 @app.get("/api/health")
 async def health_check():
-    return {"status": "healthy", "service": "zotta-api", "version": "0.1.0"}
+    return {"status": "healthy", "service": "zotta-api", "version": "0.2.0"}
