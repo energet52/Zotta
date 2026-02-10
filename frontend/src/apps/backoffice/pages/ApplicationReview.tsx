@@ -265,7 +265,7 @@ export default function ApplicationReview() {
   return (
     <div className="max-w-7xl mx-auto">
       {/* Header */}
-      <Link to="/backoffice/queue" className="inline-flex items-center text-sm text-[var(--color-text-muted)] hover:text-[var(--color-primary)] mb-4 transition-colors">
+      <Link to="/backoffice/applications" className="inline-flex items-center text-sm text-[var(--color-text-muted)] hover:text-[var(--color-primary)] mb-4 transition-colors">
         <ArrowLeft size={16} className="mr-1" /> Back to Queue
       </Link>
 

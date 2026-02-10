@@ -99,6 +99,7 @@ class LoanApplicationResponse(BaseModel):
     id: int
     reference_number: str
     applicant_id: int
+    applicant_name: Optional[str] = None  # populated by back-office endpoints
     amount_requested: float
     term_months: int
     purpose: str

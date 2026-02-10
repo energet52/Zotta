@@ -16,7 +16,7 @@ import Profile from './apps/consumer/pages/Profile';
 
 // Back-office pages
 import UnderwriterDashboard from './apps/backoffice/pages/UnderwriterDashboard';
-import Queue from './apps/backoffice/pages/Queue';
+import Applications from './apps/backoffice/pages/Queue';
 import ApplicationReview from './apps/backoffice/pages/ApplicationReview';
 import Reports from './apps/backoffice/pages/Reports';
 import LoanBook from './apps/backoffice/pages/LoanBook';
@@ -82,7 +82,7 @@ export default function App() {
           }
         >
           <Route path="/backoffice" element={<UnderwriterDashboard />} />
-          <Route path="/backoffice/queue" element={<Queue />} />
+          <Route path="/backoffice/applications" element={<Applications />} />
           <Route path="/backoffice/review/:id" element={<ApplicationReview />} />
           <Route path="/backoffice/reports" element={<Reports />} />
           <Route path="/backoffice/loans" element={<LoanBook />} />

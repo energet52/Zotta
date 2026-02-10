@@ -119,7 +119,7 @@ export default function NewApplication() {
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <button onClick={() => navigate('/backoffice/queue')} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
+          <button onClick={() => navigate('/backoffice/applications')} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
             <ArrowLeft size={20} />
           </button>
           <div className="p-2 bg-[var(--color-primary)]/15 rounded-lg">

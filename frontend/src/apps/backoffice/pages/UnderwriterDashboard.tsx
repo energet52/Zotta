@@ -79,7 +79,7 @@ export default function UnderwriterDashboard() {
           <p className="text-sm text-[var(--color-text-muted)] mt-1">Lending Operations Overview</p>
         </div>
         <Link
-          to="/backoffice/queue"
+          to="/backoffice/applications"
           className="inline-flex items-center text-sm text-[var(--color-primary)] hover:text-[var(--color-primary-light)] transition-colors"
         >
           View Queue <ArrowRight size={16} className="ml-1" />
@@ -96,7 +96,7 @@ export default function UnderwriterDashboard() {
           </Card>
         </div>
 
-        <div onClick={() => navigate('/backoffice/queue')} className="cursor-pointer group">
+        <div onClick={() => navigate('/backoffice/applications')} className="cursor-pointer group">
           <Card padding="sm" className="transition-all group-hover:border-[var(--color-warning)]/50">
             <p className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-2">Pending Review</p>
             <p className="text-3xl font-bold text-[var(--color-warning)]">{data.pending_review}</p>
@@ -126,7 +126,7 @@ export default function UnderwriterDashboard() {
           </Card>
         </div>
 
-        <div onClick={() => navigate('/backoffice/queue')} className="cursor-pointer group">
+        <div onClick={() => navigate('/backoffice/applications')} className="cursor-pointer group">
           <Card padding="sm" className="transition-all group-hover:border-[var(--color-cyan,#22d3ee)]/50">
             <p className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-2">Avg Processing</p>
             <p className="text-3xl font-bold text-[var(--color-cyan,#22d3ee)]">{data.avg_processing_days}</p>

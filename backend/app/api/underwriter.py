@@ -50,8 +50,12 @@ async def get_queue(
     current_user: User = Depends(require_roles(*UNDERWRITER_ROLES)),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get the underwriter queue of applications."""
-    query = select(LoanApplication).order_by(LoanApplication.submitted_at.asc())
+    """Get the underwriter queue of applications (newest first)."""
+    query = (
+        select(LoanApplication, User.first_name, User.last_name)
+        .join(User, LoanApplication.applicant_id == User.id)
+        .order_by(LoanApplication.created_at.desc())
+    )
 
     if status_filter and status_filter != "all":
         query = query.where(LoanApplication.status == LoanStatus(status_filter))
@@ -68,7 +72,14 @@ async def get_queue(
     # else "all" — no filter, show everything
 
     result = await db.execute(query)
-    return result.scalars().all()
+    entries = []
+    for row in result.all():
+        app = row[0]
+        # Build response dict from ORM model, then inject applicant_name
+        resp = LoanApplicationResponse.model_validate(app)
+        resp.applicant_name = f"{row[1]} {row[2]}"
+        entries.append(resp)
+    return entries
 
 
 @router.get("/applications/{application_id}", response_model=LoanApplicationResponse)

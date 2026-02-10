@@ -15,7 +15,7 @@ export default function BackOfficeLayout() {
 
   const navItems = [
     { to: '/backoffice', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/backoffice/queue', icon: ClipboardList, label: 'Queue' },
+    { to: '/backoffice/applications', icon: ClipboardList, label: 'Applications' },
     { to: '/backoffice/loans', icon: BookOpen, label: 'Loan Book' },
     { to: '/backoffice/collections', icon: AlertTriangle, label: 'Collections' },
     { to: '/backoffice/new-application', icon: PlusCircle, label: 'New Application' },
