@@ -566,7 +566,7 @@ async def get_credit_report(
     result = await db.execute(
         select(CreditReport)
         .where(CreditReport.loan_application_id == application_id)
-        .order_by(CreditReport.created_at.desc())
+        .order_by(CreditReport.pulled_at.desc())
         .limit(1)
     )
     report = result.scalar_one_or_none()
@@ -581,7 +581,7 @@ async def get_credit_report(
         "inquiries": report.inquiries,
         "public_records": report.public_records,
         "status": report.status,
-        "pulled_at": report.created_at.isoformat() if report.created_at else None,
+        "pulled_at": report.pulled_at.isoformat() if report.pulled_at else None,
     }
 
 
@@ -595,7 +595,7 @@ async def download_credit_report(
     result = await db.execute(
         select(CreditReport)
         .where(CreditReport.loan_application_id == application_id)
-        .order_by(CreditReport.created_at.desc())
+        .order_by(CreditReport.pulled_at.desc())
         .limit(1)
     )
     report = result.scalar_one_or_none()
