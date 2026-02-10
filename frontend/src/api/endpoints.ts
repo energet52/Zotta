@@ -44,6 +44,7 @@ export const underwriterApi = {
   getDecision: (id: number) => api.get(`/underwriter/applications/${id}/decision`),
   getAuditLog: (id: number) => api.get(`/underwriter/applications/${id}/audit`),
   assign: (id: number) => api.post(`/underwriter/applications/${id}/assign`),
+  runEngine: (id: number) => api.post(`/underwriter/applications/${id}/run-engine`),
   decide: (id: number, data: { action: string; reason: string; approved_amount?: number; approved_rate?: number }) =>
     api.post(`/underwriter/applications/${id}/decide`, data),
   editApplication: (id: number, data: Record<string, unknown>) =>

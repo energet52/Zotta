@@ -537,7 +537,26 @@ export default function ApplicationReview() {
 
           {activeTab === 'decision' && !decision && (
             <Card>
-              <p className="text-center py-8 text-[var(--color-text-muted)]">No decision engine data available yet.</p>
+              <div className="text-center py-8">
+                <Shield size={32} className="mx-auto text-[var(--color-text-muted)] mb-3" />
+                <p className="text-[var(--color-text-muted)] mb-4">No decision engine data available yet.</p>
+                <Button
+                  onClick={async () => {
+                    setSubmitting(true); setError('');
+                    try {
+                      await underwriterApi.runEngine(parseInt(id!));
+                      setSuccessMsg('Decision engine executed successfully');
+                      loadData();
+                    } catch (err: any) {
+                      setError(parseApiError(err, 'Failed to run decision engine'));
+                    } finally { setSubmitting(false); }
+                  }}
+                  isLoading={submitting}
+                >
+                  <Calculator size={16} className="mr-2" />
+                  Run Decision Engine
+                </Button>
+              </div>
             </Card>
           )}
 

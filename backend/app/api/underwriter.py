@@ -36,7 +36,11 @@ from app.schemas import (
     StaffCreateApplicationRequest,
 )
 from app.auth_utils import get_current_user, require_roles
+from app.services.decision_engine.engine import run_decision_engine
 
+import logging
+
+logger = logging.getLogger(__name__)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 router = APIRouter()
@@ -80,6 +84,19 @@ async def get_queue(
         resp.applicant_name = f"{row[1]} {row[2]}"
         entries.append(resp)
     return entries
+
+
+@router.post("/applications/{application_id}/run-engine", response_model=DecisionResponse)
+async def run_engine(
+    application_id: int,
+    current_user: User = Depends(require_roles(*UNDERWRITER_ROLES)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Manually (re-)run the decision engine for an application."""
+    decision = await run_decision_engine(application_id, db)
+    await db.flush()
+    await db.refresh(decision)
+    return decision
 
 
 @router.get("/applications/{application_id}", response_model=LoanApplicationResponse)
@@ -728,5 +745,13 @@ async def create_on_behalf(
     # Update audit with actual application ID
     audit.entity_id = application.id
     await db.flush()
+
+    # Run the decision engine automatically
+    try:
+        await run_decision_engine(application.id, db)
+        await db.flush()
+    except Exception as exc:
+        logger.warning("Decision engine failed for staff-created application %s: %s", application.id, exc)
+
     await db.refresh(application)
     return application

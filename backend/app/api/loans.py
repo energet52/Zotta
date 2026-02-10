@@ -26,8 +26,12 @@ from app.schemas import (
 )
 from app.auth_utils import get_current_user
 from app.config import settings
+from app.services.decision_engine.engine import run_decision_engine
 
+import logging
 import os
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -181,11 +185,28 @@ async def submit_application(
     application.submitted_at = datetime.now(timezone.utc)
     await db.flush()
 
+    # Run the decision engine (scoring + business rules) immediately.
+    # If the engine fails for any reason the application still stays SUBMITTED
+    # so an underwriter can review it manually later.
+    engine_message = "Application submitted successfully. You will be notified of updates."
+    try:
+        decision = await run_decision_engine(application.id, db)
+        await db.flush()
+        if decision.final_outcome == "auto_approve":
+            engine_message = "Application submitted and pre-approved! Review your offer on the status page."
+        elif decision.final_outcome == "auto_decline":
+            engine_message = "Application submitted. Unfortunately it was not approved at this time."
+        else:
+            engine_message = "Application submitted and is under review. You will be notified of updates."
+    except Exception as exc:
+        logger.warning("Decision engine failed for application %s: %s", application.id, exc)
+        # Application remains in SUBMITTED status — underwriters can pick it up.
+
     return LoanSubmitResponse(
         id=application.id,
         reference_number=application.reference_number,
         status=application.status.value,
-        message="Application submitted successfully. You will be notified of updates.",
+        message=engine_message,
     )
 
 
