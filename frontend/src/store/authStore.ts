@@ -31,7 +31,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     const { access_token, refresh_token } = response.data;
     localStorage.setItem('access_token', access_token);
     localStorage.setItem('refresh_token', refresh_token);
-    set({ isAuthenticated: true });
+    // Also clear isLoading in case a stale loadUser() set it to true
+    set({ isAuthenticated: true, isLoading: false });
 
     // Load user profile
     const userRes = await authApi.getMe();
@@ -56,13 +57,25 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   loadUser: async () => {
+    // Capture the token we're validating so we can detect if a concurrent
+    // login replaced it before our request completes.
+    const tokenAtStart = localStorage.getItem('access_token');
     set({ isLoading: true });
     try {
       const response = await authApi.getMe();
       set({ user: response.data, isAuthenticated: true, isLoading: false });
     } catch {
-      set({ user: null, isAuthenticated: false, isLoading: false });
-      localStorage.removeItem('access_token');
+      // Only clear auth state if the token hasn't changed since we started.
+      // A concurrent login() may have stored a fresh token — don't wipe it.
+      const currentToken = localStorage.getItem('access_token');
+      if (!currentToken || currentToken === tokenAtStart) {
+        set({ user: null, isAuthenticated: false, isLoading: false });
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+      } else {
+        // Token changed (fresh login happened) — just clear the loading flag.
+        set({ isLoading: false });
+      }
     }
   },
 }));
