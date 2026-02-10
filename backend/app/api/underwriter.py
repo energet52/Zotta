@@ -482,14 +482,17 @@ async def get_loan_book(
     current_user: User = Depends(require_roles(*UNDERWRITER_ROLES)),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get all loans with enriched data for the loan book."""
+    """Get disbursed loans with enriched data for the loan book."""
     query = (
         select(LoanApplication, User.first_name, User.last_name)
         .join(User, LoanApplication.applicant_id == User.id)
         .order_by(LoanApplication.created_at.desc())
     )
+    # Loan Book only shows disbursed applications by default
     if status and status != "all":
         query = query.where(LoanApplication.status == LoanStatus(status))
+    else:
+        query = query.where(LoanApplication.status == LoanStatus.DISBURSED)
 
     result = await db.execute(query)
     entries = []

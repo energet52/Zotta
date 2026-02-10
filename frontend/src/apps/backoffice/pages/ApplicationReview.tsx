@@ -1017,49 +1017,291 @@ function CreditBureauTab({ applicationId }: { applicationId: number }) {
   if (!report) return <Card><p className="text-[var(--color-text-muted)]">No credit report available. Run the decision engine first.</p></Card>;
 
   const data = report.report_data || {};
-  const summary = data.summary || {};
-  const insights = data.insights || [];
-  const tradelines = data.tradelines || [];
-  const inquiries = data.inquiries || [];
-  const publicRecords = data.public_records || [];
+  const subjectInfo = data.subject_info || {};
+  const openContracts: any[] = data.open_contracts || [];
+  const closedContracts: any[] = data.closed_contracts || [];
+  const scoreHistory: any[] = data.score_history || [];
+  const inquiriesDetail: any[] = data.inquiries_detail || data.inquiries || [];
+  const inquiryCounts = data.inquiry_counts || {};
+  const publicRecords: any[] = data.public_records || [];
+  const insights: string[] = data.insights || [];
 
-  const riskColors: Record<string, string> = { Low: 'text-emerald-400', Medium: 'text-amber-400', High: 'text-orange-400', 'Very High': 'text-red-400' };
+  const score = data.score || report.score || 0;
+  const riskGrade = data.risk_grade || data.summary?.risk_grade || '—';
+  const riskDesc = data.risk_description || data.summary?.risk_description || '—';
+  const pd = data.probability_of_default ?? data.summary?.probability_of_default ?? null;
+  const contractsSummary = data.contracts_summary || {};
+
+  // Risk grade colour
+  const gradeColor = (g: string) => {
+    if (g.startsWith('A')) return 'text-emerald-400';
+    if (g.startsWith('B')) return 'text-cyan-400';
+    if (g.startsWith('C')) return 'text-amber-400';
+    if (g.startsWith('D')) return 'text-orange-400';
+    if (g.startsWith('E')) return 'text-red-400';
+    return 'text-[var(--color-text)]';
+  };
+
+  const fmt = (v: number | null | undefined) =>
+    v != null ? `TTD ${v.toLocaleString(undefined, { minimumFractionDigits: 0 })}` : '—';
+
+  const SectionTitle = ({ children }: { children: React.ReactNode }) => (
+    <h3 className="font-semibold text-[var(--color-text)] text-base">{children}</h3>
+  );
+
+  const InfoRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
+    <div className="flex justify-between py-1.5 border-b border-[var(--color-border)]/40 last:border-0">
+      <span className="text-xs text-[var(--color-text-muted)]">{label}</span>
+      <span className="text-sm text-[var(--color-text)] text-right">{value || '—'}</span>
+    </div>
+  );
 
   return (
     <div className="space-y-4">
-      {/* Summary */}
+
+      {/* ── Dashboard: Score + Risk Grade + Inquiries ── */}
       <Card>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-[var(--color-text)]">Credit Bureau Summary</h3>
-          <Button size="sm" variant="outline" onClick={handleDownload}>Download Full Report</Button>
+          <SectionTitle>EveryData Credit Report</SectionTitle>
+          <div className="flex items-center gap-2">
+            {report.pulled_at && (
+              <span className="text-xs text-[var(--color-text-muted)]">
+                Pulled: {new Date(report.pulled_at).toLocaleDateString()}
+              </span>
+            )}
+            <Button size="sm" variant="outline" onClick={handleDownload}>Download</Button>
+          </div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div>
-            <p className="text-xs text-[var(--color-text-muted)]">Score</p>
-            <p className="text-2xl font-bold text-[var(--color-text)]">{summary.score || report.score || '—'}</p>
+
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          {/* Score */}
+          <div className="text-center p-3 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)]">
+            <p className="text-xs text-[var(--color-text-muted)] mb-1">EveryData Score</p>
+            <p className="text-3xl font-bold text-[var(--color-text)]">{score}</p>
           </div>
-          <div>
-            <p className="text-xs text-[var(--color-text-muted)]">Risk Level</p>
-            <p className={`text-lg font-bold ${riskColors[summary.risk_level || data.risk_level] || 'text-[var(--color-text)]'}`}>
-              {summary.risk_level || data.risk_level || '—'}
-            </p>
+          {/* Risk Grade */}
+          <div className="text-center p-3 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)]">
+            <p className="text-xs text-[var(--color-text-muted)] mb-1">Risk Grade</p>
+            <p className={`text-3xl font-bold ${gradeColor(riskGrade)}`}>{riskGrade}</p>
+            <p className="text-[10px] text-[var(--color-text-muted)]">{riskDesc}</p>
           </div>
-          <div>
-            <p className="text-xs text-[var(--color-text-muted)]">Total Debt</p>
-            <p className="text-lg font-bold text-[var(--color-text)]">TTD {(summary.total_debt || data.total_outstanding_debt || 0).toLocaleString()}</p>
+          {/* PD */}
+          <div className="text-center p-3 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)]">
+            <p className="text-xs text-[var(--color-text-muted)] mb-1">Probability of Default</p>
+            <p className="text-2xl font-bold text-[var(--color-text)]">{pd != null ? `${pd}%` : '—'}</p>
           </div>
-          <div>
-            <p className="text-xs text-[var(--color-text-muted)]">Payment Rating</p>
-            <p className="text-lg font-bold text-[var(--color-text)]">{summary.payment_history_rating || '—'}</p>
+          {/* Inquiries 12m */}
+          <div className="text-center p-3 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)]">
+            <p className="text-xs text-[var(--color-text-muted)] mb-1">Inquiries (12 mo)</p>
+            <p className="text-2xl font-bold text-[var(--color-text)]">{inquiryCounts['12_months'] ?? inquiriesDetail.length}</p>
+          </div>
+          {/* Active Contracts */}
+          <div className="text-center p-3 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)]">
+            <p className="text-xs text-[var(--color-text-muted)] mb-1">Open Contracts</p>
+            <p className="text-2xl font-bold text-[var(--color-text)]">{contractsSummary.open_count ?? openContracts.length}</p>
           </div>
         </div>
       </Card>
 
-      {/* Insights */}
+      {/* ── Subject / Personal Info from Bureau ── */}
+      {Object.keys(subjectInfo).length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Address & Contacts */}
+          <Card>
+            <SectionTitle>Bureau Contact Details</SectionTitle>
+            <div className="mt-3">
+              <InfoRow label="Full Name" value={subjectInfo.full_name} />
+              <InfoRow label="Contact Address" value={subjectInfo.contact_address} />
+              <InfoRow label="Mobile" value={subjectInfo.mobile} />
+              <InfoRow label="Fixed Line" value={subjectInfo.fixed_line} />
+              <InfoRow label="Email" value={subjectInfo.email} />
+            </div>
+          </Card>
+          {/* Personal Data */}
+          <Card>
+            <SectionTitle>Bureau Personal Data</SectionTitle>
+            <div className="mt-3">
+              <InfoRow label="Date of Birth" value={subjectInfo.date_of_birth} />
+              <InfoRow label="Tax Number" value={subjectInfo.tax_number_masked} />
+              <InfoRow label="Gender" value={subjectInfo.gender} />
+              <InfoRow label="Marital Status" value={subjectInfo.marital_status} />
+              <InfoRow label="Citizenship" value={subjectInfo.citizenship} />
+              <InfoRow label="Employment" value={subjectInfo.employment} />
+              <InfoRow label="Education" value={subjectInfo.education} />
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ── Open Contracts ── */}
+      <Card padding="none">
+        <div className="p-4 border-b border-[var(--color-border)] flex items-center justify-between">
+          <SectionTitle>Open Contracts ({openContracts.length})</SectionTitle>
+          {contractsSummary.total_amount != null && (
+            <span className="text-xs text-[var(--color-text-muted)]">
+              Total: {fmt(contractsSummary.total_amount)} &middot; Balance: {fmt(contractsSummary.total_balance)} &middot; Monthly: {fmt(contractsSummary.total_monthly_payments)}
+            </span>
+          )}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs">
+                <th className="px-4 py-2 text-left">Sector</th>
+                <th className="px-4 py-2 text-left">Type</th>
+                <th className="px-4 py-2 text-left">Creditor</th>
+                <th className="px-4 py-2 text-left">Opened</th>
+                <th className="px-4 py-2 text-left">Updated</th>
+                <th className="px-4 py-2 text-right">Total</th>
+                <th className="px-4 py-2 text-right">Balance</th>
+                <th className="px-4 py-2 text-right">Past Due</th>
+                <th className="px-4 py-2 text-left">Arrears</th>
+                <th className="px-4 py-2 text-left">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {openContracts.length === 0 ? (
+                <tr><td colSpan={10} className="px-4 py-4 text-center text-[var(--color-text-muted)]">No Data</td></tr>
+              ) : openContracts.map((c: any, i: number) => (
+                <tr key={i} className="border-b border-[var(--color-border)]">
+                  <td className="px-4 py-2 text-[var(--color-text-muted)]">{c.sector}</td>
+                  <td className="px-4 py-2">{c.type}</td>
+                  <td className="px-4 py-2">{c.creditor}</td>
+                  <td className="px-4 py-2 text-[var(--color-text-muted)] whitespace-nowrap">{c.opened_date}</td>
+                  <td className="px-4 py-2 text-[var(--color-text-muted)] whitespace-nowrap">{c.last_updated}</td>
+                  <td className="px-4 py-2 text-right whitespace-nowrap">{fmt(c.total_amount)}</td>
+                  <td className="px-4 py-2 text-right whitespace-nowrap">{fmt(c.balance)}</td>
+                  <td className="px-4 py-2 text-right whitespace-nowrap">{fmt(c.past_due)}</td>
+                  <td className="px-4 py-2">{c.arrears_days} Days</td>
+                  <td className="px-4 py-2">
+                    <Badge variant={c.status === 'Granted And Activated' ? 'success' : c.status === 'Delinquent' ? 'danger' : 'default'}>
+                      {c.status}
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* ── Closed Contracts ── */}
+      <Card padding="none">
+        <div className="p-4 border-b border-[var(--color-border)]">
+          <SectionTitle>Closed Contracts ({closedContracts.length})</SectionTitle>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs">
+                <th className="px-4 py-2 text-left">Sector</th>
+                <th className="px-4 py-2 text-left">Type</th>
+                <th className="px-4 py-2 text-left">Creditor</th>
+                <th className="px-4 py-2 text-left">Opened</th>
+                <th className="px-4 py-2 text-left">Closed</th>
+                <th className="px-4 py-2 text-right">Total</th>
+                <th className="px-4 py-2 text-left">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {closedContracts.length === 0 ? (
+                <tr><td colSpan={7} className="px-4 py-4 text-center text-[var(--color-text-muted)]">No Data</td></tr>
+              ) : closedContracts.map((c: any, i: number) => (
+                <tr key={i} className="border-b border-[var(--color-border)]">
+                  <td className="px-4 py-2 text-[var(--color-text-muted)]">{c.sector}</td>
+                  <td className="px-4 py-2">{c.type}</td>
+                  <td className="px-4 py-2">{c.creditor}</td>
+                  <td className="px-4 py-2 text-[var(--color-text-muted)] whitespace-nowrap">{c.opened_date}</td>
+                  <td className="px-4 py-2 text-[var(--color-text-muted)] whitespace-nowrap">{c.real_end_date || '—'}</td>
+                  <td className="px-4 py-2 text-right whitespace-nowrap">{fmt(c.total_amount)}</td>
+                  <td className="px-4 py-2"><Badge variant="default">Closed</Badge></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* ── Score History ── */}
+      {scoreHistory.length > 0 && (
+        <Card padding="none">
+          <div className="p-4 border-b border-[var(--color-border)]">
+            <SectionTitle>Score History</SectionTitle>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs">
+                  {scoreHistory.map((h: any, i: number) => (
+                    <th key={i} className="px-3 py-2 text-center whitespace-nowrap">{h.month}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-[var(--color-border)]">
+                  {scoreHistory.map((h: any, i: number) => (
+                    <td key={i} className="px-3 py-2 text-center font-bold text-[var(--color-text)]">{h.score}</td>
+                  ))}
+                </tr>
+                <tr className="border-b border-[var(--color-border)]">
+                  {scoreHistory.map((h: any, i: number) => (
+                    <td key={i} className={`px-3 py-2 text-center text-xs font-semibold ${gradeColor(h.risk_grade)}`}>{h.risk_grade}</td>
+                  ))}
+                </tr>
+                <tr>
+                  {scoreHistory.map((h: any, i: number) => (
+                    <td key={i} className="px-3 py-2 text-center text-xs text-[var(--color-text-muted)]">{h.probability_of_default}%</td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* ── Inquiries ── */}
+      <Card padding="none">
+        <div className="p-4 border-b border-[var(--color-border)] flex items-center justify-between">
+          <SectionTitle>Inquiries</SectionTitle>
+          {Object.keys(inquiryCounts).length > 0 && (
+            <div className="flex gap-3 text-xs text-[var(--color-text-muted)]">
+              <span>1m: <b className="text-[var(--color-text)]">{inquiryCounts['1_month'] ?? 0}</b></span>
+              <span>3m: <b className="text-[var(--color-text)]">{inquiryCounts['3_months'] ?? 0}</b></span>
+              <span>6m: <b className="text-[var(--color-text)]">{inquiryCounts['6_months'] ?? 0}</b></span>
+              <span>12m: <b className="text-[var(--color-text)]">{inquiryCounts['12_months'] ?? 0}</b></span>
+              <span>24m: <b className="text-[var(--color-text)]">{inquiryCounts['24_months'] ?? 0}</b></span>
+            </div>
+          )}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs">
+                <th className="px-4 py-2 text-left">Date</th>
+                <th className="px-4 py-2 text-left">Reason</th>
+                <th className="px-4 py-2 text-left">Sector</th>
+              </tr>
+            </thead>
+            <tbody>
+              {inquiriesDetail.length === 0 ? (
+                <tr><td colSpan={3} className="px-4 py-4 text-center text-[var(--color-text-muted)]">No Data</td></tr>
+              ) : inquiriesDetail.map((inq: any, i: number) => (
+                <tr key={i} className="border-b border-[var(--color-border)]">
+                  <td className="px-4 py-2 whitespace-nowrap">{inq.date}</td>
+                  <td className="px-4 py-2">{inq.reason || inq.purpose || '—'}</td>
+                  <td className="px-4 py-2">{inq.sector || inq.lender || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* ── Key Insights ── */}
       {insights.length > 0 && (
         <Card>
-          <h3 className="font-semibold text-[var(--color-text)] mb-3">Key Insights</h3>
-          <ul className="space-y-1">
+          <SectionTitle>Key Insights</SectionTitle>
+          <ul className="mt-3 space-y-1">
             {insights.map((insight: string, i: number) => (
               <li key={i} className="flex items-start space-x-2 text-sm">
                 <span className="text-[var(--color-primary)] mt-0.5">•</span>
@@ -1070,75 +1312,7 @@ function CreditBureauTab({ applicationId }: { applicationId: number }) {
         </Card>
       )}
 
-      {/* Tradelines */}
-      {tradelines.length > 0 && (
-        <Card padding="none">
-          <div className="p-4 border-b border-[var(--color-border)]">
-            <h3 className="font-semibold text-[var(--color-text)]">Tradelines ({tradelines.length})</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)]">
-                  <th className="px-4 py-2 text-left">Lender</th>
-                  <th className="px-4 py-2 text-left">Type</th>
-                  <th className="px-4 py-2 text-left">Balance</th>
-                  <th className="px-4 py-2 text-left">Monthly</th>
-                  <th className="px-4 py-2 text-left">Status</th>
-                  <th className="px-4 py-2 text-left">DPD</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tradelines.map((t: any, i: number) => (
-                  <tr key={i} className="border-b border-[var(--color-border)]">
-                    <td className="px-4 py-2">{t.lender}</td>
-                    <td className="px-4 py-2 text-[var(--color-text-muted)]">{t.type}</td>
-                    <td className="px-4 py-2">TTD {(t.current_balance || 0).toLocaleString()}</td>
-                    <td className="px-4 py-2">TTD {(t.monthly_payment || 0).toLocaleString()}</td>
-                    <td className="px-4 py-2">
-                      <Badge variant={t.status === 'current' ? 'success' : 'danger'}>{t.status}</Badge>
-                    </td>
-                    <td className="px-4 py-2">{t.days_past_due || 0}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
-
-      {/* Inquiries */}
-      {inquiries.length > 0 && (
-        <Card padding="none">
-          <div className="p-4 border-b border-[var(--color-border)]">
-            <h3 className="font-semibold text-[var(--color-text)]">Inquiries ({inquiries.length})</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)]">
-                  <th className="px-4 py-2 text-left">Lender</th>
-                  <th className="px-4 py-2 text-left">Date</th>
-                  <th className="px-4 py-2 text-left">Purpose</th>
-                  <th className="px-4 py-2 text-left">Type</th>
-                </tr>
-              </thead>
-              <tbody>
-                {inquiries.map((inq: any, i: number) => (
-                  <tr key={i} className="border-b border-[var(--color-border)]">
-                    <td className="px-4 py-2">{inq.lender}</td>
-                    <td className="px-4 py-2 text-[var(--color-text-muted)]">{inq.date}</td>
-                    <td className="px-4 py-2">{inq.purpose}</td>
-                    <td className="px-4 py-2">{inq.type || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
-
-      {/* Public Records */}
+      {/* ── Public Records ── */}
       {publicRecords.length > 0 && (
         <Card>
           <h3 className="font-semibold text-[var(--color-danger)] mb-3">Public Records ({publicRecords.length})</h3>
