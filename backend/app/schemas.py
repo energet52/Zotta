@@ -2,7 +2,7 @@
 
 from datetime import datetime, date
 from typing import Optional
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 
 # ── Auth ──────────────────────────────────────────────
@@ -59,6 +59,14 @@ class ApplicantProfileCreate(BaseModel):
     monthly_expenses: Optional[float] = None
     existing_debt: Optional[float] = None
     dependents: Optional[int] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def empty_strings_to_none(cls, values: dict) -> dict:  # type: ignore[override]
+        """Convert empty strings to None so Optional fields don't choke."""
+        if isinstance(values, dict):
+            return {k: (None if v == "" else v) for k, v in values.items()}
+        return values
 
 
 class ApplicantProfileResponse(ApplicantProfileCreate):

@@ -416,7 +416,14 @@ function ConsumerPaymentSection({ applicationId, monthlyPayment }: { application
       setSuccess(`Payment of TTD ${parseFloat(amount).toLocaleString()} processed successfully! Ref: ${res.data.reference_number}`);
       setAmount(String(monthlyPayment || ''));
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Payment failed');
+      const detail = err?.response?.data?.detail;
+      if (typeof detail === 'string') {
+        setError(detail);
+      } else if (Array.isArray(detail)) {
+        setError(detail.map((e: any) => e.msg || String(e)).join('; '));
+      } else {
+        setError('Payment failed');
+      }
     }
     setPaying(false);
   };

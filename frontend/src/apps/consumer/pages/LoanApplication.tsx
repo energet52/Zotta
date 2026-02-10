@@ -60,22 +60,32 @@ export default function LoanApplication() {
     setFiles((prev) => [...prev.filter((f) => f.type !== type), { type, file }]);
   };
 
+  /** Convert empty strings to undefined so Pydantic receives null instead of "". */
+  const emptyToUndef = (v: string) => (v === '' ? undefined : v);
+
   const handleSubmit = async () => {
     setLoading(true);
     setError('');
     try {
       // 1. Update profile
       await loanApi.updateProfile({
-        ...profile,
+        date_of_birth: emptyToUndef(profile.date_of_birth),
+        national_id: emptyToUndef(profile.national_id),
+        gender: emptyToUndef(profile.gender),
+        marital_status: emptyToUndef(profile.marital_status),
+        address_line1: emptyToUndef(profile.address_line1),
+        address_line2: emptyToUndef(profile.address_line2),
+        city: emptyToUndef(profile.city),
+        parish: emptyToUndef(profile.parish),
         years_employed: employment.years_employed ? parseInt(employment.years_employed) : undefined,
         monthly_income: employment.monthly_income ? parseFloat(employment.monthly_income) : undefined,
         other_income: employment.other_income ? parseFloat(employment.other_income) : undefined,
         monthly_expenses: employment.monthly_expenses ? parseFloat(employment.monthly_expenses) : undefined,
         existing_debt: employment.existing_debt ? parseFloat(employment.existing_debt) : undefined,
         dependents: employment.dependents ? parseInt(employment.dependents) : undefined,
-        employer_name: employment.employer_name,
-        job_title: employment.job_title,
-        employment_type: employment.employment_type,
+        employer_name: emptyToUndef(employment.employer_name),
+        job_title: emptyToUndef(employment.job_title),
+        employment_type: emptyToUndef(employment.employment_type),
       });
 
       // 2. Create loan application
@@ -101,7 +111,15 @@ export default function LoanApplication() {
 
       navigate(`/applications/${appId}`);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to submit application');
+      const detail = err.response?.data?.detail;
+      if (typeof detail === 'string') {
+        setError(detail);
+      } else if (Array.isArray(detail)) {
+        // Pydantic validation errors — extract human-readable messages
+        setError(detail.map((e: any) => e.msg || String(e)).join('; '));
+      } else {
+        setError('Failed to submit application');
+      }
     } finally {
       setLoading(false);
     }
