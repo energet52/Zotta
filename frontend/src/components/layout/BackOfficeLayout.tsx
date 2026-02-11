@@ -1,5 +1,17 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ClipboardList, BarChart3, LogOut, Shield, BookOpen, AlertTriangle, PlusCircle, CreditCard } from 'lucide-react';
+import {
+  LayoutDashboard,
+  ClipboardList,
+  BarChart3,
+  LogOut,
+  Shield,
+  BookOpen,
+  AlertTriangle,
+  PlusCircle,
+  Boxes,
+  Store,
+  Tags,
+} from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { clsx } from 'clsx';
 
@@ -21,6 +33,12 @@ export default function BackOfficeLayout() {
     { to: '/backoffice/new-application', icon: PlusCircle, label: 'New Application' },
     { to: '/backoffice/reports', icon: BarChart3, label: 'Reports' },
   ];
+  const adminNavItems = [
+    { to: '/backoffice/products', icon: Boxes, label: 'Products' },
+    { to: '/backoffice/merchants', icon: Store, label: 'Merchants' },
+    { to: '/backoffice/categories', icon: Tags, label: 'Categories' },
+  ];
+  const isAdmin = user?.role === 'admin';
 
   return (
     <div className="theme-dark min-h-screen bg-[var(--color-bg)] text-[var(--color-text)] flex">
@@ -59,6 +77,31 @@ export default function BackOfficeLayout() {
               </Link>
             );
           })}
+          {isAdmin && (
+            <>
+              <div className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] px-3 pt-3 pb-1">
+                Administration
+              </div>
+              {adminNavItems.map(({ to, icon: Icon, label }) => {
+                const isActive = location.pathname.startsWith(to);
+                return (
+                  <Link
+                    key={to}
+                    to={to}
+                    className={clsx(
+                      'flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition-all',
+                      isActive
+                        ? 'bg-[var(--color-primary)]/15 text-[var(--color-primary)] font-medium'
+                        : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-hover)]'
+                    )}
+                  >
+                    <Icon size={18} />
+                    <span>{label}</span>
+                  </Link>
+                );
+              })}
+            </>
+          )}
         </nav>
 
         <div className="p-4 border-t border-[var(--color-border)]">
@@ -100,7 +143,7 @@ export default function BackOfficeLayout() {
 
         {/* Mobile nav */}
         <nav className="md:hidden bg-[var(--color-surface)] border-b border-[var(--color-border)] px-4 py-2 flex space-x-2 overflow-x-auto">
-          {navItems.map(({ to, icon: Icon, label }) => {
+          {[...navItems, ...(isAdmin ? adminNavItems : [])].map(({ to, icon: Icon, label }) => {
             const isActive = to === '/backoffice'
               ? location.pathname === '/backoffice'
               : location.pathname.startsWith(to);

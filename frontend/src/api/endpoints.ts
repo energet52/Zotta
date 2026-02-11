@@ -13,7 +13,18 @@ export const authApi = {
 export const loanApi = {
   getProfile: () => api.get('/loans/profile'),
   updateProfile: (data: Record<string, unknown>) => api.put('/loans/profile', data),
-  create: (data: { amount_requested: number; term_months: number; purpose: string; purpose_description?: string }) =>
+  create: (data: {
+    amount_requested: number;
+    term_months: number;
+    purpose: string;
+    purpose_description?: string;
+    merchant_id?: number;
+    branch_id?: number;
+    credit_product_id?: number;
+    downpayment?: number;
+    total_financed?: number;
+    items?: Array<{ category_id: number; description?: string; price: number; quantity: number }>;
+  }) =>
     api.post('/loans/', data),
   list: () => api.get('/loans/'),
   get: (id: number) => api.get(`/loans/${id}`),
@@ -101,4 +112,68 @@ export const collectionsApi = {
   getChat: (appId: number) => api.get(`/collections/${appId}/chat`),
   sendWhatsApp: (appId: number, data: { message: string }) =>
     api.post(`/collections/${appId}/send-whatsapp`, data),
+};
+
+// ── Administration ──────────────────────────────
+export const adminApi = {
+  // Merchants
+  getMerchants: () => api.get('/admin/merchants'),
+  createMerchant: (data: { name: string; is_active?: boolean }) => api.post('/admin/merchants', data),
+  updateMerchant: (id: number, data: { name?: string; is_active?: boolean }) =>
+    api.put(`/admin/merchants/${id}`, data),
+  deleteMerchant: (id: number) => api.delete(`/admin/merchants/${id}`),
+
+  // Branches
+  getBranches: (merchantId: number) => api.get(`/admin/merchants/${merchantId}/branches`),
+  createBranch: (
+    merchantId: number,
+    data: { name: string; address?: string; is_online?: boolean; is_active?: boolean },
+  ) => api.post(`/admin/merchants/${merchantId}/branches`, data),
+  updateBranch: (
+    id: number,
+    data: { name?: string; address?: string; is_online?: boolean; is_active?: boolean },
+  ) => api.put(`/admin/branches/${id}`, data),
+  deleteBranch: (id: number) => api.delete(`/admin/branches/${id}`),
+
+  // Categories
+  getCategories: () => api.get('/admin/categories'),
+  createCategory: (data: { name: string }) => api.post('/admin/categories', data),
+  updateCategory: (id: number, data: { name: string }) => api.put(`/admin/categories/${id}`, data),
+  deleteCategory: (id: number) => api.delete(`/admin/categories/${id}`),
+
+  // Products
+  getProducts: () => api.get('/admin/products'),
+  getProduct: (id: number) => api.get(`/admin/products/${id}`),
+  createProduct: (data: Record<string, unknown>) => api.post('/admin/products', data),
+  updateProduct: (id: number, data: Record<string, unknown>) => api.put(`/admin/products/${id}`, data),
+  deleteProduct: (id: number) => api.delete(`/admin/products/${id}`),
+
+  // Score ranges
+  createScoreRange: (productId: number, data: { min_score: number; max_score: number }) =>
+    api.post(`/admin/products/${productId}/score-ranges`, data),
+  updateScoreRange: (id: number, data: { min_score?: number; max_score?: number }) =>
+    api.put(`/admin/score-ranges/${id}`, data),
+  deleteScoreRange: (id: number) => api.delete(`/admin/score-ranges/${id}`),
+
+  // Fees
+  createFee: (
+    productId: number,
+    data: { fee_type: string; fee_base: string; fee_amount: number; is_available?: boolean },
+  ) => api.post(`/admin/products/${productId}/fees`, data),
+  updateFee: (
+    id: number,
+    data: { fee_type?: string; fee_base?: string; fee_amount?: number; is_available?: boolean },
+  ) => api.put(`/admin/fees/${id}`, data),
+  deleteFee: (id: number) => api.delete(`/admin/fees/${id}`),
+};
+
+// ── Consumer Catalog ────────────────────────────
+export const catalogApi = {
+  getMerchants: () => api.get('/catalog/merchants'),
+  getBranches: (merchantId: number) => api.get(`/catalog/merchants/${merchantId}/branches`),
+  getCategories: () => api.get('/catalog/categories'),
+  getProducts: (merchantId: number, amount: number) =>
+    api.get('/catalog/products', { params: { merchant_id: merchantId, amount } }),
+  calculate: (data: { product_id: number; total_amount: number; term_months: number }) =>
+    api.post('/catalog/calculate', data),
 };

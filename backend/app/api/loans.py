@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models.user import User
-from app.models.loan import LoanApplication, LoanStatus, LoanPurpose, ApplicantProfile
+from app.models.loan import LoanApplication, LoanStatus, LoanPurpose, ApplicantProfile, ApplicationItem
 from app.models.document import Document, DocumentType, DocumentStatus
 from app.models.audit import AuditLog
 from app.schemas import (
@@ -97,9 +97,27 @@ async def create_application(
         term_months=data.term_months,
         purpose=LoanPurpose(data.purpose),
         purpose_description=data.purpose_description,
+        merchant_id=data.merchant_id,
+        branch_id=data.branch_id,
+        credit_product_id=data.credit_product_id,
+        downpayment=data.downpayment,
+        total_financed=data.total_financed,
         status=LoanStatus.DRAFT,
     )
     db.add(application)
+    await db.flush()
+
+    # Optional hire-purchase basket items
+    for item in data.items:
+        db.add(
+            ApplicationItem(
+                loan_application_id=application.id,
+                category_id=item.category_id,
+                description=item.description,
+                price=item.price,
+                quantity=item.quantity,
+            )
+        )
     await db.flush()
     await db.refresh(application)
     return application

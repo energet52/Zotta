@@ -23,6 +23,10 @@ import LoanBook from './apps/backoffice/pages/LoanBook';
 import Collections from './apps/backoffice/pages/Collections';
 import CollectionDetail from './apps/backoffice/pages/CollectionDetail';
 import NewApplication from './apps/backoffice/pages/NewApplication';
+import ProductManagement from './apps/backoffice/pages/ProductManagement';
+import ProductDetail from './apps/backoffice/pages/ProductDetail';
+import MerchantManagement from './apps/backoffice/pages/MerchantManagement';
+import CategoryManagement from './apps/backoffice/pages/CategoryManagement';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
   const { isAuthenticated, user, isLoading } = useAuthStore();
@@ -89,6 +93,10 @@ export default function App() {
           <Route path="/backoffice/collections" element={<Collections />} />
           <Route path="/backoffice/collections/:id" element={<CollectionDetail />} />
           <Route path="/backoffice/new-application" element={<NewApplication />} />
+          <Route path="/backoffice/products" element={<ProductManagement />} />
+          <Route path="/backoffice/products/:id" element={<ProductDetail />} />
+          <Route path="/backoffice/merchants" element={<MerchantManagement />} />
+          <Route path="/backoffice/categories" element={<CategoryManagement />} />
         </Route>
 
         {/* Default redirect */}

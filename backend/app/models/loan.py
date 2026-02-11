@@ -46,6 +46,11 @@ class LoanApplication(Base):
         String(20), unique=True, index=True, nullable=False
     )
     applicant_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    merchant_id: Mapped[int | None] = mapped_column(ForeignKey("merchants.id"), nullable=True, index=True)
+    branch_id: Mapped[int | None] = mapped_column(ForeignKey("branches.id"), nullable=True, index=True)
+    credit_product_id: Mapped[int | None] = mapped_column(
+        ForeignKey("credit_products.id"), nullable=True, index=True
+    )
 
     # Loan details
     amount_requested: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
@@ -57,6 +62,8 @@ class LoanApplication(Base):
     interest_rate: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
     amount_approved: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     monthly_payment: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    downpayment: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    total_financed: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
 
     # Status
     status: Mapped[LoanStatus] = mapped_column(
@@ -89,6 +96,10 @@ class LoanApplication(Base):
 
     # Relationships
     applicant = relationship("User", back_populates="loan_applications", foreign_keys=[applicant_id])
+    merchant = relationship("Merchant", back_populates="loan_applications")
+    branch = relationship("Branch", back_populates="loan_applications")
+    credit_product = relationship("CreditProduct", back_populates="loan_applications")
+    items = relationship("ApplicationItem", back_populates="loan_application", cascade="all, delete-orphan")
     documents = relationship("Document", back_populates="loan_application")
     decisions = relationship("Decision", back_populates="loan_application")
     credit_reports = relationship("CreditReport", back_populates="loan_application")
@@ -139,3 +150,25 @@ class ApplicantProfile(Base):
 
     # Relationships
     user = relationship("User", back_populates="applicant_profile")
+
+
+class ApplicationItem(Base):
+    __tablename__ = "application_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    loan_application_id: Mapped[int] = mapped_column(
+        ForeignKey("loan_applications.id"), nullable=False, index=True
+    )
+    category_id: Mapped[int] = mapped_column(ForeignKey("product_categories.id"), nullable=False, index=True)
+    description: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    price: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    loan_application = relationship("LoanApplication", back_populates="items")
+    category = relationship("ProductCategory", back_populates="application_items")

@@ -1,7 +1,7 @@
 """Pydantic schemas for request/response validation."""
 
 from datetime import datetime, date
-from typing import Optional
+from typing import Optional, Literal
 from pydantic import BaseModel, EmailStr, Field, model_validator
 
 
@@ -86,6 +86,12 @@ class LoanApplicationCreate(BaseModel):
     term_months: int = Field(ge=3, le=84)
     purpose: str
     purpose_description: Optional[str] = None
+    merchant_id: Optional[int] = None
+    branch_id: Optional[int] = None
+    credit_product_id: Optional[int] = None
+    downpayment: Optional[float] = None
+    total_financed: Optional[float] = None
+    items: list["ApplicationItemCreate"] = []
 
 
 class LoanApplicationUpdate(BaseModel):
@@ -93,6 +99,11 @@ class LoanApplicationUpdate(BaseModel):
     term_months: Optional[int] = None
     purpose: Optional[str] = None
     purpose_description: Optional[str] = None
+    merchant_id: Optional[int] = None
+    branch_id: Optional[int] = None
+    credit_product_id: Optional[int] = None
+    downpayment: Optional[float] = None
+    total_financed: Optional[float] = None
 
 
 class LoanApplicationResponse(BaseModel):
@@ -107,6 +118,11 @@ class LoanApplicationResponse(BaseModel):
     interest_rate: Optional[float]
     amount_approved: Optional[float]
     monthly_payment: Optional[float]
+    merchant_id: Optional[int] = None
+    branch_id: Optional[int] = None
+    credit_product_id: Optional[int] = None
+    downpayment: Optional[float] = None
+    total_financed: Optional[float] = None
     status: str
     assigned_underwriter_id: Optional[int]
     # Counterproposal
@@ -131,6 +147,232 @@ class LoanSubmitResponse(BaseModel):
     reference_number: str
     status: str
     message: str
+
+
+class ApplicationItemCreate(BaseModel):
+    category_id: int
+    description: Optional[str] = None
+    price: float = Field(gt=0)
+    quantity: int = Field(ge=1, default=1)
+
+
+class ApplicationItemResponse(BaseModel):
+    id: int
+    loan_application_id: int
+    category_id: int
+    category_name: Optional[str] = None
+    description: Optional[str]
+    price: float
+    quantity: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ── Catalog / Admin ──────────────────────────────────
+
+FeeTypeLiteral = Literal[
+    "admin_fee_pct",
+    "credit_fee_pct",
+    "origination_fee_pct",
+    "origination_fee_flat",
+    "late_payment_fee_flat",
+]
+FeeBaseLiteral = Literal["purchase_amount", "financed_amount", "flat"]
+
+
+class MerchantCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=150)
+    is_active: bool = True
+
+
+class MerchantUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=150)
+    is_active: Optional[bool] = None
+
+
+class MerchantResponse(BaseModel):
+    id: int
+    name: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class BranchCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=150)
+    address: Optional[str] = Field(default=None, max_length=255)
+    is_online: bool = False
+    is_active: bool = True
+
+
+class BranchUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=150)
+    address: Optional[str] = Field(default=None, max_length=255)
+    is_online: Optional[bool] = None
+    is_active: Optional[bool] = None
+
+
+class BranchResponse(BaseModel):
+    id: int
+    merchant_id: int
+    name: str
+    address: Optional[str]
+    is_online: bool
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ProductCategoryCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
+
+class ProductCategoryUpdate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
+
+class ProductCategoryResponse(BaseModel):
+    id: int
+    name: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ProductScoreRangeCreate(BaseModel):
+    min_score: int = Field(ge=0, le=1000)
+    max_score: int = Field(ge=0, le=1000)
+
+
+class ProductScoreRangeUpdate(BaseModel):
+    min_score: Optional[int] = Field(default=None, ge=0, le=1000)
+    max_score: Optional[int] = Field(default=None, ge=0, le=1000)
+
+
+class ProductScoreRangeResponse(BaseModel):
+    id: int
+    credit_product_id: int
+    min_score: int
+    max_score: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ProductFeeCreate(BaseModel):
+    fee_type: FeeTypeLiteral
+    fee_base: FeeBaseLiteral
+    fee_amount: float = Field(ge=0)
+    is_available: bool = True
+
+
+class ProductFeeUpdate(BaseModel):
+    fee_type: Optional[FeeTypeLiteral] = None
+    fee_base: Optional[FeeBaseLiteral] = None
+    fee_amount: Optional[float] = Field(default=None, ge=0)
+    is_available: Optional[bool] = None
+
+
+class ProductFeeResponse(BaseModel):
+    id: int
+    credit_product_id: int
+    fee_type: str
+    fee_base: str
+    fee_amount: float
+    is_available: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class CreditProductCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=180)
+    description: Optional[str] = None
+    merchant_id: Optional[int] = None
+    min_term_months: int = Field(ge=1, le=120)
+    max_term_months: int = Field(ge=1, le=120)
+    min_amount: float = Field(gt=0)
+    max_amount: float = Field(gt=0)
+    repayment_scheme: str = Field(min_length=1, max_length=200)
+    grace_period_days: int = Field(ge=0, le=365, default=0)
+    is_active: bool = True
+    score_ranges: list[ProductScoreRangeCreate] = []
+    fees: list[ProductFeeCreate] = []
+
+
+class CreditProductUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=180)
+    description: Optional[str] = None
+    merchant_id: Optional[int] = None
+    min_term_months: Optional[int] = Field(default=None, ge=1, le=120)
+    max_term_months: Optional[int] = Field(default=None, ge=1, le=120)
+    min_amount: Optional[float] = Field(default=None, gt=0)
+    max_amount: Optional[float] = Field(default=None, gt=0)
+    repayment_scheme: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    grace_period_days: Optional[int] = Field(default=None, ge=0, le=365)
+    is_active: Optional[bool] = None
+
+
+class CreditProductResponse(BaseModel):
+    id: int
+    name: str
+    description: Optional[str]
+    merchant_id: Optional[int]
+    merchant_name: Optional[str] = None
+    min_term_months: int
+    max_term_months: int
+    min_amount: float
+    max_amount: float
+    repayment_scheme: str
+    grace_period_days: int
+    is_active: bool
+    score_ranges: list[ProductScoreRangeResponse] = []
+    fees: list[ProductFeeResponse] = []
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PaymentCalculationRequest(BaseModel):
+    product_id: int
+    total_amount: float = Field(gt=0)
+    term_months: int = Field(ge=1, le=120)
+
+
+class PaymentCalendarEntry(BaseModel):
+    installment_number: int
+    due_date: date
+    principal: float
+    interest: float
+    fees: float
+    amount_due: float
+
+
+class FeeBreakdownEntry(BaseModel):
+    fee_type: str
+    fee_base: str
+    fee_amount: float
+
+
+class PaymentCalculationResponse(BaseModel):
+    product_id: int
+    total_amount: float
+    total_financed: float
+    downpayment: float
+    fees_due_upfront: float
+    term_months: int
+    monthly_payment: float
+    fees_breakdown: list[FeeBreakdownEntry]
+    payment_calendar: list[PaymentCalendarEntry]
 
 
 # ── Decision ──────────────────────────────────────────

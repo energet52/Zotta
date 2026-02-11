@@ -6,8 +6,20 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.database import engine, Base
-from app.api import auth, loans, underwriter, verification, reports, whatsapp, payments, collections
+from app.database import engine, Base, async_session
+from app.api import (
+    auth,
+    loans,
+    underwriter,
+    verification,
+    reports,
+    whatsapp,
+    payments,
+    collections,
+    admin,
+    catalog,
+)
+from app.seed_catalog import seed_catalog_data
 
 
 @asynccontextmanager
@@ -16,6 +28,8 @@ async def lifespan(app: FastAPI):
     if settings.environment == "development":
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+        async with async_session() as db:
+            await seed_catalog_data(db)
     yield
 
 
@@ -44,6 +58,8 @@ app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
 app.include_router(whatsapp.router, prefix="/api/whatsapp", tags=["WhatsApp"])
 app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
 app.include_router(collections.router, prefix="/api/collections", tags=["Collections"])
+app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
+app.include_router(catalog.router, prefix="/api/catalog", tags=["Catalog"])
 
 
 @app.get("/api/health")
