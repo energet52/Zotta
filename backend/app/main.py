@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import engine, Base, async_session
+from app.middleware.error_capture import ErrorCaptureMiddleware
 from app.api import (
     auth,
     loans,
@@ -22,6 +23,7 @@ from app.api import (
     customers,
     gl,
     sector_analysis,
+    error_logs,
 )
 from app.seed_catalog import seed_catalog_data
 from app.seed_gl import seed_gl_data
@@ -47,6 +49,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Error capture middleware (outermost — catches everything)
+app.add_middleware(ErrorCaptureMiddleware)
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
@@ -71,6 +76,7 @@ app.include_router(conversations.router, prefix="/api/conversations", tags=["Con
 app.include_router(customers.router, prefix="/api/customers", tags=["Customer 360"])
 app.include_router(gl.router, prefix="/api/gl", tags=["General Ledger"])
 app.include_router(sector_analysis.router, prefix="/api/sector-analysis", tags=["Sector Analysis"])
+app.include_router(error_logs.router, prefix="/api/error-logs", tags=["Error Monitoring"])
 
 
 @app.get("/api/health")

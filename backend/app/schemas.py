@@ -747,6 +747,189 @@ class CollectionQueueEntry(BaseModel):
     total_paid: float = 0
     outstanding_balance: float = 0
     phone: Optional[str] = None
+    # Enhanced fields from CollectionCase
+    case_id: Optional[int] = None
+    case_status: Optional[str] = None
+    delinquency_stage: Optional[str] = None
+    assigned_agent_id: Optional[int] = None
+    assigned_agent_name: Optional[str] = None
+    next_best_action: Optional[str] = None
+    nba_confidence: Optional[float] = None
+    dispute_active: bool = False
+    vulnerability_flag: bool = False
+    do_not_contact: bool = False
+    hardship_flag: bool = False
+    priority_score: float = 0.0
+    compliance_ok: Optional[bool] = None
+
+
+# ── Collection Case ──────────────────────────────────
+
+class CollectionCaseResponse(BaseModel):
+    id: int
+    loan_application_id: int
+    assigned_agent_id: Optional[int] = None
+    assigned_agent_name: Optional[str] = None
+    status: str
+    delinquency_stage: str
+    priority_score: float
+    dpd: int
+    total_overdue: float
+    dispute_active: bool
+    vulnerability_flag: bool
+    do_not_contact: bool
+    hardship_flag: bool
+    next_best_action: Optional[str] = None
+    nba_confidence: float = 0
+    nba_reasoning: Optional[str] = None
+    first_contact_at: Optional[datetime] = None
+    last_contact_at: Optional[datetime] = None
+    sla_first_contact_deadline: Optional[datetime] = None
+    sla_next_contact_deadline: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class CollectionCaseUpdate(BaseModel):
+    assigned_agent_id: Optional[int] = None
+    status: Optional[str] = None
+    dispute_active: Optional[bool] = None
+    vulnerability_flag: Optional[bool] = None
+    do_not_contact: Optional[bool] = None
+    hardship_flag: Optional[bool] = None
+
+
+class NBAOverrideRequest(BaseModel):
+    action: str
+    reason: str = Field(min_length=5)
+
+
+# ── Promise to Pay ───────────────────────────────────
+
+class PromiseToPayCreate(BaseModel):
+    amount_promised: float = Field(gt=0)
+    promise_date: date
+    payment_method: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class PromiseToPayResponse(BaseModel):
+    id: int
+    collection_case_id: int
+    loan_application_id: int
+    agent_id: int
+    agent_name: Optional[str] = None
+    amount_promised: float
+    promise_date: date
+    payment_method: Optional[str]
+    status: str
+    amount_received: float
+    reminded_at: Optional[datetime] = None
+    broken_at: Optional[datetime] = None
+    notes: Optional[str]
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PromiseToPayUpdate(BaseModel):
+    status: Optional[str] = None
+    notes: Optional[str] = None
+
+
+# ── Settlement Offer ─────────────────────────────────
+
+class SettlementOfferCreate(BaseModel):
+    offer_type: str
+    settlement_amount: float = Field(gt=0)
+    discount_pct: float = 0
+    plan_months: Optional[int] = None
+    plan_monthly_amount: Optional[float] = None
+    lump_sum: Optional[float] = None
+    notes: Optional[str] = None
+    auto_calculate: bool = False  # If true, ignore amounts and auto-calc
+
+
+class SettlementOfferResponse(BaseModel):
+    id: int
+    collection_case_id: int
+    loan_application_id: int
+    offer_type: str
+    original_balance: float
+    settlement_amount: float
+    discount_pct: float
+    plan_months: Optional[int]
+    plan_monthly_amount: Optional[float]
+    lump_sum: Optional[float]
+    status: str
+    offered_by: int
+    offered_by_name: Optional[str] = None
+    approved_by: Optional[int] = None
+    approved_by_name: Optional[str] = None
+    approval_required: bool
+    expires_at: Optional[datetime] = None
+    accepted_at: Optional[datetime] = None
+    notes: Optional[str]
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ── Compliance Rule ──────────────────────────────────
+
+class ComplianceRuleCreate(BaseModel):
+    jurisdiction: str = Field(min_length=2, max_length=10)
+    contact_start_hour: int = Field(ge=0, le=23, default=8)
+    contact_end_hour: int = Field(ge=1, le=24, default=20)
+    max_contacts_per_day: int = Field(ge=1, default=3)
+    max_contacts_per_week: int = Field(ge=1, default=10)
+    cooling_off_hours: int = Field(ge=0, default=4)
+    is_active: bool = True
+
+
+class ComplianceRuleResponse(BaseModel):
+    id: int
+    jurisdiction: str
+    contact_start_hour: int
+    contact_end_hour: int
+    max_contacts_per_day: int
+    max_contacts_per_week: int
+    cooling_off_hours: int
+    is_active: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ComplianceCheckRequest(BaseModel):
+    case_id: int
+    jurisdiction: str = "TT"
+
+
+class ComplianceCheckResponse(BaseModel):
+    allowed: bool
+    reasons: list[str]
+    next_allowed_at: Optional[str] = None
+
+
+# ── Collections Dashboard ────────────────────────────
+
+class CollectionsDashboardResponse(BaseModel):
+    total_delinquent_accounts: int = 0
+    total_overdue_amount: float = 0
+    by_stage: dict = {}
+    trend: list[dict] = []
+    cure_rate: float = 0
+    ptp_rate: float = 0
+    ptp_kept_rate: float = 0
+    recovered_mtd: float = 0
+
+
+class BulkAssignRequest(BaseModel):
+    case_ids: list[int]
+    agent_id: int
 
 
 # ── Report History ───────────────────────────────────

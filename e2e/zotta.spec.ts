@@ -7583,3 +7583,253 @@ test.describe('Sector Analysis – API tests', () => {
     expect(res.status()).toBe(403);
   });
 });
+
+
+// ════════════════════════════════════════════════════════════════════
+// Collections Module Upgrade — API Tests
+// ════════════════════════════════════════════════════════════════════
+
+test.describe('Collections Module — API tests', () => {
+  const API = 'http://localhost:8000/api';
+
+  async function getAdminToken(request: import('@playwright/test').APIRequestContext) {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'admin@zotta.tt', password: 'Admin123!' },
+    });
+    const { access_token } = await loginRes.json();
+    return { Authorization: `Bearer ${access_token}` };
+  }
+
+  test('GET /collections/queue returns enhanced queue', async ({ request }) => {
+    const headers = await getAdminToken(request);
+    const res = await request.get(`${API}/collections/queue`, { headers });
+    expect(res.status()).toBe(200);
+    const data = await res.json();
+    expect(Array.isArray(data)).toBe(true);
+  });
+
+  test('GET /collections/queue with search filter', async ({ request }) => {
+    const headers = await getAdminToken(request);
+    const res = await request.get(`${API}/collections/queue?search=notexist999`, { headers });
+    expect(res.status()).toBe(200);
+    const data = await res.json();
+    expect(Array.isArray(data)).toBe(true);
+  });
+
+  test('GET /collections/cases returns collection cases', async ({ request }) => {
+    const headers = await getAdminToken(request);
+    const res = await request.get(`${API}/collections/cases`, { headers });
+    expect(res.status()).toBe(200);
+    const data = await res.json();
+    expect(Array.isArray(data)).toBe(true);
+    if (data.length > 0) {
+      expect(data[0]).toHaveProperty('id');
+      expect(data[0]).toHaveProperty('dpd');
+      expect(data[0]).toHaveProperty('delinquency_stage');
+      expect(data[0]).toHaveProperty('status');
+      expect(data[0]).toHaveProperty('total_overdue');
+    }
+  });
+
+  test('GET /collections/cases with stage filter', async ({ request }) => {
+    const headers = await getAdminToken(request);
+    const res = await request.get(`${API}/collections/cases?stage=early_1_30`, { headers });
+    expect(res.status()).toBe(200);
+    const data = await res.json();
+    for (const c of data) {
+      expect(c.delinquency_stage).toBe('early_1_30');
+    }
+  });
+
+  test('GET /collections/cases/{id} returns case detail', async ({ request }) => {
+    const headers = await getAdminToken(request);
+    const listRes = await request.get(`${API}/collections/cases?limit=1`, { headers });
+    const cases = await listRes.json();
+    if (cases.length === 0) return;
+
+    const caseId = cases[0].id;
+    const res = await request.get(`${API}/collections/cases/${caseId}`, { headers });
+    expect(res.status()).toBe(200);
+    const c = await res.json();
+    expect(c.id).toBe(caseId);
+    expect(c).toHaveProperty('next_best_action');
+    expect(c).toHaveProperty('nba_reasoning');
+  });
+
+  test('PATCH /collections/cases/{id} updates flags', async ({ request }) => {
+    const headers = await getAdminToken(request);
+    const listRes = await request.get(`${API}/collections/cases?limit=1`, { headers });
+    const cases = await listRes.json();
+    if (cases.length === 0) return;
+
+    const caseId = cases[0].id;
+    const res = await request.patch(`${API}/collections/cases/${caseId}`, {
+      headers,
+      data: { dispute_active: true },
+    });
+    expect(res.status()).toBe(200);
+    const updated = await res.json();
+    expect(updated.dispute_active).toBe(true);
+
+    // Reset
+    await request.patch(`${API}/collections/cases/${caseId}`, {
+      headers,
+      data: { dispute_active: false },
+    });
+  });
+
+  test('POST /collections/cases/{id}/ptp creates PTP', async ({ request }) => {
+    const headers = await getAdminToken(request);
+    const listRes = await request.get(`${API}/collections/cases?limit=1`, { headers });
+    const cases = await listRes.json();
+    if (cases.length === 0) return;
+
+    const caseId = cases[0].id;
+    const res = await request.post(`${API}/collections/cases/${caseId}/ptp`, {
+      headers,
+      data: {
+        amount_promised: 500,
+        promise_date: '2026-03-01',
+        payment_method: 'bank_transfer',
+        notes: 'E2E test PTP',
+      },
+    });
+    expect(res.status()).toBe(200);
+    const ptp = await res.json();
+    expect(ptp.amount_promised).toBe(500);
+    expect(ptp.status).toBe('pending');
+  });
+
+  test('GET /collections/cases/{id}/ptps lists PTPs', async ({ request }) => {
+    const headers = await getAdminToken(request);
+    const listRes = await request.get(`${API}/collections/cases?limit=1`, { headers });
+    const cases = await listRes.json();
+    if (cases.length === 0) return;
+
+    const caseId = cases[0].id;
+    const res = await request.get(`${API}/collections/cases/${caseId}/ptps`, { headers });
+    expect(res.status()).toBe(200);
+    expect(Array.isArray(await res.json())).toBe(true);
+  });
+
+  test('POST /collections/cases/{id}/settlement auto-calculates', async ({ request }) => {
+    const headers = await getAdminToken(request);
+    const listRes = await request.get(`${API}/collections/cases?limit=1`, { headers });
+    const cases = await listRes.json();
+    if (cases.length === 0) return;
+
+    const caseId = cases[0].id;
+    const res = await request.post(`${API}/collections/cases/${caseId}/settlement`, {
+      headers,
+      data: { auto_calculate: true, offer_type: 'full_payment', settlement_amount: 1 },
+    });
+    expect(res.status()).toBe(200);
+    const offers = await res.json();
+    expect(Array.isArray(offers)).toBe(true);
+    expect(offers.length).toBeGreaterThan(0);
+    expect(offers[0]).toHaveProperty('offer_type');
+    expect(offers[0]).toHaveProperty('settlement_amount');
+  });
+
+  test('GET /collections/cases/{id}/settlements lists offers', async ({ request }) => {
+    const headers = await getAdminToken(request);
+    const listRes = await request.get(`${API}/collections/cases?limit=1`, { headers });
+    const cases = await listRes.json();
+    if (cases.length === 0) return;
+
+    const caseId = cases[0].id;
+    const res = await request.get(`${API}/collections/cases/${caseId}/settlements`, { headers });
+    expect(res.status()).toBe(200);
+    expect(Array.isArray(await res.json())).toBe(true);
+  });
+
+  test('GET /collections/dashboard returns analytics', async ({ request }) => {
+    const headers = await getAdminToken(request);
+    const res = await request.get(`${API}/collections/dashboard`, { headers });
+    expect(res.status()).toBe(200);
+    const data = await res.json();
+    expect(data).toHaveProperty('total_delinquent_accounts');
+    expect(data).toHaveProperty('total_overdue_amount');
+    expect(data).toHaveProperty('by_stage');
+    expect(data).toHaveProperty('trend');
+    expect(data).toHaveProperty('cure_rate');
+  });
+
+  test('GET /collections/dashboard/agent-performance', async ({ request }) => {
+    const headers = await getAdminToken(request);
+    const res = await request.get(`${API}/collections/dashboard/agent-performance`, { headers });
+    expect(res.status()).toBe(200);
+    const data = await res.json();
+    expect(Array.isArray(data)).toBe(true);
+  });
+
+  test('GET /collections/compliance-rules returns rules', async ({ request }) => {
+    const headers = await getAdminToken(request);
+    const res = await request.get(`${API}/collections/compliance-rules`, { headers });
+    expect(res.status()).toBe(200);
+    const rules = await res.json();
+    expect(Array.isArray(rules)).toBe(true);
+    if (rules.length > 0) {
+      expect(rules[0]).toHaveProperty('jurisdiction');
+      expect(rules[0]).toHaveProperty('contact_start_hour');
+    }
+  });
+
+  test('POST /collections/compliance-rules creates/updates rule', async ({ request }) => {
+    const headers = await getAdminToken(request);
+    const res = await request.post(`${API}/collections/compliance-rules`, {
+      headers,
+      data: {
+        jurisdiction: 'E2E',
+        contact_start_hour: 9,
+        contact_end_hour: 18,
+        max_contacts_per_day: 2,
+        max_contacts_per_week: 8,
+        cooling_off_hours: 6,
+        is_active: true,
+      },
+    });
+    expect(res.status()).toBe(200);
+    const rule = await res.json();
+    expect(rule.jurisdiction).toBe('E2E');
+    expect(rule.contact_start_hour).toBe(9);
+  });
+
+  test('POST /collections/check-compliance checks contact permission', async ({ request }) => {
+    const headers = await getAdminToken(request);
+    const listRes = await request.get(`${API}/collections/cases?limit=1`, { headers });
+    const cases = await listRes.json();
+    if (cases.length === 0) return;
+
+    const caseId = cases[0].id;
+    const res = await request.post(`${API}/collections/check-compliance`, {
+      headers,
+      data: { case_id: caseId, jurisdiction: 'TT' },
+    });
+    expect(res.status()).toBe(200);
+    const result = await res.json();
+    expect(result).toHaveProperty('allowed');
+    expect(result).toHaveProperty('reasons');
+    expect(typeof result.allowed).toBe('boolean');
+  });
+
+  test('POST /collections/sync-cases triggers sync', async ({ request }) => {
+    const headers = await getAdminToken(request);
+    const res = await request.post(`${API}/collections/sync-cases`, { headers });
+    expect(res.status()).toBe(200);
+    const result = await res.json();
+    expect(result).toHaveProperty('created');
+    expect(result).toHaveProperty('updated');
+  });
+
+  test('unauthorized user cannot access collections', async ({ request }) => {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'marcus.mohammed0@email.com', password: 'Applicant1!' },
+    });
+    const { access_token } = await loginRes.json();
+    const headers = { Authorization: `Bearer ${access_token}` };
+
+    const res = await request.get(`${API}/collections/cases`, { headers });
+    expect(res.status()).toBe(403);
+  });
+});

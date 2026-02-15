@@ -12,6 +12,7 @@ from app.models.conversation import Conversation, ConversationMessage, Conversat
 from app.models.loan import LoanApplication, ApplicantProfile
 from app.models.payment import PaymentSchedule, Payment
 from app.models.user import User
+from app.services.error_logger import log_error
 from app.services.intent_classifier import classify_intent
 from app.services.product_recommender import get_recommended_products
 from app.services.payment_calculator import calculate_payment as calc_payment
@@ -81,128 +82,132 @@ async def process_conversation_message(
         Tuple of (response_text, metadata_dict or None).
         metadata can include: intent, extracted_data, suggested_state_transition.
     """
-    # Build context from application if linked
-    context = ""
-    if conversation.loan_application_id:
-        app_context = await _get_application_context(conversation.loan_application_id, db)
-        if app_context:
-            context = app_context
-
-    # Build participant context
-    if conversation.participant_user_id:
-        user_context = await _get_user_context(conversation.participant_user_id, db)
-        if user_context:
-            context = (context + "\n\n" + user_context).strip() if context else user_context
-
-    # Build message history
-    history = []
-    if conversation.messages:
-        for m in conversation.messages[-10:]:
-            role = "user" if m.role == MessageRole.USER else "assistant"
-            history.append({"role": role, "content": m.content})
-
-    # Classify intent
-    history_tuples = [(m["role"], m["content"]) for m in history]
-    intent, confidence = await classify_intent(
-        user_message, history_tuples, db, conversation.participant_user_id
-    )
-    metadata = {"intent": intent, "confidence": confidence}
-
-    # Entry point handling
-    entry_instruction = ""
-    if conversation.entry_point:
-        ep = conversation.entry_point.value
-        if ep == "pre_qualified" and conversation.entry_context:
-            ctx = conversation.entry_context
-            entry_instruction = f"\nEntry context: Borrower arrived via pre-qualified link. Context: {ctx}. Acknowledge and skip redundant discovery."
-        elif ep == "returning_applicant":
-            entry_instruction = "\nEntry context: Borrower may have an incomplete application. Offer to continue from where they left off."
-        elif ep == "existing_customer":
-            entry_instruction = "\nEntry context: Borrower is an existing customer. Reference their prior loans if in context."
-        elif ep == "servicing":
-            entry_instruction = "\nEntry context: Route to servicing flow (balance, payment, payoff, restructure)."
-
-    # Product recommendation when intent is new_loan and user describes a need
-    product_context = ""
-    if intent == "new_loan" and len(user_message.split()) > 3:
-        products = await get_recommended_products(user_message, None, db)
-        if products:
-            lines = ["Available products that may suit their need:"]
-            for p in products:
-                lines.append(f"  - {p['name']}: TTD {p['min_amount']:,.0f}-{p['max_amount']:,.0f}, {p['term_range']}. {p['plain_reason']}")
-            product_context = "\n".join(lines)
-
-    # Document requirements when in DOCUMENTS_PENDING
-    doc_context = ""
-    if conversation.current_state == ConversationState.DOCUMENTS_PENDING:
-        from app.services.document_requirements import get_required_documents
-        employment_type = None
-        amount = 0
+    try:
+        # Build context from application if linked
+        context = ""
         if conversation.loan_application_id:
-            app_r = await db.execute(select(LoanApplication).where(LoanApplication.id == conversation.loan_application_id))
-            app = app_r.scalar_one_or_none()
-            if app:
-                amount = float(app.amount_requested)
-                if conversation.participant_user_id:
-                    prof_r = await db.execute(
-                        select(ApplicantProfile).where(ApplicantProfile.user_id == conversation.participant_user_id)
-                    )
-                    prof = prof_r.scalar_one_or_none()
-                    if prof:
-                        employment_type = prof.employment_type
-        docs = get_required_documents(employment_type, amount, is_secured=False)
-        lines = ["Required documents for this application:"]
-        for d in docs:
-            lines.append(f"  - {d['label']}: {d['why']}")
-        doc_context = "\n".join(lines)
+            app_context = await _get_application_context(conversation.loan_application_id, db)
+            if app_context:
+                context = app_context
 
-    # Pre-qualification and payment illustration when we have application + profile
-    prequal_context = ""
-    if conversation.loan_application_id and conversation.participant_user_id:
-        app_ctx = await _get_application_and_profile(
-            conversation.loan_application_id, conversation.participant_user_id, db
+        # Build participant context
+        if conversation.participant_user_id:
+            user_context = await _get_user_context(conversation.participant_user_id, db)
+            if user_context:
+                context = (context + "\n\n" + user_context).strip() if context else user_context
+
+        # Build message history
+        history = []
+        if conversation.messages:
+            for m in conversation.messages[-10:]:
+                role = "user" if m.role == MessageRole.USER else "assistant"
+                history.append({"role": role, "content": m.content})
+
+        # Classify intent
+        history_tuples = [(m["role"], m["content"]) for m in history]
+        intent, confidence = await classify_intent(
+            user_message, history_tuples, db, conversation.participant_user_id
         )
-        if app_ctx:
-            prequal_context = app_ctx
+        metadata = {"intent": intent, "confidence": confidence}
 
-    # System prompt with state and entry point
-    system = SYSTEM_PROMPT.format(
-        current_state=conversation.current_state.value,
-        entry_point_instruction=entry_instruction or "",
-    )
+        # Entry point handling
+        entry_instruction = ""
+        if conversation.entry_point:
+            ep = conversation.entry_point.value
+            if ep == "pre_qualified" and conversation.entry_context:
+                ctx = conversation.entry_context
+                entry_instruction = f"\nEntry context: Borrower arrived via pre-qualified link. Context: {ctx}. Acknowledge and skip redundant discovery."
+            elif ep == "returning_applicant":
+                entry_instruction = "\nEntry context: Borrower may have an incomplete application. Offer to continue from where they left off."
+            elif ep == "existing_customer":
+                entry_instruction = "\nEntry context: Borrower is an existing customer. Reference their prior loans if in context."
+            elif ep == "servicing":
+                entry_instruction = "\nEntry context: Route to servicing flow (balance, payment, payoff, restructure)."
 
-    messages = [{"role": "system", "content": system}]
-    ctx_parts = [context] if context else []
-    if product_context:
-        ctx_parts.append(product_context)
-    if doc_context:
-        ctx_parts.append(doc_context)
-    if prequal_context:
-        ctx_parts.append(prequal_context)
-    if ctx_parts:
-        messages.append({"role": "system", "content": "Context:\n\n" + "\n\n".join(ctx_parts)})
-    messages.extend(history)
-    messages.append({"role": "user", "content": user_message})
+        # Product recommendation when intent is new_loan and user describes a need
+        product_context = ""
+        if intent == "new_loan" and len(user_message.split()) > 3:
+            products = await get_recommended_products(user_message, None, db)
+            if products:
+                lines = ["Available products that may suit their need:"]
+                for p in products:
+                    lines.append(f"  - {p['name']}: TTD {p['min_amount']:,.0f}-{p['max_amount']:,.0f}, {p['term_range']}. {p['plain_reason']}")
+                product_context = "\n".join(lines)
+
+        # Document requirements when in DOCUMENTS_PENDING
+        doc_context = ""
+        if conversation.current_state == ConversationState.DOCUMENTS_PENDING:
+            from app.services.document_requirements import get_required_documents
+            employment_type = None
+            amount = 0
+            if conversation.loan_application_id:
+                app_r = await db.execute(select(LoanApplication).where(LoanApplication.id == conversation.loan_application_id))
+                app = app_r.scalar_one_or_none()
+                if app:
+                    amount = float(app.amount_requested)
+                    if conversation.participant_user_id:
+                        prof_r = await db.execute(
+                            select(ApplicantProfile).where(ApplicantProfile.user_id == conversation.participant_user_id)
+                        )
+                        prof = prof_r.scalar_one_or_none()
+                        if prof:
+                            employment_type = prof.employment_type
+            docs = get_required_documents(employment_type, amount, is_secured=False)
+            lines = ["Required documents for this application:"]
+            for d in docs:
+                lines.append(f"  - {d['label']}: {d['why']}")
+            doc_context = "\n".join(lines)
+
+        # Pre-qualification and payment illustration when we have application + profile
+        prequal_context = ""
+        if conversation.loan_application_id and conversation.participant_user_id:
+            app_ctx = await _get_application_and_profile(
+                conversation.loan_application_id, conversation.participant_user_id, db
+            )
+            if app_ctx:
+                prequal_context = app_ctx
+
+        # System prompt with state and entry point
+        system = SYSTEM_PROMPT.format(
+            current_state=conversation.current_state.value,
+            entry_point_instruction=entry_instruction or "",
+        )
+
+        messages = [{"role": "system", "content": system}]
+        ctx_parts = [context] if context else []
+        if product_context:
+            ctx_parts.append(product_context)
+        if doc_context:
+            ctx_parts.append(doc_context)
+        if prequal_context:
+            ctx_parts.append(prequal_context)
+        if ctx_parts:
+            messages.append({"role": "system", "content": "Context:\n\n" + "\n\n".join(ctx_parts)})
+        messages.extend(history)
+        messages.append({"role": "user", "content": user_message})
 
     # Call LLM
-    try:
-        if not settings.openai_api_key or settings.openai_api_key == "your-openai-api-key":
-            reply = _fallback_response(user_message, context, conversation.current_state)
-            return reply, None
+        try:
+            if not settings.openai_api_key or settings.openai_api_key == "your-openai-api-key":
+                reply = _fallback_response(user_message, context, conversation.current_state)
+                return reply, None
 
-        import openai
-        client = openai.AsyncOpenAI(api_key=settings.openai_api_key)
-        response = await client.chat.completions.create(
-            model=settings.openai_model,
-            messages=messages,
-            max_tokens=500,
-            temperature=0.7,
-        )
-        reply = response.choices[0].message.content
-        metadata["reasoning"] = "Generated from conversation context"
-        return reply, metadata
-    except Exception:
-        return _fallback_response(user_message, context, conversation.current_state), None
+            import openai
+            client = openai.AsyncOpenAI(api_key=settings.openai_api_key)
+            response = await client.chat.completions.create(
+                model=settings.openai_model,
+                messages=messages,
+                max_tokens=500,
+                temperature=0.7,
+            )
+            reply = response.choices[0].message.content
+            metadata["reasoning"] = "Generated from conversation context"
+            return reply, metadata
+        except Exception:
+            return _fallback_response(user_message, context, conversation.current_state), None
+    except Exception as e:
+        await log_error(e, db=db, module="services.conversation_processor", function_name="process_conversation_message")
+        raise
 
 
 def _fallback_response(

@@ -1,3 +1,5 @@
+from app.services.error_logger import log_error
+import logging
 """Sector Analysis API — portfolio concentration and risk management endpoints.
 
 Provides:
@@ -177,11 +179,17 @@ async def list_policies(
     db: AsyncSession = Depends(get_db),
 ):
     """List all sector policies."""
-    q = await db.execute(
-        select(SectorPolicy).order_by(SectorPolicy.sector)
-    )
-    policies = q.scalars().all()
-    return [_policy_to_dict(p) for p in policies]
+    try:
+        q = await db.execute(
+            select(SectorPolicy).order_by(SectorPolicy.sector)
+        )
+        policies = q.scalars().all()
+        return [_policy_to_dict(p) for p in policies]
+    except HTTPException:
+        raise
+    except Exception as e:
+        await log_error(e, db=db, module="api.sector_analysis", function_name="list_policies")
+        raise
 
 
 @router.post("/policies")
@@ -191,33 +199,39 @@ async def create_policy(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new sector policy (maker). Requires approval (checker) if not admin."""
-    status = SectorPolicyStatus.ACTIVE if user.role == UserRole.ADMIN else SectorPolicyStatus.PENDING_APPROVAL
+    try:
+        status = SectorPolicyStatus.ACTIVE if user.role == UserRole.ADMIN else SectorPolicyStatus.PENDING_APPROVAL
 
-    policy = SectorPolicy(
-        sector=body.sector,
-        exposure_cap_pct=body.exposure_cap_pct,
-        exposure_cap_amount=body.exposure_cap_amount,
-        origination_paused=body.origination_paused,
-        pause_effective_date=date.fromisoformat(body.pause_effective_date) if body.pause_effective_date else None,
-        pause_expiry_date=date.fromisoformat(body.pause_expiry_date) if body.pause_expiry_date else None,
-        pause_reason=body.pause_reason,
-        max_loan_amount_override=body.max_loan_amount_override,
-        min_credit_score_override=body.min_credit_score_override,
-        max_term_months_override=body.max_term_months_override,
-        require_collateral=body.require_collateral,
-        require_guarantor=body.require_guarantor,
-        risk_rating=SectorRiskRating(body.risk_rating),
-        on_watchlist=body.on_watchlist,
-        watchlist_review_frequency=body.watchlist_review_frequency,
-        status=status,
-        created_by=user.id,
-        approved_by=user.id if user.role == UserRole.ADMIN else None,
-        justification=body.justification,
-    )
-    db.add(policy)
-    await db.flush()
-    await db.refresh(policy)
-    return _policy_to_dict(policy)
+        policy = SectorPolicy(
+            sector=body.sector,
+            exposure_cap_pct=body.exposure_cap_pct,
+            exposure_cap_amount=body.exposure_cap_amount,
+            origination_paused=body.origination_paused,
+            pause_effective_date=date.fromisoformat(body.pause_effective_date) if body.pause_effective_date else None,
+            pause_expiry_date=date.fromisoformat(body.pause_expiry_date) if body.pause_expiry_date else None,
+            pause_reason=body.pause_reason,
+            max_loan_amount_override=body.max_loan_amount_override,
+            min_credit_score_override=body.min_credit_score_override,
+            max_term_months_override=body.max_term_months_override,
+            require_collateral=body.require_collateral,
+            require_guarantor=body.require_guarantor,
+            risk_rating=SectorRiskRating(body.risk_rating),
+            on_watchlist=body.on_watchlist,
+            watchlist_review_frequency=body.watchlist_review_frequency,
+            status=status,
+            created_by=user.id,
+            approved_by=user.id if user.role == UserRole.ADMIN else None,
+            justification=body.justification,
+        )
+        db.add(policy)
+        await db.flush()
+        await db.refresh(policy)
+        return _policy_to_dict(policy)
+    except HTTPException:
+        raise
+    except Exception as e:
+        await log_error(e, db=db, module="api.sector_analysis", function_name="create_policy")
+        raise
 
 
 @router.patch("/policies/{policy_id}")
@@ -228,22 +242,28 @@ async def update_policy(
     db: AsyncSession = Depends(get_db),
 ):
     """Update a sector policy."""
-    q = await db.execute(select(SectorPolicy).where(SectorPolicy.id == policy_id))
-    policy = q.scalar_one_or_none()
-    if not policy:
-        raise HTTPException(404, "Policy not found")
+    try:
+        q = await db.execute(select(SectorPolicy).where(SectorPolicy.id == policy_id))
+        policy = q.scalar_one_or_none()
+        if not policy:
+            raise HTTPException(404, "Policy not found")
 
-    for field, value in body.model_dump(exclude_unset=True).items():
-        if field == "risk_rating" and value is not None:
-            setattr(policy, field, SectorRiskRating(value))
-        elif field in ("pause_effective_date", "pause_expiry_date") and value is not None:
-            setattr(policy, field, date.fromisoformat(value))
-        elif value is not None:
-            setattr(policy, field, value)
+        for field, value in body.model_dump(exclude_unset=True).items():
+            if field == "risk_rating" and value is not None:
+                setattr(policy, field, SectorRiskRating(value))
+            elif field in ("pause_effective_date", "pause_expiry_date") and value is not None:
+                setattr(policy, field, date.fromisoformat(value))
+            elif value is not None:
+                setattr(policy, field, value)
 
-    await db.flush()
-    await db.refresh(policy)
-    return _policy_to_dict(policy)
+        await db.flush()
+        await db.refresh(policy)
+        return _policy_to_dict(policy)
+    except HTTPException:
+        raise
+    except Exception as e:
+        await log_error(e, db=db, module="api.sector_analysis", function_name="update_policy")
+        raise
 
 
 @router.post("/policies/{policy_id}/approve")
@@ -253,19 +273,25 @@ async def approve_policy(
     db: AsyncSession = Depends(get_db),
 ):
     """Approve a pending policy (checker)."""
-    q = await db.execute(select(SectorPolicy).where(SectorPolicy.id == policy_id))
-    policy = q.scalar_one_or_none()
-    if not policy:
-        raise HTTPException(404, "Policy not found")
-    if policy.status != SectorPolicyStatus.PENDING_APPROVAL:
-        raise HTTPException(400, "Policy is not pending approval")
-    if policy.created_by == user.id:
-        raise HTTPException(400, "Maker and checker must be different users")
+    try:
+        q = await db.execute(select(SectorPolicy).where(SectorPolicy.id == policy_id))
+        policy = q.scalar_one_or_none()
+        if not policy:
+            raise HTTPException(404, "Policy not found")
+        if policy.status != SectorPolicyStatus.PENDING_APPROVAL:
+            raise HTTPException(400, "Policy is not pending approval")
+        if policy.created_by == user.id:
+            raise HTTPException(400, "Maker and checker must be different users")
 
-    policy.status = SectorPolicyStatus.ACTIVE
-    policy.approved_by = user.id
-    await db.flush()
-    return _policy_to_dict(policy)
+        policy.status = SectorPolicyStatus.ACTIVE
+        policy.approved_by = user.id
+        await db.flush()
+        return _policy_to_dict(policy)
+    except HTTPException:
+        raise
+    except Exception as e:
+        await log_error(e, db=db, module="api.sector_analysis", function_name="approve_policy")
+        raise
 
 
 @router.delete("/policies/{policy_id}")
@@ -275,13 +301,19 @@ async def archive_policy(
     db: AsyncSession = Depends(get_db),
 ):
     """Archive a sector policy."""
-    q = await db.execute(select(SectorPolicy).where(SectorPolicy.id == policy_id))
-    policy = q.scalar_one_or_none()
-    if not policy:
-        raise HTTPException(404, "Policy not found")
-    policy.status = SectorPolicyStatus.ARCHIVED
-    await db.flush()
-    return {"status": "archived"}
+    try:
+        q = await db.execute(select(SectorPolicy).where(SectorPolicy.id == policy_id))
+        policy = q.scalar_one_or_none()
+        if not policy:
+            raise HTTPException(404, "Policy not found")
+        policy.status = SectorPolicyStatus.ARCHIVED
+        await db.flush()
+        return {"status": "archived"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        await log_error(e, db=db, module="api.sector_analysis", function_name="archive_policy")
+        raise
 
 
 # ── Alert Rules (FR-4) ──────────────────────────────────────
@@ -291,9 +323,15 @@ async def list_alert_rules(
     user: User = Depends(require_roles(*STAFF_ROLES)),
     db: AsyncSession = Depends(get_db),
 ):
-    q = await db.execute(select(SectorAlertRule).order_by(SectorAlertRule.id))
-    rules = q.scalars().all()
-    return [_rule_to_dict(r) for r in rules]
+    try:
+        q = await db.execute(select(SectorAlertRule).order_by(SectorAlertRule.id))
+        rules = q.scalars().all()
+        return [_rule_to_dict(r) for r in rules]
+    except HTTPException:
+        raise
+    except Exception as e:
+        await log_error(e, db=db, module="api.sector_analysis", function_name="list_alert_rules")
+        raise
 
 
 @router.post("/alert-rules")
@@ -302,23 +340,29 @@ async def create_alert_rule(
     user: User = Depends(require_roles(*SENIOR_ROLES)),
     db: AsyncSession = Depends(get_db),
 ):
-    rule = SectorAlertRule(
-        name=body.name,
-        description=body.description,
-        sector=body.sector,
-        metric=body.metric,
-        operator=body.operator,
-        threshold=body.threshold,
-        consecutive_months=body.consecutive_months,
-        severity=SectorAlertSeverity(body.severity),
-        recommended_action=body.recommended_action,
-        is_active=True,
-        created_by=user.id,
-    )
-    db.add(rule)
-    await db.flush()
-    await db.refresh(rule)
-    return _rule_to_dict(rule)
+    try:
+        rule = SectorAlertRule(
+            name=body.name,
+            description=body.description,
+            sector=body.sector,
+            metric=body.metric,
+            operator=body.operator,
+            threshold=body.threshold,
+            consecutive_months=body.consecutive_months,
+            severity=SectorAlertSeverity(body.severity),
+            recommended_action=body.recommended_action,
+            is_active=True,
+            created_by=user.id,
+        )
+        db.add(rule)
+        await db.flush()
+        await db.refresh(rule)
+        return _rule_to_dict(rule)
+    except HTTPException:
+        raise
+    except Exception as e:
+        await log_error(e, db=db, module="api.sector_analysis", function_name="create_alert_rule")
+        raise
 
 
 @router.delete("/alert-rules/{rule_id}")
@@ -327,13 +371,19 @@ async def delete_alert_rule(
     user: User = Depends(require_roles(*SENIOR_ROLES)),
     db: AsyncSession = Depends(get_db),
 ):
-    q = await db.execute(select(SectorAlertRule).where(SectorAlertRule.id == rule_id))
-    rule = q.scalar_one_or_none()
-    if not rule:
-        raise HTTPException(404, "Rule not found")
-    rule.is_active = False
-    await db.flush()
-    return {"status": "deactivated"}
+    try:
+        q = await db.execute(select(SectorAlertRule).where(SectorAlertRule.id == rule_id))
+        rule = q.scalar_one_or_none()
+        if not rule:
+            raise HTTPException(404, "Rule not found")
+        rule.is_active = False
+        await db.flush()
+        return {"status": "deactivated"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        await log_error(e, db=db, module="api.sector_analysis", function_name="delete_alert_rule")
+        raise
 
 
 # ── Alerts (FR-4) ───────────────────────────────────────────
@@ -346,16 +396,22 @@ async def list_alerts(
     user: User = Depends(require_roles(*STAFF_ROLES)),
     db: AsyncSession = Depends(get_db),
 ):
-    q = select(SectorAlert).order_by(SectorAlert.created_at.desc())
-    if status_filter:
-        q = q.where(SectorAlert.status == SectorAlertStatus(status_filter))
-    if sector:
-        q = q.where(SectorAlert.sector == sector)
-    if severity:
-        q = q.where(SectorAlert.severity == SectorAlertSeverity(severity))
-    result = await db.execute(q.limit(200))
-    alerts = result.scalars().all()
-    return [_alert_to_dict(a) for a in alerts]
+    try:
+        q = select(SectorAlert).order_by(SectorAlert.created_at.desc())
+        if status_filter:
+            q = q.where(SectorAlert.status == SectorAlertStatus(status_filter))
+        if sector:
+            q = q.where(SectorAlert.sector == sector)
+        if severity:
+            q = q.where(SectorAlert.severity == SectorAlertSeverity(severity))
+        result = await db.execute(q.limit(200))
+        alerts = result.scalars().all()
+        return [_alert_to_dict(a) for a in alerts]
+    except HTTPException:
+        raise
+    except Exception as e:
+        await log_error(e, db=db, module="api.sector_analysis", function_name="list_alerts")
+        raise
 
 
 @router.patch("/alerts/{alert_id}")
@@ -365,20 +421,26 @@ async def update_alert(
     user: User = Depends(require_roles(*STAFF_ROLES)),
     db: AsyncSession = Depends(get_db),
 ):
-    q = await db.execute(select(SectorAlert).where(SectorAlert.id == alert_id))
-    alert = q.scalar_one_or_none()
-    if not alert:
-        raise HTTPException(404, "Alert not found")
+    try:
+        q = await db.execute(select(SectorAlert).where(SectorAlert.id == alert_id))
+        alert = q.scalar_one_or_none()
+        if not alert:
+            raise HTTPException(404, "Alert not found")
 
-    if body.status:
-        alert.status = SectorAlertStatus(body.status)
-        if body.status in ("acknowledged", "action_taken"):
-            alert.acknowledged_by = user.id
-            alert.acknowledged_at = datetime.now(timezone.utc)
-    if body.action_notes:
-        alert.action_notes = body.action_notes
-    await db.flush()
-    return _alert_to_dict(alert)
+        if body.status:
+            alert.status = SectorAlertStatus(body.status)
+            if body.status in ("acknowledged", "action_taken"):
+                alert.acknowledged_by = user.id
+                alert.acknowledged_at = datetime.now(timezone.utc)
+        if body.action_notes:
+            alert.action_notes = body.action_notes
+        await db.flush()
+        return _alert_to_dict(alert)
+    except HTTPException:
+        raise
+    except Exception as e:
+        await log_error(e, db=db, module="api.sector_analysis", function_name="update_alert")
+        raise
 
 
 @router.post("/alerts/evaluate")
@@ -399,12 +461,18 @@ async def list_macro_indicators(
     user: User = Depends(require_roles(*STAFF_ROLES)),
     db: AsyncSession = Depends(get_db),
 ):
-    q = select(SectorMacroIndicator).order_by(SectorMacroIndicator.period.desc())
-    if sector:
-        q = q.where(SectorMacroIndicator.sector == sector)
-    result = await db.execute(q.limit(500))
-    indicators = result.scalars().all()
-    return [_macro_to_dict(m) for m in indicators]
+    try:
+        q = select(SectorMacroIndicator).order_by(SectorMacroIndicator.period.desc())
+        if sector:
+            q = q.where(SectorMacroIndicator.sector == sector)
+        result = await db.execute(q.limit(500))
+        indicators = result.scalars().all()
+        return [_macro_to_dict(m) for m in indicators]
+    except HTTPException:
+        raise
+    except Exception as e:
+        await log_error(e, db=db, module="api.sector_analysis", function_name="list_macro_indicators")
+        raise
 
 
 @router.post("/macro-indicators")
@@ -413,19 +481,25 @@ async def create_macro_indicator(
     user: User = Depends(require_roles(*SENIOR_ROLES)),
     db: AsyncSession = Depends(get_db),
 ):
-    mi = SectorMacroIndicator(
-        sector=body.sector,
-        indicator_name=body.indicator_name,
-        indicator_value=body.indicator_value,
-        period=date.fromisoformat(body.period),
-        source=body.source,
-        notes=body.notes,
-        created_by=user.id,
-    )
-    db.add(mi)
-    await db.flush()
-    await db.refresh(mi)
-    return _macro_to_dict(mi)
+    try:
+        mi = SectorMacroIndicator(
+            sector=body.sector,
+            indicator_name=body.indicator_name,
+            indicator_value=body.indicator_value,
+            period=date.fromisoformat(body.period),
+            source=body.source,
+            notes=body.notes,
+            created_by=user.id,
+        )
+        db.add(mi)
+        await db.flush()
+        await db.refresh(mi)
+        return _macro_to_dict(mi)
+    except HTTPException:
+        raise
+    except Exception as e:
+        await log_error(e, db=db, module="api.sector_analysis", function_name="create_macro_indicator")
+        raise
 
 
 # ── Stress Testing (FR-8) ───────────────────────────────────
@@ -449,12 +523,18 @@ async def list_snapshots(
     user: User = Depends(require_roles(*STAFF_ROLES)),
     db: AsyncSession = Depends(get_db),
 ):
-    q = select(SectorSnapshot).order_by(SectorSnapshot.snapshot_date.desc())
-    if sector:
-        q = q.where(SectorSnapshot.sector == sector)
-    result = await db.execute(q.limit(months * 25))
-    snaps = result.scalars().all()
-    return [_snap_to_dict(s) for s in snaps]
+    try:
+        q = select(SectorSnapshot).order_by(SectorSnapshot.snapshot_date.desc())
+        if sector:
+            q = q.where(SectorSnapshot.sector == sector)
+        result = await db.execute(q.limit(months * 25))
+        snaps = result.scalars().all()
+        return [_snap_to_dict(s) for s in snaps]
+    except HTTPException:
+        raise
+    except Exception as e:
+        await log_error(e, db=db, module="api.sector_analysis", function_name="list_snapshots")
+        raise
 
 
 @router.post("/snapshots/generate")

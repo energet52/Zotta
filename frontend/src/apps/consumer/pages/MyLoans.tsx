@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Wallet, Calendar, ChevronRight, CreditCard } from 'lucide-react';
+import {
+  Wallet, Calendar, ChevronRight, CreditCard, AlertTriangle,
+  DollarSign, FileText, X,
+} from 'lucide-react';
 import { clsx } from 'clsx';
 import Card from '../../../components/ui/Card';
+import Button from '../../../components/ui/Button';
 import { loanApi, paymentsApi } from '../../../api/endpoints';
 
 interface Application {
@@ -33,12 +37,28 @@ function formatCurrency(n: number) {
   return `TTD ${n.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
 }
 
+const DISPUTE_CATEGORIES = [
+  { value: 'incorrect_amount', label: 'Incorrect Amount' },
+  { value: 'payment_not_reflected', label: 'Payment Not Reflected' },
+  { value: 'unauthorized_charges', label: 'Unauthorized Charges' },
+  { value: 'duplicate_charges', label: 'Duplicate Charges' },
+  { value: 'service_issue', label: 'Service Issue' },
+  { value: 'other', label: 'Other' },
+];
+
 export default function MyLoans() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [schedules, setSchedules] = useState<Record<number, ScheduleItem[]>>({});
   const [loadingSchedule, setLoadingSchedule] = useState<Record<number, boolean>>({});
+  // Dispute form
+  const [showDispute, setShowDispute] = useState<number | null>(null);
+  const [disputeForm, setDisputeForm] = useState({ category: 'incorrect_amount', description: '' });
+  const [disputeSubmitted, setDisputeSubmitted] = useState(false);
+  // Payment plan request
+  const [showPaymentPlan, setShowPaymentPlan] = useState<number | null>(null);
+  const [planSubmitted, setPlanSubmitted] = useState(false);
 
   const disbursed = applications.filter((a) => a.status === 'disbursed');
 
@@ -85,13 +105,47 @@ export default function MyLoans() {
 
   const getNextPayment = (sched: ScheduleItem[] | undefined) => {
     if (!sched?.length) return null;
-    const unpaid = sched.find((s) => s.status !== 'paid' && Number(s.amount_paid || 0) < Number(s.amount_due || 0));
-    return unpaid || null;
+    return sched.find((s) => s.status !== 'paid' && Number(s.amount_paid || 0) < Number(s.amount_due || 0)) || null;
   };
 
   const getPaidCount = (sched: ScheduleItem[] | undefined) => {
     if (!sched?.length) return 0;
     return sched.filter((s) => s.status === 'paid').length;
+  };
+
+  const getOverdueInfo = (sched: ScheduleItem[] | undefined) => {
+    if (!sched?.length) return null;
+    const today = new Date();
+    const overdueItems = sched.filter(s => {
+      const due = new Date(s.due_date);
+      return due < today && s.status !== 'paid' && Number(s.amount_paid || 0) < Number(s.amount_due || 0);
+    });
+    if (overdueItems.length === 0) return null;
+    const totalOverdue = overdueItems.reduce((sum, s) => sum + (Number(s.amount_due) - Number(s.amount_paid || 0)), 0);
+    const oldest = overdueItems.reduce((min, s) => new Date(s.due_date) < new Date(min.due_date) ? s : min);
+    const dpd = Math.floor((today.getTime() - new Date(oldest.due_date).getTime()) / (1000 * 60 * 60 * 24));
+    const principalOverdue = overdueItems.reduce((sum, s) => sum + Number(s.principal), 0);
+    const interestOverdue = overdueItems.reduce((sum, s) => sum + Number(s.interest), 0);
+    const feeOverdue = overdueItems.reduce((sum, s) => sum + Number(s.fee || 0), 0);
+    return { totalOverdue, dpd, count: overdueItems.length, principalOverdue, interestOverdue, feeOverdue };
+  };
+
+  const handleSubmitDispute = () => {
+    // In a real app this would call an API
+    setDisputeSubmitted(true);
+    setTimeout(() => {
+      setShowDispute(null);
+      setDisputeSubmitted(false);
+      setDisputeForm({ category: 'incorrect_amount', description: '' });
+    }, 2000);
+  };
+
+  const handleRequestPaymentPlan = () => {
+    setPlanSubmitted(true);
+    setTimeout(() => {
+      setShowPaymentPlan(null);
+      setPlanSubmitted(false);
+    }, 2000);
   };
 
   if (loading) {
@@ -101,6 +155,12 @@ export default function MyLoans() {
       </div>
     );
   }
+
+  // Check for any overdue loans
+  const overdueLoans = disbursed.filter(app => {
+    const sched = schedules[app.id];
+    return sched && getOverdueInfo(sched);
+  });
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -140,16 +200,139 @@ export default function MyLoans() {
             const paidCount = getPaidCount(sched);
             const totalInstallments = sched?.length ?? app.term_months;
             const isExpanded = expandedId === app.id;
+            const overdueInfo = sched ? getOverdueInfo(sched) : null;
 
             return (
               <Card key={app.id} padding="none" className="overflow-hidden">
+                {/* Overdue Banner */}
+                {overdueInfo && (
+                  <div className="bg-red-500/10 border-b border-red-500/20 px-4 py-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle size={16} className="text-red-400" />
+                        <span className="font-semibold text-red-400">
+                          Overdue: {formatCurrency(overdueInfo.totalOverdue)}
+                        </span>
+                        <span className="text-xs text-[var(--color-text-muted)]">({overdueInfo.dpd} days past due)</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setShowPaymentPlan(showPaymentPlan === app.id ? null : app.id); setShowDispute(null); }}
+                          className="px-3 py-1 text-xs rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-colors"
+                        >
+                          <FileText size={12} className="inline mr-1" /> Request Plan
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setShowDispute(showDispute === app.id ? null : app.id); setShowPaymentPlan(null); }}
+                          className="px-3 py-1 text-xs rounded-lg bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 transition-colors"
+                        >
+                          <AlertTriangle size={12} className="inline mr-1" /> Raise Dispute
+                        </button>
+                      </div>
+                    </div>
+                    {/* Balance Breakdown */}
+                    <div className="grid grid-cols-3 gap-4 mt-2 text-xs">
+                      <div>
+                        <span className="text-[var(--color-text-muted)]">Principal</span>
+                        <p className="font-medium text-red-300">{formatCurrency(overdueInfo.principalOverdue)}</p>
+                      </div>
+                      <div>
+                        <span className="text-[var(--color-text-muted)]">Interest</span>
+                        <p className="font-medium text-red-300">{formatCurrency(overdueInfo.interestOverdue)}</p>
+                      </div>
+                      <div>
+                        <span className="text-[var(--color-text-muted)]">Fees</span>
+                        <p className="font-medium text-red-300">{formatCurrency(overdueInfo.feeOverdue)}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Payment Plan Request Form */}
+                {showPaymentPlan === app.id && (
+                  <div className="bg-blue-500/5 border-b border-blue-500/20 px-4 py-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-blue-400 flex items-center gap-2">
+                        <FileText size={16} /> Request Payment Plan
+                      </h3>
+                      <button onClick={() => setShowPaymentPlan(null)} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
+                        <X size={16} />
+                      </button>
+                    </div>
+                    {planSubmitted ? (
+                      <div className="text-center py-4">
+                        <DollarSign size={24} className="mx-auto text-emerald-400 mb-2" />
+                        <p className="text-emerald-400 font-semibold">Request Submitted</p>
+                        <p className="text-sm text-[var(--color-text-muted)]">We'll contact you within 24 hours.</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-sm text-[var(--color-text-muted)] mb-3">
+                          We can help restructure your overdue payments into manageable installments.
+                          A collections agent will contact you to discuss your options.
+                        </p>
+                        <Button onClick={handleRequestPaymentPlan}>
+                          <DollarSign size={14} className="mr-1" /> Submit Request
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Dispute Form */}
+                {showDispute === app.id && (
+                  <div className="bg-purple-500/5 border-b border-purple-500/20 px-4 py-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-purple-400 flex items-center gap-2">
+                        <AlertTriangle size={16} /> Raise a Dispute
+                      </h3>
+                      <button onClick={() => setShowDispute(null)} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
+                        <X size={16} />
+                      </button>
+                    </div>
+                    {disputeSubmitted ? (
+                      <div className="text-center py-4">
+                        <FileText size={24} className="mx-auto text-emerald-400 mb-2" />
+                        <p className="text-emerald-400 font-semibold">Dispute Submitted</p>
+                        <p className="text-sm text-[var(--color-text-muted)]">Reference: DSP-{Date.now().toString(36).toUpperCase()}</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm text-[var(--color-text-muted)] mb-1">Category</label>
+                          <select
+                            value={disputeForm.category}
+                            onChange={e => setDisputeForm(f => ({ ...f, category: e.target.value }))}
+                            className="w-full h-[38px] px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)]"
+                          >
+                            {DISPUTE_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm text-[var(--color-text-muted)] mb-1">Description</label>
+                          <textarea
+                            value={disputeForm.description}
+                            onChange={e => setDisputeForm(f => ({ ...f, description: e.target.value }))}
+                            rows={3}
+                            placeholder="Describe your dispute in detail..."
+                            className="w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)]"
+                          />
+                        </div>
+                        <Button onClick={handleSubmitDispute} disabled={!disputeForm.description.trim()}>
+                          Submit Dispute
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <button
                   onClick={() => toggleExpand(app.id)}
                   className="w-full flex items-center justify-between p-4 text-left hover:bg-[var(--color-surface-hover)] transition-colors"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-[var(--color-primary)]/20 flex items-center justify-center">
-                      <Wallet size={20} className="text-[var(--color-primary)]" />
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${overdueInfo ? 'bg-red-500/20' : 'bg-[var(--color-primary)]/20'}`}>
+                      {overdueInfo ? <AlertTriangle size={20} className="text-red-400" /> : <Wallet size={20} className="text-[var(--color-primary)]" />}
                     </div>
                     <div>
                       <p className="font-semibold text-[var(--color-text)]">{app.reference_number}</p>
@@ -202,11 +385,36 @@ export default function MyLoans() {
                           <div className="p-3 rounded-lg bg-[var(--color-bg)]">
                             <p className="text-xs text-[var(--color-text-muted)]">Next Due</p>
                             <p className="font-semibold text-[var(--color-text)]">
-                              {nextPayment
-                                ? new Date(nextPayment.due_date).toLocaleDateString()
-                                : '—'}
+                              {nextPayment ? new Date(nextPayment.due_date).toLocaleDateString() : '—'}
                             </p>
                           </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex flex-wrap gap-2">
+                          <Link
+                            to={`/applications/${app.id}`}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--color-primary)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
+                          >
+                            <DollarSign size={14} />
+                            Make Payment
+                          </Link>
+                          {overdueInfo && (
+                            <>
+                              <button
+                                onClick={() => { setShowPaymentPlan(app.id); setShowDispute(null); }}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500/20 text-blue-400 text-sm font-medium hover:bg-blue-500/30 transition-colors"
+                              >
+                                <FileText size={14} /> Request Payment Plan
+                              </button>
+                              <button
+                                onClick={() => { setShowDispute(app.id); setShowPaymentPlan(null); }}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-500/20 text-purple-400 text-sm font-medium hover:bg-purple-500/30 transition-colors"
+                              >
+                                <AlertTriangle size={14} /> Raise Dispute
+                              </button>
+                            </>
+                          )}
                         </div>
 
                         <div>
@@ -257,14 +465,6 @@ export default function MyLoans() {
                             </table>
                           </div>
                         </div>
-
-                        <Link
-                          to={`/applications/${app.id}`}
-                          className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-primary)] hover:underline"
-                        >
-                          View full details & make payment
-                          <ChevronRight size={14} />
-                        </Link>
                       </>
                     )}
                   </div>

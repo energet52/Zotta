@@ -14,7 +14,14 @@ from app.models.payment import PaymentSchedule, ScheduleStatus
 from app.models.loan import LoanApplication
 from app.models.user import User
 from app.models.collection import CollectionRecord, CollectionChannel, CollectionOutcome
+from app.models.collections_ext import CollectionCase, CaseStatus
 from app.services.whatsapp_notifier import send_whatsapp_message
+from app.services.collections_engine import (
+    sync_collection_cases,
+    update_case_nba,
+    check_ptp_status as engine_check_ptp_status,
+    generate_daily_snapshot,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -201,3 +208,86 @@ async def _process_overdue(db: AsyncSession) -> dict:
     )
 
     return {"updated": updated_count, "sent": sent_count, "errors": errors}
+
+
+# ════════════════════════════════════════════════════════════════════
+# New periodic tasks for the upgraded collections module
+# ════════════════════════════════════════════════════════════════════
+
+@celery_app.task(name="app.tasks.collection_reminders.sync_cases")
+def sync_cases() -> dict:
+    """Periodic (every 15 min): sync collection cases and compute NBA."""
+
+    async def _run():
+        session_factory = _get_async_session()
+        async with session_factory() as db:
+            try:
+                stats = await sync_collection_cases(db)
+                # Compute NBA for all open/in_progress cases
+                result = await db.execute(
+                    select(CollectionCase).where(
+                        CollectionCase.status.in_([CaseStatus.OPEN, CaseStatus.IN_PROGRESS])
+                    )
+                )
+                cases = result.scalars().all()
+                for c in cases:
+                    await update_case_nba(c, db)
+                await db.commit()
+                stats["nba_computed"] = len(cases)
+                return stats
+            except Exception:
+                await db.rollback()
+                logger.exception("sync_cases task failed")
+                raise
+
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(_run())
+    finally:
+        loop.close()
+
+
+@celery_app.task(name="app.tasks.collection_reminders.check_ptps")
+def check_ptps() -> dict:
+    """Daily: check pending PTPs, mark broken if past grace period."""
+
+    async def _run():
+        session_factory = _get_async_session()
+        async with session_factory() as db:
+            try:
+                stats = await engine_check_ptp_status(db)
+                await db.commit()
+                return stats
+            except Exception:
+                await db.rollback()
+                logger.exception("check_ptps task failed")
+                raise
+
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(_run())
+    finally:
+        loop.close()
+
+
+@celery_app.task(name="app.tasks.collection_reminders.daily_snapshot")
+def daily_snapshot() -> dict:
+    """Daily: generate collections dashboard snapshot."""
+
+    async def _run():
+        session_factory = _get_async_session()
+        async with session_factory() as db:
+            try:
+                snap = await generate_daily_snapshot(db)
+                await db.commit()
+                return {"snapshot_date": str(snap.snapshot_date), "accounts": snap.total_delinquent_accounts}
+            except Exception:
+                await db.rollback()
+                logger.exception("daily_snapshot task failed")
+                raise
+
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(_run())
+    finally:
+        loop.close()

@@ -8,6 +8,7 @@ import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
 import Combobox from '../../../components/ui/Combobox';
 import SearchableSelect from '../../../components/ui/SearchableSelect';
+import { OCCUPATION_OPTIONS } from '../../../constants/occupations';
 import { underwriterApi, catalogApi, loanApi } from '../../../api/endpoints';
 import ReferencesEditor from '../../../components/ReferencesEditor';
 import type { Reference } from '../../../components/ReferencesEditor';
@@ -686,7 +687,7 @@ export default function NewApplication() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div><label className="block text-xs text-[var(--color-text-muted)] mb-1">Employer Name</label><input value={employment.employer_name} onChange={(e) => setEmployment({ ...employment, employer_name: e.target.value })} placeholder="Employer name" className={inputClass} /></div>
               <SearchableSelect label="Employment Sector" labelClassName="block text-xs text-[var(--color-text-muted)] mb-1" value={employment.employer_sector} onChange={(v) => setEmployment({ ...employment, employer_sector: v })} options={EMPLOYER_SECTORS.map(s => ({ value: s, label: s }))} placeholder="Search or select sector..." />
-              <div><label className="block text-xs text-[var(--color-text-muted)] mb-1">Job Title</label><input value={employment.job_title} onChange={(e) => setEmployment({ ...employment, job_title: e.target.value })} placeholder="Job title" className={inputClass} /></div>
+              <SearchableSelect label="Occupation / Job Title" labelClassName="block text-xs text-[var(--color-text-muted)] mb-1" value={employment.job_title} onChange={(v) => setEmployment({ ...employment, job_title: v })} options={OCCUPATION_OPTIONS.map(s => ({ value: s, label: s }))} placeholder="Search or select occupation..." allowOther otherPlaceholder="Enter occupation..." />
               <div><label className="block text-xs text-[var(--color-text-muted)] mb-1">Employment Type</label><select value={employment.employment_type} onChange={(e) => setEmployment({ ...employment, employment_type: e.target.value })} className={selectClass}>{EMPLOYMENT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>
               <div><label className="block text-xs text-[var(--color-text-muted)] mb-1">Years Employed</label><input type="number" value={employment.years_employed} onChange={(e) => setEmployment({ ...employment, years_employed: e.target.value })} placeholder="Years employed" className={inputClass} min={0} /></div>
               <div><label className="block text-xs text-[var(--color-text-muted)] mb-1">Monthly Income</label><input type="number" value={employment.monthly_income} onChange={(e) => setEmployment({ ...employment, monthly_income: e.target.value })} placeholder="Monthly income" className={inputClass} min={0} step="0.01" /></div>

@@ -22,6 +22,14 @@ from app.models.sector_analysis import (
     SectorAlertRule, SectorAlertSeverity, SectorAlert, SectorAlertStatus,
     SECTOR_TAXONOMY,
 )
+from app.models.collections_ext import (
+    CollectionCase, CaseStatus, DelinquencyStage,
+    PromiseToPay, PTPStatus,
+    SettlementOffer, SettlementOfferType, SettlementOfferStatus,
+    ComplianceRule, SLAConfig, CollectionsDashboardSnapshot,
+    dpd_to_stage,
+)
+from decimal import Decimal
 
 # Trinidad names
 FIRST_NAMES_M = ["Marcus", "Kevin", "Andre", "Ryan", "Daniel", "Jason", "Curtis", "Darren",
@@ -1064,6 +1072,161 @@ async def seed():
         print(f"  - Sector policies: {len(high_risk_sectors) + 1}")
         print(f"  - Alert rules: {len(rules_data)}")
         print(f"  - Sample alerts: {len(sample_alerts)}")
+
+        # ══════════════════════════════════════════════════════════════════
+        # COLLECTIONS MODULE SEED DATA
+        # ══════════════════════════════════════════════════════════════════
+        print("\n=== Seeding collections module data ===")
+
+        # 1. Compliance Rules
+        jurisdictions = [
+            ("TT", 8, 20, 3, 10, 4),
+            ("JM", 8, 19, 3, 12, 4),
+            ("BB", 9, 18, 2, 8, 6),
+            ("GY", 8, 20, 4, 15, 3),
+        ]
+        for jur, start, end, per_day, per_week, cooloff in jurisdictions:
+            db.add(ComplianceRule(
+                jurisdiction=jur,
+                contact_start_hour=start,
+                contact_end_hour=end,
+                max_contacts_per_day=per_day,
+                max_contacts_per_week=per_week,
+                cooling_off_hours=cooloff,
+                is_active=True,
+            ))
+        print(f"  - Compliance rules: {len(jurisdictions)}")
+
+        # 2. SLA Configs
+        sla_configs = [
+            ("First Contact — Early", "early_1_30", 24, "auto_whatsapp_reminder"),
+            ("First Contact — Mid", "mid_31_60", 12, "assign_agent_call"),
+            ("First Contact — Late", "late_61_90", 8, "escalate_supervisor"),
+            ("First Contact — Severe", "severe_90_plus", 4, "escalate_legal"),
+            ("Follow-up — Early", "early_1_30", 72, "send_sms_reminder"),
+            ("Follow-up — Mid", "mid_31_60", 48, "call_now"),
+        ]
+        for name, stage, hours, action in sla_configs:
+            db.add(SLAConfig(name=name, delinquency_stage=stage, hours_allowed=hours, escalation_action=action, is_active=True))
+        print(f"  - SLA configs: {len(sla_configs)}")
+
+        # 3. Collection Cases for overdue disbursed loans
+        today = date.today()
+        overdue_apps = [a for a in disbursed_apps if any(
+            getattr(s, "status", None) in (ScheduleStatus.OVERDUE,) for s in getattr(a, "_schedules", [])
+        )]
+        # Fallback: use all disbursed apps and just create cases for a subset
+        case_apps = disbursed_apps[:min(len(disbursed_apps), 20)]
+        staff_ids = [staff_admin.id, staff_senior.id, staff_junior.id, staff_junior2.id]
+        cases_created = 0
+        ptp_created = 0
+        settlement_created = 0
+
+        for i, app_obj in enumerate(case_apps):
+            dpd = random.choice([3, 7, 15, 25, 35, 45, 55, 70, 85, 95, 120])
+            stage = dpd_to_stage(dpd)
+            total_overdue = round(random.uniform(200, 8000), 2)
+            agent_id = random.choice(staff_ids) if random.random() > 0.2 else None
+
+            cc = CollectionCase(
+                loan_application_id=app_obj.id,
+                assigned_agent_id=agent_id,
+                status=random.choice([CaseStatus.OPEN, CaseStatus.IN_PROGRESS, CaseStatus.IN_PROGRESS]),
+                delinquency_stage=stage,
+                priority_score=round(random.uniform(0.1, 0.9), 4),
+                dpd=dpd,
+                total_overdue=Decimal(str(total_overdue)),
+                dispute_active=random.random() < 0.1,
+                vulnerability_flag=random.random() < 0.05,
+                do_not_contact=random.random() < 0.03,
+                hardship_flag=random.random() < 0.08,
+                next_best_action=random.choice([
+                    "send_whatsapp_reminder", "call_now", "send_demand_letter",
+                    "escalate_supervisor", "escalate_legal", None,
+                ]),
+                nba_confidence=round(random.uniform(0.6, 1.0), 2) if random.random() > 0.2 else None,
+                nba_reasoning="Rule-based recommendation",
+                jurisdiction="TT",
+                first_contact_at=datetime.now(timezone.utc) - timedelta(days=dpd - 2) if dpd > 5 and random.random() > 0.3 else None,
+                last_contact_at=datetime.now(timezone.utc) - timedelta(days=random.randint(1, min(dpd, 10))) if dpd > 3 and random.random() > 0.3 else None,
+            )
+            db.add(cc)
+            await db.flush()
+            cases_created += 1
+
+            # Create PTPs for some cases
+            if random.random() < 0.5:
+                num_ptps = random.randint(1, 3)
+                for j in range(num_ptps):
+                    ptp_status = random.choice([PTPStatus.PENDING, PTPStatus.KEPT, PTPStatus.BROKEN, PTPStatus.PARTIALLY_KEPT])
+                    ptp = PromiseToPay(
+                        collection_case_id=cc.id,
+                        loan_application_id=app_obj.id,
+                        agent_id=random.choice(staff_ids),
+                        amount_promised=Decimal(str(round(random.uniform(100, total_overdue * 0.5), 2))),
+                        promise_date=today - timedelta(days=random.randint(0, 30)),
+                        payment_method=random.choice(["bank_transfer", "online", "cash", None]),
+                        status=ptp_status,
+                        amount_received=Decimal(str(round(random.uniform(50, 500), 2))) if ptp_status in (PTPStatus.KEPT, PTPStatus.PARTIALLY_KEPT) else Decimal("0"),
+                        broken_at=datetime.now(timezone.utc) - timedelta(days=random.randint(1, 10)) if ptp_status == PTPStatus.BROKEN else None,
+                        notes=random.choice(["Called and agreed", "Verbal agreement on phone", "WhatsApp confirmation", None]),
+                    )
+                    db.add(ptp)
+                    ptp_created += 1
+
+            # Create settlement offers for some cases
+            if random.random() < 0.3:
+                offer_type = random.choice([SettlementOfferType.FULL_PAYMENT, SettlementOfferType.SHORT_PLAN, SettlementOfferType.PARTIAL_SETTLEMENT])
+                discount = random.choice([0, 5, 10, 15]) if offer_type == SettlementOfferType.PARTIAL_SETTLEMENT else 0
+                settlement_amt = round(total_overdue * (100 - discount) / 100, 2)
+                db.add(SettlementOffer(
+                    collection_case_id=cc.id,
+                    loan_application_id=app_obj.id,
+                    offer_type=offer_type,
+                    original_balance=Decimal(str(total_overdue)),
+                    settlement_amount=Decimal(str(settlement_amt)),
+                    discount_pct=discount,
+                    plan_months=random.choice([3, 6]) if offer_type == SettlementOfferType.SHORT_PLAN else None,
+                    plan_monthly_amount=Decimal(str(round(settlement_amt / 3, 2))) if offer_type == SettlementOfferType.SHORT_PLAN else None,
+                    lump_sum=Decimal(str(settlement_amt)) if offer_type != SettlementOfferType.SHORT_PLAN else None,
+                    status=random.choice([SettlementOfferStatus.DRAFT, SettlementOfferStatus.OFFERED, SettlementOfferStatus.APPROVED]),
+                    offered_by=random.choice(staff_ids),
+                    approval_required=discount > 5,
+                    notes="Auto-generated seed offer",
+                ))
+                settlement_created += 1
+
+        print(f"  - Collection cases: {cases_created}")
+        print(f"  - Promises to pay: {ptp_created}")
+        print(f"  - Settlement offers: {settlement_created}")
+
+        # 4. Dashboard Snapshots (last 30 days)
+        for d in range(30):
+            snap_date = today - timedelta(days=29 - d)
+            base_accounts = random.randint(10, 25)
+            base_overdue = round(random.uniform(15000, 80000), 2)
+            db.add(CollectionsDashboardSnapshot(
+                snapshot_date=snap_date,
+                total_delinquent_accounts=base_accounts,
+                total_overdue_amount=Decimal(str(base_overdue)),
+                by_stage={
+                    "early_1_30": {"count": random.randint(3, 10), "amount": round(random.uniform(2000, 15000), 2)},
+                    "mid_31_60": {"count": random.randint(2, 6), "amount": round(random.uniform(3000, 20000), 2)},
+                    "late_61_90": {"count": random.randint(1, 4), "amount": round(random.uniform(2000, 15000), 2)},
+                    "severe_90_plus": {"count": random.randint(0, 3), "amount": round(random.uniform(1000, 10000), 2)},
+                },
+                by_outcome={
+                    "promise_to_pay": random.randint(2, 8),
+                    "no_answer": random.randint(3, 12),
+                    "payment_arranged": random.randint(1, 5),
+                },
+                cure_rate=round(random.uniform(0.15, 0.45), 4),
+                ptp_rate=round(random.uniform(0.3, 0.7), 4),
+                ptp_kept_rate=round(random.uniform(0.4, 0.8), 4),
+                avg_days_to_collect=round(random.uniform(15, 60), 2),
+                total_recovered_mtd=Decimal(str(round(random.uniform(5000, 30000), 2))),
+            ))
+        print(f"  - Dashboard snapshots: 30 days")
 
         await db.commit()
 

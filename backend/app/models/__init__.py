@@ -21,6 +21,12 @@ from app.models.conversation import (
 from app.models.payment import Payment, PaymentSchedule
 from app.models.disbursement import Disbursement
 from app.models.collection import CollectionRecord, CollectionChat
+from app.models.collections_ext import (
+    CollectionCase, PromiseToPay, SettlementOffer,
+    ComplianceRule, SLAConfig, CollectionsDashboardSnapshot,
+    CaseStatus, DelinquencyStage, PTPStatus,
+    SettlementOfferType, SettlementStatus,
+)
 from app.models.report import ReportHistory
 from app.models.bank_analysis import BankStatementAnalysis
 from app.models.credit_bureau_alert import (
@@ -49,6 +55,7 @@ from app.models.sector_analysis import (
     SectorRiskRating,
     SECTOR_TAXONOMY,
 )
+from app.models.error_log import ErrorLog, ErrorSeverity
 from app.models.gl import (
     Currency,
     GLAccount,
@@ -91,6 +98,18 @@ __all__ = [
     "Disbursement",
     "CollectionRecord",
     "CollectionChat",
+    # Collections Extended
+    "CollectionCase",
+    "PromiseToPay",
+    "SettlementOffer",
+    "ComplianceRule",
+    "SLAConfig",
+    "CollectionsDashboardSnapshot",
+    "CaseStatus",
+    "DelinquencyStage",
+    "PTPStatus",
+    "SettlementOfferType",
+    "SettlementStatus",
     "ReportHistory",
     "Merchant",
     "Branch",
@@ -114,6 +133,9 @@ __all__ = [
     "SectorAlertStatus",
     "SectorRiskRating",
     "SECTOR_TAXONOMY",
+    # Error Monitoring
+    "ErrorLog",
+    "ErrorSeverity",
     # General Ledger
     "Currency",
     "GLAccount",

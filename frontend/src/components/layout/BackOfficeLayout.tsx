@@ -46,6 +46,7 @@ export default function BackOfficeLayout() {
     { to: '/backoffice/applications', icon: ClipboardList, label: 'Applications' },
     { to: '/backoffice/loans', icon: BookOpen, label: 'Loan Book' },
     { to: '/backoffice/collections', icon: AlertTriangle, label: 'Collections' },
+    { to: '/backoffice/collections-dashboard', icon: BarChart3, label: 'Collections Analytics' },
     { to: '/backoffice/customers', icon: Users, label: 'Customers' },
     { to: '/backoffice/new-application', icon: PlusCircle, label: 'New Application' },
     { to: '/backoffice/reports', icon: BarChart3, label: 'Reports' },
@@ -73,6 +74,7 @@ export default function BackOfficeLayout() {
     { to: '/backoffice/products', icon: Boxes, label: 'Products' },
     { to: '/backoffice/merchants', icon: Store, label: 'Merchants' },
     { to: '/backoffice/rules', icon: Scale, label: 'Rules' },
+    { to: '/backoffice/error-monitor', icon: ShieldAlert, label: 'Error Monitor' },
   ];
   const isAdmin = user?.role === 'admin';
 

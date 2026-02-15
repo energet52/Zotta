@@ -8,6 +8,7 @@ import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
 import Combobox from '../../../components/ui/Combobox';
 import SearchableSelect from '../../../components/ui/SearchableSelect';
+import { OCCUPATION_OPTIONS } from '../../../constants/occupations';
 import { authApi, catalogApi, loanApi } from '../../../api/endpoints';
 import { useAuthStore } from '../../../store/authStore';
 import HirePurchaseAgreementText from '../../../components/HirePurchaseAgreementText';
@@ -752,10 +753,16 @@ export default function LoanApplication() {
                 options={EMPLOYER_SECTORS.map((s) => ({ value: s, label: s }))}
                 placeholder="Search or select sector..."
               />
-              <div>
-                <label className="block text-xs text-[var(--color-text-muted)] mb-1">Job Title</label>
-                <input value={employment.job_title} onChange={(e) => setEmployment({ ...employment, job_title: e.target.value })} placeholder="Job title" className={inputClass} />
-              </div>
+              <SearchableSelect
+                label="Occupation / Job Title"
+                labelClassName="block text-xs text-[var(--color-text-muted)] mb-1"
+                value={employment.job_title}
+                onChange={(v) => setEmployment({ ...employment, job_title: v })}
+                options={OCCUPATION_OPTIONS.map((s) => ({ value: s, label: s }))}
+                placeholder="Search or select occupation..."
+                allowOther
+                otherPlaceholder="Enter your occupation..."
+              />
               <div>
                 <label className="block text-xs text-[var(--color-text-muted)] mb-1">Employment Type</label>
                 <select value={employment.employment_type} onChange={(e) => setEmployment({ ...employment, employment_type: e.target.value })} className={selectClass}>

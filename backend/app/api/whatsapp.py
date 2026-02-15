@@ -18,6 +18,8 @@ from app.models.loan import LoanApplication, LoanStatus
 from app.models.collection import (
     CollectionChat, ChatDirection, ChatMessageStatus,
 )
+from app.services.error_logger import log_error
+from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -94,21 +96,27 @@ async def whatsapp_webhook(
     Routes to Collections chat if the sender has an active collection case.
     Otherwise acknowledges the message silently (no auto-reply).
     """
-    phone_number = From.replace("whatsapp:", "").strip()
-    # URL-encoded form data converts '+' to space — restore it
-    if phone_number and not phone_number.startswith("+"):
-        phone_number = "+" + phone_number.lstrip()
+    try:
+        phone_number = From.replace("whatsapp:", "").strip()
+        # URL-encoded form data converts '+' to space — restore it
+        if phone_number and not phone_number.startswith("+"):
+            phone_number = "+" + phone_number.lstrip()
 
-    # ── Collections routing ───────────────────────────────────────
-    routed = await _route_to_collections(phone_number, Body, db)
+        # ── Collections routing ───────────────────────────────────────
+        routed = await _route_to_collections(phone_number, Body, db)
 
-    if routed:
-        logger.info("Inbound WhatsApp from %s routed to collections", phone_number)
-    else:
-        logger.info("Inbound WhatsApp from %s — no active collection case, message acknowledged", phone_number)
+        if routed:
+            logger.info("Inbound WhatsApp from %s routed to collections", phone_number)
+        else:
+            logger.info("Inbound WhatsApp from %s — no active collection case, message acknowledged", phone_number)
 
-    await db.commit()
+        await db.commit()
 
-    # Return empty TwiML (no auto-reply — Customer Support chat is web-only)
-    twiml = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
-    return Response(content=twiml, media_type="application/xml")
+        # Return empty TwiML (no auto-reply — Customer Support chat is web-only)
+        twiml = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
+        return Response(content=twiml, media_type="application/xml")
+    except HTTPException:
+        raise
+    except Exception as e:
+        await log_error(e, db=db, module="api.whatsapp", function_name="whatsapp_webhook")
+        raise

@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import settings
+from app.services.error_logger import log_error
 from app.models.user import User
 from app.models.loan import LoanApplication, ApplicantProfile, LoanStatus
 from app.models.payment import Payment, PaymentSchedule, PaymentStatus, ScheduleStatus
@@ -859,16 +860,17 @@ async def generate_ai_summary(customer_data: dict) -> dict:
 
     Falls back to a rule-based summary if no OpenAI key is configured.
     """
-    context = _build_customer_context_text(customer_data)
-    qs = customer_data.get("quick_stats", {})
+    try:
+        context = _build_customer_context_text(customer_data)
+        qs = customer_data.get("quick_stats", {})
 
-    # Try OpenAI
-    if settings.openai_api_key:
-        try:
-            import openai
-            client = openai.AsyncOpenAI(api_key=settings.openai_api_key)
+        # Try OpenAI
+        if settings.openai_api_key:
+            try:
+                import openai
+                client = openai.AsyncOpenAI(api_key=settings.openai_api_key)
 
-            prompt = f"""You are an expert loan officer assistant analysing a customer's complete profile for a lending company. Generate a concise intelligence brief.
+                prompt = f"""You are an expert loan officer assistant analysing a customer's complete profile for a lending company. Generate a concise intelligence brief.
 
 CUSTOMER DATA:
 {context}
@@ -883,24 +885,27 @@ Generate a JSON object with these fields:
 
 IMPORTANT: Return ONLY valid JSON, no markdown fencing."""
 
-            resp = await client.chat.completions.create(
-                model="gpt-4.1",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.3,
-                max_tokens=1500,
-            )
-            raw = resp.choices[0].message.content.strip()
-            # Strip markdown code fences if present
-            if raw.startswith("```"):
-                raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
-                if raw.endswith("```"):
-                    raw = raw[:-3]
-            return json.loads(raw)
-        except Exception as e:
-            logger.warning("OpenAI summary generation failed, falling back to rule-based: %s", e)
+                resp = await client.chat.completions.create(
+                    model="gpt-4.1",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.3,
+                    max_tokens=1500,
+                )
+                raw = resp.choices[0].message.content.strip()
+                # Strip markdown code fences if present
+                if raw.startswith("```"):
+                    raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+                    if raw.endswith("```"):
+                        raw = raw[:-3]
+                return json.loads(raw)
+            except Exception as e:
+                logger.warning("OpenAI summary generation failed, falling back to rule-based: %s", e)
 
-    # ── Rule-based fallback ─────────────────────────────────────
-    return _rule_based_summary(customer_data, qs)
+        # ── Rule-based fallback ─────────────────────────────────────
+        return _rule_based_summary(customer_data, qs)
+    except Exception as e:
+        await log_error(e, db=None, module="services.customer360", function_name="generate_ai_summary")
+        raise
 
 
 def _rule_based_summary(data: dict, qs: dict) -> dict:
@@ -979,37 +984,41 @@ async def ask_ai_about_customer(
     history: list[dict] | None = None,
 ) -> dict:
     """Answer a free-form question about the customer using AI."""
-    context = _build_customer_context_text(customer_data)
+    try:
+        context = _build_customer_context_text(customer_data)
 
-    if settings.openai_api_key:
-        try:
-            import openai
-            client = openai.AsyncOpenAI(api_key=settings.openai_api_key)
+        if settings.openai_api_key:
+            try:
+                import openai
+                client = openai.AsyncOpenAI(api_key=settings.openai_api_key)
 
-            system_msg = f"""You are an expert lending advisor. You have access to the full customer data below. Answer the officer's question accurately, citing specific data points (loan IDs, dates, amounts). Never fabricate numbers — only use what is in the data. If data is insufficient, say so.
+                system_msg = f"""You are an expert lending advisor. You have access to the full customer data below. Answer the officer's question accurately, citing specific data points (loan IDs, dates, amounts). Never fabricate numbers — only use what is in the data. If data is insufficient, say so.
 
 CUSTOMER DATA:
 {context}"""
 
-            messages = [{"role": "system", "content": system_msg}]
-            if history:
-                for h in history[-6:]:  # Keep last 6 turns
-                    messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
-            messages.append({"role": "user", "content": question})
+                messages = [{"role": "system", "content": system_msg}]
+                if history:
+                    for h in history[-6:]:  # Keep last 6 turns
+                        messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
+                messages.append({"role": "user", "content": question})
 
-            resp = await client.chat.completions.create(
-                model="gpt-4.1",
-                messages=messages,
-                temperature=0.2,
-                max_tokens=1000,
-            )
-            answer = resp.choices[0].message.content.strip()
-            return {"answer": answer, "citations": []}
-        except Exception as e:
-            logger.warning("OpenAI ask-ai failed: %s", e)
+                resp = await client.chat.completions.create(
+                    model="gpt-4.1",
+                    messages=messages,
+                    temperature=0.2,
+                    max_tokens=1000,
+                )
+                answer = resp.choices[0].message.content.strip()
+                return {"answer": answer, "citations": []}
+            except Exception as e:
+                logger.warning("OpenAI ask-ai failed: %s", e)
 
-    # Fallback
-    return {
-        "answer": "AI is not available. Please review the customer data manually in the tabs.",
-        "citations": [],
-    }
+        # Fallback
+        return {
+            "answer": "AI is not available. Please review the customer data manually in the tabs.",
+            "citations": [],
+        }
+    except Exception as e:
+        await log_error(e, db=None, module="services.customer360", function_name="ask_ai_about_customer")
+        raise

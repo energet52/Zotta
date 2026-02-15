@@ -12,6 +12,7 @@ import ReferencesEditor from '../../../components/ReferencesEditor';
 import type { Reference } from '../../../components/ReferencesEditor';
 import { underwriterApi, loanApi, paymentsApi } from '../../../api/endpoints';
 import SearchableSelect from '../../../components/ui/SearchableSelect';
+import { OCCUPATION_OPTIONS } from '../../../constants/occupations';
 import { Users } from 'lucide-react';
 
 const EMPLOYER_SECTORS = [
@@ -537,7 +538,20 @@ export default function ApplicationReview() {
                   ) : (
                     <InfoField label="Employment Sector" value={profile?.employer_sector || '-'} />
                   )}
-                  <EditableField label="Job Title" field="job_title" value={profile?.job_title} editing={editing} editValues={editValues} setEditValues={setEditValues} />
+                  {editing ? (
+                    <SearchableSelect
+                      label="Occupation / Job Title"
+                      labelClassName="text-xs text-[var(--color-text-muted)] mb-1 block"
+                      value={editValues.job_title ?? profile?.job_title ?? ''}
+                      onChange={(v) => setEditValues({ ...editValues, job_title: v })}
+                      options={OCCUPATION_OPTIONS.map(s => ({ value: s, label: s }))}
+                      placeholder="Search occupation..."
+                      allowOther
+                      otherPlaceholder="Enter occupation..."
+                    />
+                  ) : (
+                    <InfoField label="Occupation / Job Title" value={profile?.job_title || '-'} />
+                  )}
                   <EditableField label="Employment Type" field="employment_type" value={profile?.employment_type} editing={editing} editValues={editValues} setEditValues={setEditValues} />
                   <EditableField label="Years Employed" field="years_employed" value={profile?.years_employed} editing={editing} editValues={editValues} setEditValues={setEditValues} type="number" />
                   <EditableField label="Monthly Income" field="monthly_income" value={profile?.monthly_income} editing={editing} editValues={editValues} setEditValues={setEditValues} type="number" prefix="TTD" />

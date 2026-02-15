@@ -175,7 +175,36 @@ export const paymentsApi = {
 
 // ── Collections ────────────────────────────────
 export const collectionsApi = {
-  getQueue: () => api.get('/collections/queue'),
+  // Queue
+  getQueue: (params?: Record<string, unknown>) => api.get('/collections/queue', { params }),
+  exportCsv: () => api.get('/collections/export-csv', { responseType: 'blob' }),
+  syncCases: () => api.post('/collections/sync-cases'),
+  // Cases
+  listCases: (params?: Record<string, unknown>) => api.get('/collections/cases', { params }),
+  getCase: (caseId: number) => api.get(`/collections/cases/${caseId}`),
+  updateCase: (caseId: number, data: Record<string, unknown>) => api.patch(`/collections/cases/${caseId}`, data),
+  bulkAssign: (data: { case_ids: number[]; agent_id: number }) => api.post('/collections/cases/bulk-assign', data),
+  overrideNba: (caseId: number, data: { action: string; reason: string }) =>
+    api.post(`/collections/cases/${caseId}/nba-override`, data),
+  // PTP
+  createPtp: (caseId: number, data: Record<string, unknown>) => api.post(`/collections/cases/${caseId}/ptp`, data),
+  listPtps: (caseId: number) => api.get(`/collections/cases/${caseId}/ptps`),
+  updatePtp: (ptpId: number, data: Record<string, unknown>) => api.patch(`/collections/ptps/${ptpId}`, data),
+  // Settlements
+  createSettlement: (caseId: number, data: Record<string, unknown>) =>
+    api.post(`/collections/cases/${caseId}/settlement`, data),
+  listSettlements: (caseId: number) => api.get(`/collections/cases/${caseId}/settlements`),
+  approveSettlement: (settlementId: number) => api.patch(`/collections/settlements/${settlementId}/approve`),
+  acceptSettlement: (settlementId: number) => api.patch(`/collections/settlements/${settlementId}/accept`),
+  // Dashboard
+  getDashboard: (periodDays?: number) => api.get('/collections/dashboard', { params: { period_days: periodDays || 30 } }),
+  getAgentPerformance: () => api.get('/collections/dashboard/agent-performance'),
+  // Compliance
+  listComplianceRules: () => api.get('/collections/compliance-rules'),
+  createComplianceRule: (data: Record<string, unknown>) => api.post('/collections/compliance-rules', data),
+  checkCompliance: (data: { case_id: number; jurisdiction?: string }) =>
+    api.post('/collections/check-compliance', data),
+  // Legacy
   getHistory: (appId: number) => api.get(`/collections/${appId}/history`),
   addRecord: (appId: number, data: Record<string, unknown>) =>
     api.post(`/collections/${appId}/record`, data),
@@ -270,6 +299,11 @@ export const customerApi = {
     api.get(`/customers/${userId}/alerts`, { params: statusFilter ? { status_filter: statusFilter } : {} }),
   updateAlert: (userId: number, alertId: number, data: { status?: string; action_taken?: string; action_notes?: string }) =>
     api.patch(`/customers/${userId}/alerts/${alertId}`, data),
+  // Staff-initiated conversations
+  initiateConversation: (userId: number, data: { channel: string; message: string }) =>
+    api.post(`/customers/${userId}/conversations`, data),
+  staffSendMessage: (userId: number, conversationId: number, content: string) =>
+    api.post(`/customers/${userId}/conversations/${conversationId}/messages`, { content }),
 };
 
 // ── Sector Analysis ─────────────────────────────
@@ -309,6 +343,23 @@ export const sectorApi = {
   // Origination check
   checkOrigination: (data: { sector: string; loan_amount: number }) =>
     api.post('/sector-analysis/check-origination', data),
+};
+
+// ── Error Monitoring (Admin) ────────────────────
+export const errorLogApi = {
+  list: (params?: Record<string, unknown>) =>
+    api.get('/error-logs', { params }),
+  stats: (hours?: number) =>
+    api.get('/error-logs/stats', { params: hours ? { hours } : {} }),
+  get: (id: number) => api.get(`/error-logs/${id}`),
+  resolve: (id: number, data?: { resolution_notes?: string }) =>
+    api.patch(`/error-logs/${id}/resolve`, data || {}),
+  unresolve: (id: number) =>
+    api.patch(`/error-logs/${id}/unresolve`),
+  bulkResolve: (ids: number[], notes?: string) =>
+    api.post('/error-logs/bulk-resolve', { ids, resolution_notes: notes }),
+  cleanup: (days?: number) =>
+    api.delete('/error-logs/cleanup', { params: days ? { days } : {} }),
 };
 
 // ── Consumer Catalog ────────────────────────────

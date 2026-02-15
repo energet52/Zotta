@@ -15,7 +15,7 @@ import {
 import Card from '../../../components/ui/Card';
 import Badge, { getStatusBadge } from '../../../components/ui/Badge';
 import Button from '../../../components/ui/Button';
-import { customerApi, underwriterApi, loanApi } from '../../../api/endpoints';
+import { customerApi, underwriterApi, loanApi, conversationsApi } from '../../../api/endpoints';
 
 // ── Types ────────────────────────────────────────────────────────────────
 interface QuickStats {
@@ -158,6 +158,18 @@ export default function Customer360() {
   // ID reveal
   const [idRevealed, setIdRevealed] = useState(false);
 
+  // New Communication
+  const [showNewComm, setShowNewComm] = useState(false);
+  const [commChannel, setCommChannel] = useState<'web' | 'whatsapp'>('web');
+  const [commMessage, setCommMessage] = useState('');
+  const [commSending, setCommSending] = useState(false);
+
+  // Active conversation (inline chat from Communications tab)
+  const [activeConvId, setActiveConvId] = useState<number | null>(null);
+  const [activeConvMessages, setActiveConvMessages] = useState<Array<{ id: number; role: string; content: string; created_at: string }>>([]);
+  const [inlineMsg, setInlineMsg] = useState('');
+  const [inlineSending, setInlineSending] = useState(false);
+
   // ── Loaders ──
   const load360 = useCallback(async () => {
     setLoading(true);
@@ -217,6 +229,53 @@ export default function Customer360() {
       setAskHistory((h) => [...h, { role: 'assistant', content: 'Failed to get AI response.' }]);
     } finally {
       setAskLoading(false);
+    }
+  };
+
+  const handleInitiateConversation = async () => {
+    if (!commMessage.trim()) return;
+    setCommSending(true);
+    try {
+      const res = await customerApi.initiateConversation(userId, {
+        channel: commChannel,
+        message: commMessage.trim(),
+      });
+      setShowNewComm(false);
+      setCommMessage('');
+      // Navigate to Communications tab and open the new conversation
+      setActiveTab('Communications');
+      setActiveConvId(res.data.id);
+      setActiveConvMessages([res.data.message]);
+      // Reload data to show in the conversations list
+      load360();
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || 'Failed to send message');
+    } finally {
+      setCommSending(false);
+    }
+  };
+
+  const handleOpenConversation = async (convId: number) => {
+    try {
+      const res = await conversationsApi.get(convId);
+      setActiveConvId(convId);
+      setActiveConvMessages(res.data.messages || []);
+    } catch {
+      console.error('Failed to load conversation');
+    }
+  };
+
+  const handleSendInlineMessage = async () => {
+    if (!inlineMsg.trim() || !activeConvId) return;
+    setInlineSending(true);
+    try {
+      const res = await customerApi.staffSendMessage(userId, activeConvId, inlineMsg.trim());
+      setActiveConvMessages((prev) => [...prev, res.data]);
+      setInlineMsg('');
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || 'Failed to send message');
+    } finally {
+      setInlineSending(false);
     }
   };
 
@@ -284,6 +343,9 @@ export default function Customer360() {
             <Badge variant={riskColor}>{riskTier}</Badge>
             <Button variant="ghost" size="sm" onClick={() => setShowAskAI(true)}>
               <Sparkles className="w-4 h-4 mr-1" /> Ask AI
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowNewComm(true)}>
+              <MessageCircle className="w-4 h-4 mr-1" /> New Communication
             </Button>
             <Link to={`/backoffice/new-application?customer=${u.id}`}>
               <Button variant="outline" size="sm"><Plus className="w-4 h-4 mr-1" /> New Application</Button>
@@ -402,12 +464,114 @@ export default function Customer360() {
           {activeTab === 'Loans' && <LoansTab apps={apps} schedules={schedules} disbursements={disbursements} />}
           {activeTab === 'Payments' && <PaymentsTab payments={payments} schedules={schedules} />}
           {activeTab === 'Collections' && <CollectionsTab records={colRecords} chats={colChats} />}
-          {activeTab === 'Communications' && <CommunicationsTab conversations={conversations} comments={comments} notes={notes} />}
+          {activeTab === 'Communications' && (
+            <CommunicationsTab
+              conversations={conversations}
+              comments={comments}
+              notes={notes}
+              userId={userId}
+              onStartNew={() => setShowNewComm(true)}
+              activeConvId={activeConvId}
+              activeConvMessages={activeConvMessages}
+              onOpenConversation={handleOpenConversation}
+              onCloseConversation={() => { setActiveConvId(null); setActiveConvMessages([]); }}
+              inlineMsg={inlineMsg}
+              setInlineMsg={setInlineMsg}
+              inlineSending={inlineSending}
+              onSendInlineMessage={handleSendInlineMessage}
+            />
+          )}
           {activeTab === 'Documents' && <DocumentsTab documents={documents} apps={apps} />}
           {activeTab === 'Bureau Alerts' && <BureauAlertsTab alerts={bureauAlerts} userId={userId} onRefresh={load360} />}
           {activeTab === 'Audit Trail' && <AuditTab logs={auditLogs} />}
         </div>
       </div>
+
+      {/* ─── NEW COMMUNICATION MODAL ──────────────────────────── */}
+      {showNewComm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] shadow-2xl w-full max-w-lg p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="font-semibold text-lg flex items-center gap-2">
+                <MessageCircle className="w-5 h-5 text-[var(--color-primary)]" />
+                New Communication
+              </h3>
+              <button onClick={() => setShowNewComm(false)} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-sm text-[var(--color-text-muted)] mb-4">
+              Send a message to <span className="font-medium text-[var(--color-text)]">{u.first_name} {u.last_name}</span>
+            </p>
+
+            {/* Channel selector */}
+            <div className="mb-4">
+              <label className="text-xs font-medium text-[var(--color-text-muted)] mb-2 block">Channel</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCommChannel('web')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border text-sm font-medium transition ${
+                    commChannel === 'web'
+                      ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
+                      : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-text-muted)]'
+                  }`}
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Web Chat
+                </button>
+                <button
+                  onClick={() => setCommChannel('whatsapp')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border text-sm font-medium transition ${
+                    commChannel === 'whatsapp'
+                      ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400'
+                      : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-text-muted)]'
+                  }`}
+                >
+                  <Phone className="w-4 h-4" />
+                  WhatsApp
+                </button>
+              </div>
+              {commChannel === 'whatsapp' && !u.phone && (
+                <p className="text-xs text-red-400 mt-2">This customer has no phone number on file. WhatsApp is not available.</p>
+              )}
+              {commChannel === 'whatsapp' && u.phone && (
+                <p className="text-xs text-[var(--color-text-muted)] mt-2">Will be sent to {u.phone}</p>
+              )}
+            </div>
+
+            {/* Message */}
+            <div className="mb-5">
+              <label className="text-xs font-medium text-[var(--color-text-muted)] mb-2 block">Message</label>
+              <textarea
+                value={commMessage}
+                onChange={(e) => setCommMessage(e.target.value)}
+                rows={4}
+                placeholder="Type your message to the customer..."
+                className="w-full px-3 py-2 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] text-sm focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] resize-none"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end gap-3">
+              <Button variant="ghost" onClick={() => setShowNewComm(false)}>Cancel</Button>
+              <Button
+                variant="primary"
+                onClick={handleInitiateConversation}
+                disabled={commSending || !commMessage.trim() || (commChannel === 'whatsapp' && !u.phone)}
+                className="flex items-center gap-2"
+              >
+                {commSending ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+                {commSending ? 'Sending...' : 'Send Message'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── ASK AI SLIDE-OUT ─────────────────────────────────── */}
       {showAskAI && (
@@ -521,7 +685,7 @@ function OverviewTab({ u, p, qs, apps, payments, schedules, creditReports, timel
           <div className="space-y-2">
             <p className="text-[var(--color-text-muted)]">Employment</p>
             <Info label="Employer" value={p.employer_name} />
-            <Info label="Job Title" value={p.job_title} />
+            <Info label="Occupation / Job Title" value={p.job_title} />
             <Info label="Type" value={p.employment_type} />
             <Info label="Years" value={p.years_employed} />
             <Info label="Monthly Income" value={fmtMoney(p.monthly_income)} />
@@ -1032,38 +1196,155 @@ function CollectionsTab({ records, chats }: { records: any[]; chats: any[] }) {
 // ══════════════════════════════════════════════════════════════════════════
 // TAB: Communications
 // ══════════════════════════════════════════════════════════════════════════
-function CommunicationsTab({ conversations, comments, notes }: { conversations: any[]; comments: any[]; notes: any[] }) {
+function CommunicationsTab({
+  conversations, comments, notes, userId, onStartNew,
+  activeConvId, activeConvMessages, onOpenConversation, onCloseConversation,
+  inlineMsg, setInlineMsg, inlineSending, onSendInlineMessage,
+}: {
+  conversations: any[];
+  comments: any[];
+  notes: any[];
+  userId: number;
+  onStartNew: () => void;
+  activeConvId: number | null;
+  activeConvMessages: Array<{ id: number; role: string; content: string; created_at: string }>;
+  onOpenConversation: (id: number) => void;
+  onCloseConversation: () => void;
+  inlineMsg: string;
+  setInlineMsg: (v: string) => void;
+  inlineSending: boolean;
+  onSendInlineMessage: () => void;
+}) {
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [activeConvMessages]);
+
   return (
     <div className="space-y-4">
+      {/* Start New Communication Button */}
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-sm">Customer Communications</h3>
+        <Button variant="primary" size="sm" onClick={onStartNew} className="flex items-center gap-1.5">
+          <Plus className="w-4 h-4" /> New Communication
+        </Button>
+      </div>
+
+      {/* Inline Chat Panel */}
+      {activeConvId && (
+        <Card>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-sm flex items-center gap-2">
+              <MessageCircle className="w-4 h-4 text-[var(--color-primary)]" />
+              Conversation #{activeConvId}
+            </h3>
+            <div className="flex items-center gap-2">
+              <Link to={`/backoffice/conversations/${activeConvId}`} className="text-xs text-[var(--color-primary)] hover:underline flex items-center gap-1">
+                <ExternalLink className="w-3 h-3" /> Full View
+              </Link>
+              <button onClick={onCloseConversation} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Messages */}
+          <div className="max-h-80 overflow-y-auto space-y-2 mb-3 p-3 rounded-lg bg-[var(--color-bg)]">
+            {activeConvMessages.length === 0 && (
+              <p className="text-xs text-[var(--color-text-muted)] text-center py-4">No messages yet.</p>
+            )}
+            {activeConvMessages.map((m) => (
+              <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-start' : 'justify-end'}`}>
+                <div className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${
+                  m.role === 'user'
+                    ? 'bg-[var(--color-surface)] text-[var(--color-text)]'
+                    : m.role === 'agent'
+                    ? 'bg-[var(--color-primary)]/15 text-[var(--color-primary)]'
+                    : 'bg-sky-500/15 text-sky-300'
+                }`}>
+                  <p className="text-[10px] font-medium mb-0.5 opacity-70">
+                    {m.role === 'user' ? 'Customer' : m.role === 'agent' ? 'Staff' : 'AI'}
+                  </p>
+                  <p>{m.content}</p>
+                  <p className="text-[10px] text-[var(--color-text-muted)] mt-1">{fmtDateTime(m.created_at)}</p>
+                </div>
+              </div>
+            ))}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Reply input */}
+          <div className="flex gap-2">
+            <input
+              value={inlineMsg}
+              onChange={(e) => setInlineMsg(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && onSendInlineMessage()}
+              placeholder="Type a reply..."
+              className="flex-1 px-3 py-2 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] text-sm focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+            />
+            <button
+              onClick={onSendInlineMessage}
+              disabled={inlineSending || !inlineMsg.trim()}
+              className="px-3 py-2 rounded-lg bg-[var(--color-primary)] text-white disabled:opacity-50"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </div>
+        </Card>
+      )}
+
       {/* Conversations */}
       {conversations.length > 0 && (
         <Card>
-          <h3 className="font-semibold mb-3 text-sm">AI Conversations ({conversations.length})</h3>
-          {conversations.map((conv: any) => (
-            <div key={conv.id} className="mb-3 p-3 bg-[var(--color-bg)] rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Bot className="w-4 h-4 text-sky-400" />
-                  <Link to={`/backoffice/conversations/${conv.id}`} className="text-sm font-medium text-[var(--color-primary)] hover:underline">
-                    Conversation #{conv.id}
+          <h3 className="font-semibold mb-3 text-sm">Conversations ({conversations.length})</h3>
+          {conversations.map((conv: any) => {
+            const isActive = activeConvId === conv.id;
+            const channelColor = conv.channel === 'whatsapp' ? 'text-emerald-400' : 'text-sky-400';
+            return (
+              <div key={conv.id} className={`mb-3 p-3 rounded-lg transition ${isActive ? 'bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/30' : 'bg-[var(--color-bg)]'}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    {conv.channel === 'whatsapp' ? (
+                      <Phone className={`w-4 h-4 ${channelColor}`} />
+                    ) : (
+                      <Bot className={`w-4 h-4 ${channelColor}`} />
+                    )}
+                    <button
+                      onClick={() => onOpenConversation(conv.id)}
+                      className="text-sm font-medium text-[var(--color-primary)] hover:underline"
+                    >
+                      Conversation #{conv.id}
+                    </button>
+                    <Badge variant={conv.channel === 'whatsapp' ? 'success' : 'info'}>{conv.channel}</Badge>
+                    <Badge variant="default">{conv.current_state?.replace(/_/g, ' ')}</Badge>
+                  </div>
+                  <span className="text-xs text-[var(--color-text-muted)]">{fmtDate(conv.created_at)}</span>
+                </div>
+                {conv.messages?.slice(-3).map((m: any) => (
+                  <div key={m.id} className={`text-xs py-0.5 ${
+                    m.role === 'assistant' ? 'text-sky-400' :
+                    m.role === 'agent' ? 'text-[var(--color-primary)]' :
+                    'text-[var(--color-text)]'
+                  }`}>
+                    <span className="font-medium">{m.role === 'agent' ? 'Staff' : m.role}: </span>
+                    {m.content?.slice(0, 150)}{m.content?.length > 150 ? '...' : ''}
+                  </div>
+                ))}
+                <div className="mt-2 pt-1 border-t border-[var(--color-border)] flex items-center gap-3">
+                  <button
+                    onClick={() => onOpenConversation(conv.id)}
+                    className="text-xs text-[var(--color-primary)] hover:underline flex items-center gap-1"
+                  >
+                    <MessageCircle className="w-3 h-3" /> Reply Here
+                  </button>
+                  <Link to={`/backoffice/conversations/${conv.id}`} className="text-xs text-[var(--color-primary)] hover:underline flex items-center gap-1">
+                    <ExternalLink className="w-3 h-3" /> Full View
                   </Link>
-                  <Badge variant="info">{conv.channel}</Badge>
-                  <Badge variant="default">{conv.current_state?.replace(/_/g, ' ')}</Badge>
                 </div>
-                <span className="text-xs text-[var(--color-text-muted)]">{fmtDate(conv.created_at)}</span>
               </div>
-              {conv.messages?.slice(-5).map((m: any) => (
-                <div key={m.id} className={`text-xs py-1 ${m.role === 'assistant' ? 'text-sky-400' : 'text-[var(--color-text)]'}`}>
-                  <span className="font-medium">{m.role}: </span>{m.content?.slice(0, 150)}{m.content?.length > 150 ? '...' : ''}
-                </div>
-              ))}
-              <div className="mt-2 pt-1 border-t border-[var(--color-border)]">
-                <Link to={`/backoffice/conversations/${conv.id}`} className="text-xs text-[var(--color-primary)] hover:underline flex items-center gap-1">
-                  <ExternalLink className="w-3 h-3" /> View Full Conversation
-                </Link>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </Card>
       )}
 
@@ -1114,7 +1395,13 @@ function CommunicationsTab({ conversations, comments, notes }: { conversations: 
       )}
 
       {conversations.length === 0 && comments.length === 0 && notes.length === 0 && (
-        <p className="text-sm text-[var(--color-text-muted)] text-center py-8">No communications found.</p>
+        <div className="text-center py-12 space-y-3">
+          <MessageCircle className="w-10 h-10 text-[var(--color-text-muted)] mx-auto opacity-30" />
+          <p className="text-sm text-[var(--color-text-muted)]">No communications found.</p>
+          <Button variant="primary" size="sm" onClick={onStartNew} className="inline-flex items-center gap-1.5">
+            <Plus className="w-4 h-4" /> Start a Conversation
+          </Button>
+        </div>
       )}
     </div>
   );

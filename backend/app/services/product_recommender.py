@@ -1,6 +1,7 @@
 """Product recommendation based on borrower needs description."""
 
 from sqlalchemy import select
+from app.services.error_logger import log_error
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -22,35 +23,39 @@ async def get_recommended_products(
     Returns:
         List of dicts with id, name, description, min_amount, max_amount, term_range, plain_reason.
     """
-    result = await db.execute(
-        select(CreditProduct)
-        .where(CreditProduct.is_active == True)
-        .options(selectinload(CreditProduct.merchant))
-        .order_by(CreditProduct.name)
-    )
-    products = result.scalars().all()
-    if not products:
-        return []
+    try:
+        result = await db.execute(
+            select(CreditProduct)
+            .where(CreditProduct.is_active == True)
+            .options(selectinload(CreditProduct.merchant))
+            .order_by(CreditProduct.name)
+        )
+        products = result.scalars().all()
+        if not products:
+            return []
 
-    # Filter by amount if we have a hint
-    if amount_hint and amount_hint > 0:
-        filtered = [p for p in products if float(p.min_amount) <= amount_hint <= float(p.max_amount)]
-        if filtered:
-            products = filtered
+        # Filter by amount if we have a hint
+        if amount_hint and amount_hint > 0:
+            filtered = [p for p in products if float(p.min_amount) <= amount_hint <= float(p.max_amount)]
+            if filtered:
+                products = filtered
 
-    # Build plain-language summaries for LLM
-    out = []
-    for p in products[:5]:
-        out.append({
-            "id": p.id,
-            "name": p.name,
-            "description": p.description or "",
-            "min_amount": float(p.min_amount),
-            "max_amount": float(p.max_amount),
-            "term_range": f"{p.min_term_months}-{p.max_term_months} months",
-            "plain_reason": _match_reason(need_description, p),
-        })
-    return out
+        # Build plain-language summaries for LLM
+        out = []
+        for p in products[:5]:
+            out.append({
+                "id": p.id,
+                "name": p.name,
+                "description": p.description or "",
+                "min_amount": float(p.min_amount),
+                "max_amount": float(p.max_amount),
+                "term_range": f"{p.min_term_months}-{p.max_term_months} months",
+                "plain_reason": _match_reason(need_description, p),
+            })
+        return out
+    except Exception as e:
+        await log_error(e, db=db, module="services.product_recommender", function_name="get_recommended_products")
+        raise
 
 
 def _match_reason(need: str, product: CreditProduct) -> str:

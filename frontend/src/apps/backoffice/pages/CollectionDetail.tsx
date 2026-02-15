@@ -1,7 +1,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
-  ArrowLeft, MessageCircle, Phone, Mail, Send, Plus, User
+  ArrowLeft, MessageCircle, Phone, Mail, Send, Plus, User,
+  Shield, ShieldAlert, AlertCircle, Clock, CheckCircle, XCircle,
+  DollarSign, FileText, Handshake, Scale,
 } from 'lucide-react';
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
@@ -29,6 +31,66 @@ interface ChatMessage {
   created_at: string;
 }
 
+interface PTP {
+  id: number;
+  agent_name: string;
+  amount_promised: number;
+  promise_date: string;
+  payment_method: string | null;
+  status: string;
+  amount_received: number;
+  reminded_at: string | null;
+  broken_at: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+interface Settlement {
+  id: number;
+  offer_type: string;
+  original_balance: number;
+  settlement_amount: number;
+  discount_pct: number;
+  plan_months: number | null;
+  plan_monthly_amount: number | null;
+  lump_sum: number | null;
+  status: string;
+  offered_by_name: string | null;
+  approved_by_name: string | null;
+  approval_required: boolean;
+  notes: string | null;
+  created_at: string;
+}
+
+interface CaseData {
+  id: number;
+  loan_application_id: number;
+  assigned_agent_id: number | null;
+  assigned_agent_name: string | null;
+  status: string;
+  delinquency_stage: string;
+  priority_score: number;
+  dpd: number;
+  total_overdue: number;
+  dispute_active: boolean;
+  vulnerability_flag: boolean;
+  do_not_contact: boolean;
+  hardship_flag: boolean;
+  next_best_action: string | null;
+  nba_confidence: number;
+  nba_reasoning: string | null;
+  first_contact_at: string | null;
+  last_contact_at: string | null;
+  sla_first_contact_deadline: string | null;
+  sla_next_contact_deadline: string | null;
+}
+
+interface ComplianceStatus {
+  allowed: boolean;
+  reasons: string[];
+  next_allowed_at: string | null;
+}
+
 const CHANNELS = [
   { value: 'phone', label: 'Phone', icon: Phone },
   { value: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
@@ -46,49 +108,49 @@ const OUTCOMES = [
   { value: 'other', label: 'Other' },
 ];
 
+type TabKey = 'overview' | 'history' | 'chat' | 'promises' | 'settlements' | 'compliance';
+
 export default function CollectionDetail() {
   const { id } = useParams<{ id: string }>();
   const appId = parseInt(id || '0');
   const [app, setApp] = useState<any>(null);
+  const [caseData, setCaseData] = useState<CaseData | null>(null);
   const [records, setRecords] = useState<CollectionRecord[]>([]);
   const [chat, setChat] = useState<ChatMessage[]>([]);
+  const [ptps, setPtps] = useState<PTP[]>([]);
+  const [settlements, setSettlements] = useState<Settlement[]>([]);
+  const [compliance, setCompliance] = useState<ComplianceStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'history' | 'chat'>('history');
+  const [tab, setTab] = useState<TabKey>('overview');
   const [showForm, setShowForm] = useState(false);
   const [chatMsg, setChatMsg] = useState('');
   const [sendingChat, setSendingChat] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Form state
+  // PTP Form
+  const [showPtpForm, setShowPtpForm] = useState(false);
+  const [ptpForm, setPtpForm] = useState({ amount_promised: '', promise_date: '', payment_method: '', notes: '' });
+
+  // Settlement
+  const [creatingSettlement, setCreatingSettlement] = useState(false);
+
+  // Interaction form
   const [form, setForm] = useState({
-    channel: 'phone',
-    notes: '',
-    action_taken: '',
-    outcome: 'no_answer',
-    next_action_date: '',
-    promise_amount: '',
-    promise_date: '',
+    channel: 'phone', notes: '', action_taken: '', outcome: 'no_answer',
+    next_action_date: '', promise_amount: '', promise_date: '',
   });
 
-  useEffect(() => {
-    loadData();
-  }, [appId]);
+  useEffect(() => { loadData(); }, [appId]);
 
-  // Poll for new chat messages every 4 seconds when the chat tab is active
   useEffect(() => {
     if (tab !== 'chat') return;
     const interval = setInterval(async () => {
-      try {
-        const chatRes = await collectionsApi.getChat(appId);
-        setChat(chatRes.data);
-      } catch { /* ignore */ }
+      try { const res = await collectionsApi.getChat(appId); setChat(res.data); } catch { /* ignore */ }
     }, 4000);
     return () => clearInterval(interval);
   }, [appId, tab]);
 
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chat]);
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chat]);
 
   const loadData = async () => {
     try {
@@ -100,6 +162,26 @@ export default function CollectionDetail() {
       setApp(appRes.data);
       setRecords(histRes.data);
       setChat(chatRes.data);
+
+      // Load case data
+      try {
+        const casesRes = await collectionsApi.listCases({ limit: 1000 });
+        const c = casesRes.data.find((cc: CaseData) => cc.loan_application_id === appId);
+        if (c) {
+          setCaseData(c);
+          // Load PTPs, settlements, compliance
+          const [ptpRes, settRes] = await Promise.all([
+            collectionsApi.listPtps(c.id),
+            collectionsApi.listSettlements(c.id),
+          ]);
+          setPtps(ptpRes.data);
+          setSettlements(settRes.data);
+          try {
+            const compRes = await collectionsApi.checkCompliance({ case_id: c.id, jurisdiction: 'TT' });
+            setCompliance(compRes.data);
+          } catch { /* ignore */ }
+        }
+      } catch { /* ignore */ }
     } catch { /* ignore */ }
     setLoading(false);
   };
@@ -131,6 +213,74 @@ export default function CollectionDetail() {
     setSendingChat(false);
   };
 
+  const handleCreatePtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!caseData) return;
+    try {
+      await collectionsApi.createPtp(caseData.id, {
+        amount_promised: parseFloat(ptpForm.amount_promised),
+        promise_date: ptpForm.promise_date,
+        payment_method: ptpForm.payment_method || undefined,
+        notes: ptpForm.notes || undefined,
+      });
+      setShowPtpForm(false);
+      setPtpForm({ amount_promised: '', promise_date: '', payment_method: '', notes: '' });
+      const res = await collectionsApi.listPtps(caseData.id);
+      setPtps(res.data);
+    } catch { /* ignore */ }
+  };
+
+  const handleUpdatePtp = async (ptpId: number, newStatus: string) => {
+    if (!caseData) return;
+    try {
+      await collectionsApi.updatePtp(ptpId, { status: newStatus });
+      const res = await collectionsApi.listPtps(caseData.id);
+      setPtps(res.data);
+    } catch { /* ignore */ }
+  };
+
+  const handleAutoCalcSettlement = async () => {
+    if (!caseData) return;
+    setCreatingSettlement(true);
+    try {
+      await collectionsApi.createSettlement(caseData.id, { auto_calculate: true, offer_type: 'full_payment', settlement_amount: 1 });
+      const res = await collectionsApi.listSettlements(caseData.id);
+      setSettlements(res.data);
+    } catch { /* ignore */ }
+    setCreatingSettlement(false);
+  };
+
+  const handleApproveSettlement = async (sid: number) => {
+    try {
+      await collectionsApi.approveSettlement(sid);
+      if (caseData) {
+        const res = await collectionsApi.listSettlements(caseData.id);
+        setSettlements(res.data);
+      }
+    } catch { /* ignore */ }
+  };
+
+  const handleAcceptSettlement = async (sid: number) => {
+    try {
+      await collectionsApi.acceptSettlement(sid);
+      if (caseData) {
+        const res = await collectionsApi.listSettlements(caseData.id);
+        setSettlements(res.data);
+      }
+    } catch { /* ignore */ }
+  };
+
+  const handleToggleFlag = async (flag: string, value: boolean) => {
+    if (!caseData) return;
+    try {
+      await collectionsApi.updateCase(caseData.id, { [flag]: value });
+      // Reload case
+      const casesRes = await collectionsApi.listCases({ limit: 1000 });
+      const c = casesRes.data.find((cc: CaseData) => cc.loan_application_id === appId);
+      if (c) setCaseData(c);
+    } catch { /* ignore */ }
+  };
+
   const fmt = (val: number | null | undefined) =>
     val != null ? `TTD ${val.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—';
 
@@ -141,6 +291,15 @@ export default function CollectionDetail() {
 
   const application = app.application;
 
+  const TABS: { key: TabKey; label: string }[] = [
+    { key: 'overview', label: 'Case Overview' },
+    { key: 'history', label: 'Interactions' },
+    { key: 'chat', label: 'WhatsApp' },
+    { key: 'promises', label: 'Promises' },
+    { key: 'settlements', label: 'Settlements' },
+    { key: 'compliance', label: 'Compliance' },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -148,54 +307,162 @@ export default function CollectionDetail() {
         <Link to="/backoffice/collections" className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
           <ArrowLeft size={20} />
         </Link>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold">Collection: {application.reference_number}</h1>
           <p className="text-sm text-[var(--color-text-muted)]">
-            Loan: {fmt(application.amount_approved)} at {application.interest_rate}% for {application.term_months} months
+            {fmt(application.amount_approved)} at {application.interest_rate}% for {application.term_months} months
           </p>
         </div>
+        {caseData && (
+          <div className="flex items-center gap-2">
+            <Badge variant={caseData.status === 'open' ? 'warning' : caseData.status === 'settled' ? 'success' : 'danger'}>
+              {caseData.status.replace(/_/g, ' ')}
+            </Badge>
+            <Badge variant="info">{caseData.dpd} DPD</Badge>
+          </div>
+        )}
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
-          <div className="text-xs text-[var(--color-text-muted)]">Loan Amount</div>
-          <div className="text-lg font-bold text-[var(--color-text)] mt-1">{fmt(application.amount_approved)}</div>
+          <div className="text-xs text-[var(--color-text-muted)]">Overdue</div>
+          <div className="text-lg font-bold text-[var(--color-danger)] mt-1">{fmt(caseData?.total_overdue)}</div>
         </Card>
         <Card>
-          <div className="text-xs text-[var(--color-text-muted)]">Monthly Payment</div>
-          <div className="text-lg font-bold text-[var(--color-text)] mt-1">{fmt(application.monthly_payment)}</div>
+          <div className="text-xs text-[var(--color-text-muted)]">Priority Score</div>
+          <div className="text-lg font-bold mt-1">{caseData ? `${(caseData.priority_score * 100).toFixed(0)}%` : '—'}</div>
         </Card>
         <Card>
-          <div className="text-xs text-[var(--color-text-muted)]">Interactions</div>
-          <div className="text-lg font-bold text-[var(--color-primary)] mt-1">{records.length}</div>
+          <div className="text-xs text-[var(--color-text-muted)]">Agent</div>
+          <div className="text-lg font-bold text-[var(--color-primary)] mt-1">{caseData?.assigned_agent_name || 'Unassigned'}</div>
         </Card>
         <Card>
-          <div className="text-xs text-[var(--color-text-muted)]">Status</div>
-          <div className="text-lg font-bold text-[var(--color-danger)] mt-1 capitalize">{application.status.replace(/_/g, ' ')}</div>
+          <div className="text-xs text-[var(--color-text-muted)]">Next Best Action</div>
+          <div className="text-sm font-semibold text-amber-400 mt-1 capitalize">{caseData?.next_best_action?.replace(/_/g, ' ') || '—'}</div>
         </Card>
       </div>
 
       {/* Tabs */}
-      <div className="flex space-x-1 bg-[var(--color-surface)] rounded-lg p-1 w-fit">
-        <button
-          onClick={() => setTab('history')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            tab === 'history' ? 'bg-[var(--color-primary)] text-white' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
-          }`}
-        >
-          Interaction History
-        </button>
-        <button
-          onClick={() => setTab('chat')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            tab === 'chat' ? 'bg-[var(--color-primary)] text-white' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
-          }`}
-        >
-          WhatsApp Chat
-        </button>
+      <div className="flex space-x-1 bg-[var(--color-surface)] rounded-lg p-1 w-fit overflow-x-auto">
+        {TABS.map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
+              tab === t.key ? 'bg-[var(--color-primary)] text-white' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
+      {/* ── Case Overview ─── */}
+      {tab === 'overview' && caseData && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* NBA */}
+          <Card>
+            <h3 className="font-semibold mb-3 flex items-center gap-2"><FileText size={16} /> Next Best Action</h3>
+            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+              <div className="font-semibold text-amber-400 capitalize">{caseData.next_best_action?.replace(/_/g, ' ') || 'No recommendation'}</div>
+              <div className="text-xs text-[var(--color-text-muted)] mt-1">
+                Confidence: {((caseData.nba_confidence || 0) * 100).toFixed(0)}%
+              </div>
+              {caseData.nba_reasoning && (
+                <p className="text-sm text-[var(--color-text-muted)] mt-2">{caseData.nba_reasoning}</p>
+              )}
+            </div>
+          </Card>
+
+          {/* Flags */}
+          <Card>
+            <h3 className="font-semibold mb-3 flex items-center gap-2"><Shield size={16} /> Case Flags</h3>
+            <div className="space-y-2">
+              {[
+                { key: 'dispute_active', label: 'Dispute Active', icon: ShieldAlert, color: 'text-purple-400' },
+                { key: 'vulnerability_flag', label: 'Vulnerability', icon: AlertCircle, color: 'text-amber-400' },
+                { key: 'do_not_contact', label: 'Do Not Contact', icon: Shield, color: 'text-gray-400' },
+                { key: 'hardship_flag', label: 'Hardship', icon: User, color: 'text-blue-400' },
+              ].map(f => (
+                <label key={f.key} className="flex items-center justify-between p-2 rounded-lg hover:bg-[var(--color-surface-hover)] cursor-pointer">
+                  <span className={`flex items-center gap-2 text-sm ${f.color}`}>
+                    <f.icon size={14} /> {f.label}
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={(caseData as any)[f.key]}
+                    onChange={e => handleToggleFlag(f.key, e.target.checked)}
+                    className="rounded"
+                  />
+                </label>
+              ))}
+            </div>
+          </Card>
+
+          {/* SLA */}
+          <Card>
+            <h3 className="font-semibold mb-3 flex items-center gap-2"><Clock size={16} /> SLA Timers</h3>
+            <div className="space-y-3">
+              <div>
+                <span className="text-xs text-[var(--color-text-muted)]">First Contact Deadline</span>
+                <p className="text-sm font-medium">
+                  {caseData.sla_first_contact_deadline
+                    ? new Date(caseData.sla_first_contact_deadline).toLocaleString()
+                    : '—'}
+                </p>
+              </div>
+              <div>
+                <span className="text-xs text-[var(--color-text-muted)]">First Contact</span>
+                <p className="text-sm font-medium">
+                  {caseData.first_contact_at
+                    ? new Date(caseData.first_contact_at).toLocaleString()
+                    : <span className="text-amber-400">Not yet contacted</span>}
+                </p>
+              </div>
+              <div>
+                <span className="text-xs text-[var(--color-text-muted)]">Last Contact</span>
+                <p className="text-sm font-medium">
+                  {caseData.last_contact_at
+                    ? new Date(caseData.last_contact_at).toLocaleString()
+                    : '—'}
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Compliance Quick Check */}
+          <Card>
+            <h3 className="font-semibold mb-3 flex items-center gap-2"><Scale size={16} /> Compliance Status</h3>
+            {compliance ? (
+              <div>
+                <div className={`flex items-center gap-2 text-lg font-bold ${compliance.allowed ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {compliance.allowed ? <CheckCircle size={20} /> : <XCircle size={20} />}
+                  {compliance.allowed ? 'Contact Permitted' : 'Contact Restricted'}
+                </div>
+                {compliance.reasons.length > 0 && (
+                  <ul className="mt-2 space-y-1">
+                    {compliance.reasons.map((r, i) => (
+                      <li key={i} className="text-sm text-[var(--color-text-muted)] flex items-start gap-1">
+                        <XCircle size={12} className="text-red-400 mt-0.5 shrink-0" /> {r}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {compliance.next_allowed_at && (
+                  <p className="text-xs text-[var(--color-text-muted)] mt-2">
+                    Next allowed: {new Date(compliance.next_allowed_at).toLocaleString()}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-[var(--color-text-muted)]">No compliance data</p>
+            )}
+          </Card>
+        </div>
+      )}
+
+      {/* ── Interaction History ─── */}
       {tab === 'history' && (
         <div className="space-y-4">
           <div className="flex justify-end">
@@ -248,7 +515,6 @@ export default function CollectionDetail() {
             </Card>
           )}
 
-          {/* Timeline */}
           <div className="space-y-3">
             {records.map(record => (
               <Card key={record.id}>
@@ -277,9 +543,7 @@ export default function CollectionDetail() {
                       )}
                     </div>
                   </div>
-                  <div className="text-xs text-[var(--color-text-muted)]">
-                    {new Date(record.created_at).toLocaleString()}
-                  </div>
+                  <div className="text-xs text-[var(--color-text-muted)]">{new Date(record.created_at).toLocaleString()}</div>
                 </div>
               </Card>
             ))}
@@ -290,9 +554,9 @@ export default function CollectionDetail() {
         </div>
       )}
 
+      {/* ── WhatsApp Chat ─── */}
       {tab === 'chat' && (
         <Card className="flex flex-col" style={{ height: '500px' }}>
-          {/* Chat Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {chat.length === 0 && (
               <div className="text-center text-[var(--color-text-muted)] py-8">
@@ -315,12 +579,9 @@ export default function CollectionDetail() {
             ))}
             <div ref={chatEndRef} />
           </div>
-
-          {/* Chat Input */}
           <div className="border-t border-[var(--color-border)] p-3 flex space-x-2">
             <input
-              type="text"
-              value={chatMsg}
+              type="text" value={chatMsg}
               onChange={e => setChatMsg(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSendChat()}
               placeholder="Type a WhatsApp message..."
@@ -336,6 +597,240 @@ export default function CollectionDetail() {
             </button>
           </div>
         </Card>
+      )}
+
+      {/* ── Promises to Pay ─── */}
+      {tab === 'promises' && (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <Button onClick={() => setShowPtpForm(!showPtpForm)} disabled={!caseData}>
+              <Plus size={16} className="mr-1" /> New Promise
+            </Button>
+          </div>
+
+          {showPtpForm && caseData && (
+            <Card>
+              <h3 className="font-semibold mb-4">Create Promise to Pay</h3>
+              <form onSubmit={handleCreatePtp} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-[var(--color-text-muted)] mb-1">Amount Promised *</label>
+                  <input type="number" required min="0.01" step="0.01"
+                    value={ptpForm.amount_promised}
+                    onChange={e => setPtpForm(f => ({ ...f, amount_promised: e.target.value }))}
+                    className={inputClass} />
+                </div>
+                <div>
+                  <label className="block text-sm text-[var(--color-text-muted)] mb-1">Promise Date *</label>
+                  <input type="date" required
+                    value={ptpForm.promise_date}
+                    onChange={e => setPtpForm(f => ({ ...f, promise_date: e.target.value }))}
+                    className={inputClass} />
+                </div>
+                <div>
+                  <label className="block text-sm text-[var(--color-text-muted)] mb-1">Payment Method</label>
+                  <select value={ptpForm.payment_method}
+                    onChange={e => setPtpForm(f => ({ ...f, payment_method: e.target.value }))}
+                    className={inputClass}>
+                    <option value="">Select...</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                    <option value="online">Online</option>
+                    <option value="cash">Cash</option>
+                    <option value="mobile_money">Mobile Money</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-[var(--color-text-muted)] mb-1">Notes</label>
+                  <input type="text"
+                    value={ptpForm.notes}
+                    onChange={e => setPtpForm(f => ({ ...f, notes: e.target.value }))}
+                    className={inputClass} />
+                </div>
+                <div className="md:col-span-2 flex justify-end space-x-2">
+                  <Button variant="secondary" type="button" onClick={() => setShowPtpForm(false)}>Cancel</Button>
+                  <Button type="submit">Create Promise</Button>
+                </div>
+              </form>
+            </Card>
+          )}
+
+          <div className="space-y-3">
+            {ptps.map(p => (
+              <Card key={p.id}>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">{fmt(p.amount_promised)}</span>
+                      <Badge variant={
+                        p.status === 'kept' ? 'success' :
+                        p.status === 'broken' ? 'danger' :
+                        p.status === 'pending' ? 'warning' : 'info'
+                      }>
+                        {p.status}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-[var(--color-text-muted)] mt-1">
+                      Due: {new Date(p.promise_date).toLocaleDateString()} · By: {p.agent_name}
+                      {p.payment_method && ` · ${p.payment_method}`}
+                    </p>
+                    {p.amount_received > 0 && (
+                      <p className="text-xs text-emerald-400 mt-1">Received: {fmt(p.amount_received)}</p>
+                    )}
+                    {p.notes && <p className="text-xs text-[var(--color-text-muted)] mt-1">{p.notes}</p>}
+                    {p.broken_at && <p className="text-xs text-red-400 mt-1">Broken at: {new Date(p.broken_at).toLocaleString()}</p>}
+                  </div>
+                  <div className="flex gap-1">
+                    {p.status === 'pending' && (
+                      <>
+                        <button onClick={() => handleUpdatePtp(p.id, 'kept')}
+                          className="px-2 py-1 text-xs rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30">
+                          Kept
+                        </button>
+                        <button onClick={() => handleUpdatePtp(p.id, 'broken')}
+                          className="px-2 py-1 text-xs rounded bg-red-500/20 text-red-400 hover:bg-red-500/30">
+                          Broken
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            ))}
+            {ptps.length === 0 && (
+              <div className="text-center text-[var(--color-text-muted)] py-8">No promises recorded yet</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Settlements ─── */}
+      {tab === 'settlements' && (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <Button onClick={handleAutoCalcSettlement} disabled={!caseData || creatingSettlement}>
+              <DollarSign size={16} className="mr-1" /> {creatingSettlement ? 'Calculating...' : 'Calculate Options'}
+            </Button>
+          </div>
+
+          <div className="space-y-3">
+            {settlements.map(s => (
+              <Card key={s.id}>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold capitalize">{s.offer_type.replace(/_/g, ' ')}</span>
+                      <Badge variant={
+                        s.status === 'accepted' ? 'success' :
+                        s.status === 'rejected' || s.status === 'expired' ? 'danger' :
+                        s.status === 'approved' ? 'info' :
+                        s.status === 'needs_approval' ? 'warning' : 'info'
+                      }>
+                        {s.status}
+                      </Badge>
+                      {s.approval_required && s.status === 'draft' && (
+                        <Badge variant="warning">Needs Approval</Badge>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2 text-sm">
+                      <div>
+                        <span className="text-[var(--color-text-muted)] text-xs">Original</span>
+                        <p>{fmt(s.original_balance)}</p>
+                      </div>
+                      <div>
+                        <span className="text-[var(--color-text-muted)] text-xs">Settlement</span>
+                        <p className="font-semibold text-emerald-400">{fmt(s.settlement_amount)}</p>
+                      </div>
+                      {s.discount_pct > 0 && (
+                        <div>
+                          <span className="text-[var(--color-text-muted)] text-xs">Discount</span>
+                          <p>{s.discount_pct}%</p>
+                        </div>
+                      )}
+                      {s.plan_months && (
+                        <div>
+                          <span className="text-[var(--color-text-muted)] text-xs">Plan</span>
+                          <p>{s.plan_months}mo × {fmt(s.plan_monthly_amount)}</p>
+                        </div>
+                      )}
+                      {s.lump_sum && (
+                        <div>
+                          <span className="text-[var(--color-text-muted)] text-xs">Lump Sum</span>
+                          <p>{fmt(s.lump_sum)}</p>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-[var(--color-text-muted)] mt-2">
+                      Offered by {s.offered_by_name} on {new Date(s.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex gap-1">
+                    {s.approval_required && s.status === 'draft' && (
+                      <button onClick={() => handleApproveSettlement(s.id)}
+                        className="px-2 py-1 text-xs rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30">
+                        Approve
+                      </button>
+                    )}
+                    {(s.status === 'approved' || (s.status === 'draft' && !s.approval_required)) && (
+                      <button onClick={() => handleAcceptSettlement(s.id)}
+                        className="px-2 py-1 text-xs rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30">
+                        Accept
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            ))}
+            {settlements.length === 0 && (
+              <div className="text-center text-[var(--color-text-muted)] py-8">
+                No settlement offers. Click "Calculate Options" to generate offers.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Compliance ─── */}
+      {tab === 'compliance' && (
+        <div className="space-y-4">
+          <Card>
+            <h3 className="font-semibold mb-4 flex items-center gap-2"><Scale size={16} /> Contact Compliance</h3>
+            {compliance ? (
+              <div>
+                <div className={`flex items-center gap-2 text-lg font-bold mb-4 ${compliance.allowed ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {compliance.allowed ? <CheckCircle size={20} /> : <XCircle size={20} />}
+                  {compliance.allowed ? 'Contact Permitted' : 'Contact Restricted'}
+                </div>
+                {compliance.reasons.length > 0 && (
+                  <div className="space-y-2 mb-4">
+                    {compliance.reasons.map((r, i) => (
+                      <div key={i} className="flex items-start gap-2 p-2 rounded-lg bg-red-500/10 border border-red-500/20">
+                        <XCircle size={14} className="text-red-400 mt-0.5 shrink-0" />
+                        <span className="text-sm">{r}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {compliance.next_allowed_at && (
+                  <p className="text-sm text-[var(--color-text-muted)]">
+                    <Clock size={14} className="inline mr-1" />
+                    Next allowed contact: {new Date(compliance.next_allowed_at).toLocaleString()}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-[var(--color-text-muted)]">No compliance rules configured for this jurisdiction.</p>
+            )}
+          </Card>
+
+          <Card>
+            <h3 className="font-semibold mb-3">Contact History Today</h3>
+            <p className="text-sm text-[var(--color-text-muted)]">
+              {records.filter(r => new Date(r.created_at).toDateString() === new Date().toDateString()).length} contacts today
+            </p>
+            <p className="text-sm text-[var(--color-text-muted)] mt-1">
+              {records.length} total interactions recorded
+            </p>
+          </Card>
+        </div>
       )}
     </div>
   );

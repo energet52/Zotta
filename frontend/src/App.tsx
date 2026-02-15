@@ -27,6 +27,7 @@ import ConversationDetail from './apps/backoffice/pages/ConversationDetail';
 import LoanBook from './apps/backoffice/pages/LoanBook';
 import Collections from './apps/backoffice/pages/Collections';
 import CollectionDetail from './apps/backoffice/pages/CollectionDetail';
+import CollectionsDashboard from './apps/backoffice/pages/CollectionsDashboard';
 import NewApplication from './apps/backoffice/pages/NewApplication';
 import ProductManagement from './apps/backoffice/pages/ProductManagement';
 import ProductDetail from './apps/backoffice/pages/ProductDetail';
@@ -54,6 +55,9 @@ import GLReports from './apps/backoffice/pages/gl/GLReports';
 import ReportBuilder from './apps/backoffice/pages/gl/ReportBuilder';
 import AnomalyDashboard from './apps/backoffice/pages/gl/AnomalyDashboard';
 import GLChat from './apps/backoffice/pages/gl/GLChat';
+
+// Admin pages
+import ErrorMonitor from './apps/backoffice/pages/ErrorMonitor';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
   const { isAuthenticated, user, isLoading } = useAuthStore();
@@ -123,12 +127,14 @@ export default function App() {
           <Route path="/backoffice/reports" element={<Reports />} />
           <Route path="/backoffice/loans" element={<LoanBook />} />
           <Route path="/backoffice/collections" element={<Collections />} />
+          <Route path="/backoffice/collections-dashboard" element={<CollectionsDashboard />} />
           <Route path="/backoffice/collections/:id" element={<CollectionDetail />} />
           <Route path="/backoffice/new-application" element={<NewApplication />} />
           <Route path="/backoffice/products" element={<ProductManagement />} />
           <Route path="/backoffice/products/:id" element={<ProductDetail />} />
           <Route path="/backoffice/merchants" element={<MerchantManagement />} />
           <Route path="/backoffice/rules" element={<RulesManagement />} />
+          <Route path="/backoffice/error-monitor" element={<ErrorMonitor />} />
           <Route path="/backoffice/customers" element={<CustomerList />} />
           <Route path="/backoffice/customers/:id" element={<Customer360 />} />
           {/* Sector Analysis */}

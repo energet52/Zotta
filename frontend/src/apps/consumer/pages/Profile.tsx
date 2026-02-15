@@ -3,6 +3,7 @@ import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
 import SearchableSelect from '../../../components/ui/SearchableSelect';
+import { OCCUPATION_OPTIONS } from '../../../constants/occupations';
 import { loanApi, verificationApi } from '../../../api/endpoints';
 import { useAuthStore } from '../../../store/authStore';
 import Badge from '../../../components/ui/Badge';
@@ -110,7 +111,15 @@ export default function Profile() {
               ].map(s => ({ value: s, label: s }))}
               placeholder="Search or select sector..."
             />
-            <Input label="Job Title" name="job_title" value={profile.job_title || ''} onChange={handleChange} />
+            <SearchableSelect
+              label="Occupation / Job Title"
+              value={profile.job_title || ''}
+              onChange={(v) => setProfile({ ...profile, job_title: v })}
+              options={OCCUPATION_OPTIONS.map(s => ({ value: s, label: s }))}
+              placeholder="Search or select occupation..."
+              allowOther
+              otherPlaceholder="Enter your occupation..."
+            />
             <Input label="Monthly Income (TTD)" name="monthly_income" type="number" value={profile.monthly_income || ''} onChange={handleChange} />
             <Input label="Years Employed" name="years_employed" type="number" value={profile.years_employed || ''} onChange={handleChange} />
           </div>

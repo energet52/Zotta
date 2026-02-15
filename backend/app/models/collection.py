@@ -46,6 +46,9 @@ class CollectionRecord(Base):
     loan_application_id: Mapped[int] = mapped_column(
         ForeignKey("loan_applications.id"), nullable=False, index=True
     )
+    collection_case_id: Mapped[int | None] = mapped_column(
+        ForeignKey("collection_cases.id"), nullable=True, index=True
+    )
     agent_id: Mapped[int] = mapped_column(
         ForeignKey("users.id"), nullable=False
     )

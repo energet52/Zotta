@@ -25,6 +25,18 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.collection_reminders.check_overdue_and_notify",
         "schedule": crontab(hour=9, minute=0),  # 9 AM Trinidad time
     },
+    "sync-collection-cases": {
+        "task": "app.tasks.collection_reminders.sync_cases",
+        "schedule": crontab(minute="*/15"),  # Every 15 minutes
+    },
+    "check-ptp-daily": {
+        "task": "app.tasks.collection_reminders.check_ptps",
+        "schedule": crontab(hour=8, minute=30),  # 8:30 AM daily
+    },
+    "daily-collections-snapshot": {
+        "task": "app.tasks.collection_reminders.daily_snapshot",
+        "schedule": crontab(hour=23, minute=55),  # 11:55 PM daily
+    },
 }
 
 # Import tasks so they get registered
