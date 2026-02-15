@@ -247,6 +247,21 @@ RULES_REGISTRY: dict[str, dict] = {
         "is_custom": False,
         "enabled": True,
     },
+    "R21": {
+        "name": "Scorecard Score",
+        "description": "Scorecard score thresholds: auto-decline below {threshold[auto_decline]}, manual review up to {threshold[auto_approve]}, auto-approve above",
+        "field": "scorecard_score",
+        "operator": "gte",
+        "threshold": {
+            "auto_decline": 480,
+            "auto_approve": 650,
+        },
+        "outcome": "decline",
+        "severity": "hard",
+        "type": "complex",
+        "is_custom": False,
+        "enabled": True,
+    },
 }
 
 
@@ -302,6 +317,7 @@ class RuleInput:
     has_active_debt_bureau: bool = False
     has_court_judgment: bool = False
     has_duplicate_within_30_days: bool = False
+    scorecard_score: Optional[float] = None
 
 
 @dataclass
@@ -385,6 +401,8 @@ def _get_field_value(input_data: RuleInput, field_name: str):
         return input_data.years_employed * 12
     if field_name == "maturity_age":
         return input_data.applicant_age + input_data.term_months / 12
+    if field_name == "scorecard_score":
+        return input_data.scorecard_score
     return getattr(input_data, field_name, None)
 
 
@@ -561,6 +579,31 @@ def evaluate_rules(
             else:
                 _record(RuleResult(rule_id, rule["name"], True,
                     f"Credit score {input_data.credit_score} above approval threshold"))
+
+        elif rule_id == "R21":
+            # Scorecard score rule — uses the score from the scorecard engine
+            if input_data.scorecard_score is None:
+                _record(RuleResult(rule_id, rule["name"], True,
+                    "No scorecard score available — rule skipped", "soft"))
+            else:
+                thresholds = rule.get("threshold", {})
+                if isinstance(thresholds, dict):
+                    sc_decline = thresholds.get("auto_decline", 480)
+                    sc_approve = thresholds.get("auto_approve", 650)
+                else:
+                    sc_decline = 480
+                    sc_approve = 650
+
+                score = input_data.scorecard_score
+                if score < sc_decline:
+                    _record(RuleResult(rule_id, rule["name"], False,
+                        f"Scorecard score {score:.0f} below decline threshold {sc_decline}", severity))
+                elif score < sc_approve:
+                    _record(RuleResult(rule_id, rule["name"], False,
+                        f"Scorecard score {score:.0f} in manual review range ({sc_decline}-{sc_approve})", "refer"))
+                else:
+                    _record(RuleResult(rule_id, rule["name"], True,
+                        f"Scorecard score {score:.0f} above auto-approve threshold {sc_approve}"))
 
         else:
             # Unknown complex rule — skip

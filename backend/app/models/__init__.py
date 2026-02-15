@@ -56,6 +56,11 @@ from app.models.sector_analysis import (
     SECTOR_TAXONOMY,
 )
 from app.models.error_log import ErrorLog, ErrorSeverity
+from app.models.scorecard import (
+    Scorecard, ScorecardStatus, ScorecardCharacteristic, ScorecardBin,
+    BinType, ScoreResult, ScorecardChangeLog, ScorecardChangeStatus,
+    ScorecardPerformanceSnapshot, ScorecardAlert,
+)
 from app.models.gl import (
     Currency,
     GLAccount,
@@ -136,6 +141,17 @@ __all__ = [
     # Error Monitoring
     "ErrorLog",
     "ErrorSeverity",
+    # Scorecards
+    "Scorecard",
+    "ScorecardStatus",
+    "ScorecardCharacteristic",
+    "ScorecardBin",
+    "BinType",
+    "ScoreResult",
+    "ScorecardChangeLog",
+    "ScorecardChangeStatus",
+    "ScorecardPerformanceSnapshot",
+    "ScorecardAlert",
     # General Ledger
     "Currency",
     "GLAccount",

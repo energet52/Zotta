@@ -81,6 +81,7 @@ export const loanApi = {
 
 // ── Underwriter ────────────────────────────────
 export const underwriterApi = {
+  getStaff: () => api.get('/underwriter/staff'),
   getQueue: (status?: string) =>
     api.get('/underwriter/queue', { params: status ? { status_filter: status } : {} }),
   getApplication: (id: number) => api.get(`/underwriter/applications/${id}`),
@@ -182,6 +183,7 @@ export const collectionsApi = {
   // Cases
   listCases: (params?: Record<string, unknown>) => api.get('/collections/cases', { params }),
   getCase: (caseId: number) => api.get(`/collections/cases/${caseId}`),
+  getCaseFull: (caseId: number) => api.get(`/collections/cases/${caseId}/full`),
   updateCase: (caseId: number, data: Record<string, unknown>) => api.patch(`/collections/cases/${caseId}`, data),
   bulkAssign: (data: { case_ids: number[]; agent_id: number }) => api.post('/collections/cases/bulk-assign', data),
   overrideNba: (caseId: number, data: { action: string; reason: string }) =>
@@ -199,6 +201,10 @@ export const collectionsApi = {
   // Dashboard
   getDashboard: (periodDays?: number) => api.get('/collections/dashboard', { params: { period_days: periodDays || 30 } }),
   getAgentPerformance: () => api.get('/collections/dashboard/agent-performance'),
+  // AI
+  getDailyBriefing: () => api.get('/collections/daily-briefing'),
+  draftMessage: (data: { case_id: number; channel: string; template_type: string }) =>
+    api.post('/collections/draft-message', data),
   // Compliance
   listComplianceRules: () => api.get('/collections/compliance-rules'),
   createComplianceRule: (data: Record<string, unknown>) => api.post('/collections/compliance-rules', data),
@@ -211,6 +217,74 @@ export const collectionsApi = {
   getChat: (appId: number) => api.get(`/collections/${appId}/chat`),
   sendWhatsApp: (appId: number, data: { message: string }) =>
     api.post(`/collections/${appId}/send-whatsapp`, data),
+};
+
+// ── Scorecards ─────────────────────────────────
+export const scorecardsApi = {
+  // CRUD
+  list: (params?: Record<string, unknown>) => api.get('/scorecards/', { params }),
+  get: (id: number) => api.get(`/scorecards/${id}`),
+  create: (data: Record<string, unknown>) => api.post('/scorecards/', data),
+  update: (id: number, data: Record<string, unknown>) => api.put(`/scorecards/${id}`, data),
+  clone: (id: number, name?: string) => api.post(`/scorecards/${id}/clone`, null, { params: name ? { name } : {} }),
+  importCsv: (formData: FormData, params: Record<string, unknown>) =>
+    api.post('/scorecards/import-csv', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      params,
+    }),
+
+  // Editing
+  editPoints: (id: number, data: { bin_id: number; new_points: number; justification: string }) =>
+    api.patch(`/scorecards/${id}/edit-points`, data),
+  editBins: (id: number, data: Record<string, unknown>) =>
+    api.patch(`/scorecards/${id}/edit-bins`, data),
+  weightScale: (id: number, data: { characteristic_id: number; multiplier: number; justification: string }) =>
+    api.patch(`/scorecards/${id}/weight-scale`, data),
+  editCutoffs: (id: number, data: Record<string, unknown>) =>
+    api.patch(`/scorecards/${id}/edit-cutoffs`, data),
+
+  // Raw script
+  getScript: (id: number) => api.get(`/scorecards/${id}/script`),
+  saveScript: (id: number, data: { script: string; justification?: string }) =>
+    api.put(`/scorecards/${id}/script`, data),
+  liveCalculate: (id: number, data: Record<string, unknown>) =>
+    api.post(`/scorecards/${id}/live-calculate`, data),
+
+  // Champion-Challenger
+  getChampionChallengerStatus: () => api.get('/scorecards/champion-challenger/status'),
+  activateShadow: (id: number) => api.post(`/scorecards/${id}/activate-shadow`),
+  activateChallenger: (id: number, trafficPct: number) =>
+    api.post(`/scorecards/${id}/activate-challenger`, null, { params: { traffic_pct: trafficPct } }),
+  promoteToChampion: (id: number, data: { justification: string }) =>
+    api.post(`/scorecards/${id}/promote-to-champion`, data),
+  killSwitch: (id: number) => api.post(`/scorecards/${id}/kill-switch`),
+  retire: (id: number) => api.post(`/scorecards/${id}/retire`),
+  updateTrafficAllocation: (allocations: Array<{ scorecard_id: number; traffic_pct: number }>) =>
+    api.patch('/scorecards/traffic-allocation', allocations),
+
+  // Scoring
+  scoreApplication: (data: { application_id: number }) => api.post('/scorecards/score-application', data),
+  getScoreResults: (applicationId: number) => api.get(`/scorecards/score-results/${applicationId}`),
+  whatIf: (id: number, data: { application_id: number; modifications: Record<string, unknown> }) =>
+    api.post(`/scorecards/${id}/what-if`, data),
+  batchScore: (id: number, formData: FormData) =>
+    api.post(`/scorecards/${id}/batch-score`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+  simulateImpact: (id: number) => api.post(`/scorecards/${id}/simulate-impact`),
+
+  // Performance
+  getPerformance: (id: number) => api.get(`/scorecards/${id}/performance`),
+  getComparison: () => api.get('/scorecards/comparison/champion-challenger'),
+  getVintageAnalysis: (id: number, months?: number) =>
+    api.get(`/scorecards/${id}/vintage-analysis`, { params: months ? { months } : {} }),
+  getScoreBands: (id: number) => api.get(`/scorecards/${id}/score-bands`),
+  getAlerts: (id: number) => api.get(`/scorecards/${id}/alerts`),
+  runHealthCheck: (id: number) => api.post(`/scorecards/${id}/run-health-check`),
+  acknowledgeAlert: (alertId: number) => api.patch(`/scorecards/alerts/${alertId}/acknowledge`),
+
+  // Change log
+  getChangeLog: (id: number) => api.get(`/scorecards/${id}/change-log`),
 };
 
 // ── Administration ──────────────────────────────
@@ -299,6 +373,9 @@ export const customerApi = {
     api.get(`/customers/${userId}/alerts`, { params: statusFilter ? { status_filter: statusFilter } : {} }),
   updateAlert: (userId: number, alertId: number, data: { status?: string; action_taken?: string; action_notes?: string }) =>
     api.patch(`/customers/${userId}/alerts/${alertId}`, data),
+  // Contact info update
+  updateContact: (userId: number, data: Record<string, string>) =>
+    api.patch(`/customers/${userId}/contact`, data),
   // Staff-initiated conversations
   initiateConversation: (userId: number, data: { channel: string; message: string }) =>
     api.post(`/customers/${userId}/conversations`, data),

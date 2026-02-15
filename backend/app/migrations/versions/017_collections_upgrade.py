@@ -30,7 +30,7 @@ def upgrade() -> None:
         sa.Column("do_not_contact", sa.Boolean, server_default="false"),
         sa.Column("hardship_flag", sa.Boolean, server_default="false"),
         sa.Column("next_best_action", sa.String(100), nullable=True),
-        sa.Column("nba_confidence", sa.Float, server_default="0"),
+        sa.Column("nba_confidence", sa.Float, nullable=True, server_default="0"),
         sa.Column("nba_reasoning", sa.Text, nullable=True),
         sa.Column("first_contact_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("last_contact_at", sa.DateTime(timezone=True), nullable=True),

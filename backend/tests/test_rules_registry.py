@@ -44,7 +44,7 @@ class TestRegistryStructure:
     def test_default_registry_has_all_expected_rules(self):
         expected_ids = {"R01", "R02", "R03", "R04", "R05", "R06", "R07",
                         "R08", "R09", "R11", "R12", "R13", "R14", "R15",
-                        "R16", "R17", "R18", "R20"}
+                        "R16", "R17", "R18", "R20", "R21"}
         assert expected_ids == set(RULES_REGISTRY.keys())
 
     def test_every_rule_has_required_fields(self):
@@ -495,3 +495,171 @@ class TestBackwardCompat:
         result = evaluate_rules(inp, None)
         assert result.income_benchmark is not None
         assert result.expense_benchmark is not None
+
+
+# ── R21: Scorecard Score rule tests ──────────────────────────────────────
+
+class TestR21ScorecardScoreRule:
+    """Tests for the R21 Scorecard Score rule which uses thresholds
+    (auto_decline / auto_approve) to determine decline, manual review, or pass."""
+
+    def test_scorecard_score_below_decline_threshold_auto_declines(self):
+        """A scorecard score below the auto_decline threshold triggers auto_decline."""
+        inp = _healthy_input(scorecard_score=400.0)
+        result = evaluate_rules(inp, None)
+        r21 = next(r for r in result.results if r.rule_id == "R21")
+        assert r21.passed is False
+        assert r21.severity == "hard"
+        assert "below decline threshold" in r21.message
+        assert result.outcome == "auto_decline"
+
+    def test_scorecard_score_at_decline_boundary_is_manual_review(self):
+        """A scorecard score exactly at auto_decline threshold enters manual review range."""
+        inp = _healthy_input(scorecard_score=480.0)
+        result = evaluate_rules(inp, None)
+        r21 = next(r for r in result.results if r.rule_id == "R21")
+        assert r21.passed is False
+        assert r21.severity == "refer"
+        assert "manual review range" in r21.message
+
+    def test_scorecard_score_in_review_range_is_manual_review(self):
+        """A scorecard score between auto_decline and auto_approve triggers manual review."""
+        inp = _healthy_input(scorecard_score=550.0)
+        result = evaluate_rules(inp, None)
+        r21 = next(r for r in result.results if r.rule_id == "R21")
+        assert r21.passed is False
+        assert r21.severity == "refer"
+        assert "manual review range" in r21.message
+        assert result.outcome == "manual_review"
+
+    def test_scorecard_score_at_approve_boundary_passes(self):
+        """A scorecard score exactly at auto_approve threshold passes the rule."""
+        inp = _healthy_input(scorecard_score=650.0)
+        result = evaluate_rules(inp, None)
+        r21 = next(r for r in result.results if r.rule_id == "R21")
+        assert r21.passed is True
+        assert "above auto-approve threshold" in r21.message
+
+    def test_scorecard_score_above_approve_threshold_passes(self):
+        """A high scorecard score passes the rule and can auto-approve."""
+        inp = _healthy_input(scorecard_score=750.0)
+        result = evaluate_rules(inp, None)
+        r21 = next(r for r in result.results if r.rule_id == "R21")
+        assert r21.passed is True
+        assert "above auto-approve threshold" in r21.message
+
+    def test_no_scorecard_score_skips_rule(self):
+        """When scorecard_score is None, R21 is skipped (treated as pass)."""
+        inp = _healthy_input(scorecard_score=None)
+        result = evaluate_rules(inp, None)
+        r21 = next(r for r in result.results if r.rule_id == "R21")
+        assert r21.passed is True
+        assert "no scorecard score" in r21.message.lower()
+
+    def test_custom_thresholds_via_config_override(self):
+        """Admin can override R21 thresholds via rules config."""
+        config = dict(DEFAULT_RULES)
+        config["rules_registry"] = {
+            "R21": {
+                "threshold": {
+                    "auto_decline": 500,
+                    "auto_approve": 700,
+                },
+            },
+        }
+        # Score 550 — above default decline (480) but below custom decline boundary
+        # Should be in manual review range with custom thresholds (500-700)
+        inp = _healthy_input(scorecard_score=550.0)
+        result = evaluate_rules(inp, config)
+        r21 = next(r for r in result.results if r.rule_id == "R21")
+        assert r21.passed is False
+        assert r21.severity == "refer"
+        assert "manual review range" in r21.message
+
+    def test_custom_thresholds_auto_decline(self):
+        """Custom threshold makes a score that would pass default now decline."""
+        config = dict(DEFAULT_RULES)
+        config["rules_registry"] = {
+            "R21": {
+                "threshold": {
+                    "auto_decline": 600,
+                    "auto_approve": 800,
+                },
+            },
+        }
+        inp = _healthy_input(scorecard_score=500.0)
+        result = evaluate_rules(inp, config)
+        r21 = next(r for r in result.results if r.rule_id == "R21")
+        assert r21.passed is False
+        assert r21.severity == "hard"
+        assert "below decline threshold" in r21.message
+
+    def test_custom_thresholds_auto_approve(self):
+        """With higher auto_approve threshold, a decent score still goes to review."""
+        config = dict(DEFAULT_RULES)
+        config["rules_registry"] = {
+            "R21": {
+                "threshold": {
+                    "auto_decline": 400,
+                    "auto_approve": 800,
+                },
+            },
+        }
+        # Score 700 — above default auto_approve (650) but below custom (800)
+        inp = _healthy_input(scorecard_score=700.0)
+        result = evaluate_rules(inp, config)
+        r21 = next(r for r in result.results if r.rule_id == "R21")
+        assert r21.passed is False
+        assert r21.severity == "refer"
+
+    def test_r21_disabled_does_not_affect_decision(self):
+        """When R21 is disabled, a low scorecard score should not decline."""
+        config = dict(DEFAULT_RULES)
+        config["rules_registry"] = {
+            "R21": {"enabled": False},
+        }
+        inp = _healthy_input(scorecard_score=100.0)
+        result = evaluate_rules(inp, config)
+        r21 = next(r for r in result.results if r.rule_id == "R21")
+        assert r21.passed is True
+        assert "disabled" in r21.message.lower()
+        # Should NOT be auto_decline due to R21
+        assert result.outcome != "auto_decline"
+
+    def test_r21_outcome_changed_to_refer_only(self):
+        """Changing R21 outcome to 'refer' makes low scores go to review, not decline."""
+        config = dict(DEFAULT_RULES)
+        config["rules_registry"] = {
+            "R21": {"outcome": "refer", "severity": "refer"},
+        }
+        inp = _healthy_input(scorecard_score=300.0)
+        result = evaluate_rules(inp, config)
+        r21 = next(r for r in result.results if r.rule_id == "R21")
+        # Even though score is below decline threshold, outcome is refer
+        assert r21.passed is False
+        assert r21.severity == "refer"
+        assert result.outcome == "manual_review"
+
+    def test_scorecard_score_decline_overrides_other_passing_rules(self):
+        """A failing R21 (hard decline) overrides all other passing rules."""
+        inp = _healthy_input(
+            credit_score=780,
+            scorecard_score=300.0,  # well below 480 decline threshold
+        )
+        result = evaluate_rules(inp, None)
+        assert result.outcome == "auto_decline"
+        r21 = next(r for r in result.results if r.rule_id == "R21")
+        assert r21.passed is False
+        assert r21.severity == "hard"
+
+    def test_scorecard_score_review_with_all_else_passing(self):
+        """Scorecard score in review range causes manual_review even if everything else passes."""
+        inp = _healthy_input(
+            credit_score=780,
+            scorecard_score=550.0,  # in review range 480-650
+        )
+        result = evaluate_rules(inp, None)
+        r21 = next(r for r in result.results if r.rule_id == "R21")
+        assert r21.passed is False
+        assert r21.severity == "refer"
+        assert result.outcome == "manual_review"

@@ -17,6 +17,9 @@ from app.models.audit import AuditLog
 from app.services.decision_engine.scoring import ScoringInput, calculate_score
 from app.services.decision_engine.rules import RuleInput, evaluate_rules, DEFAULT_RULES
 from app.services.credit_bureau.adapter import get_credit_bureau
+from app.services.scorecard_engine import (
+    score_all_models, extract_applicant_data, get_active_scorecards,
+)
 
 
 async def run_decision_engine(
@@ -104,7 +107,7 @@ async def run_decision_engine(
         .order_by(DecisionRulesConfig.version.desc())
     )
     active_rules = rules_result_db.scalars().first()
-    rules_config = active_rules.rules if active_rules else DEFAULT_RULES
+    rules_config = (active_rules.rules if active_rules and active_rules.rules else DEFAULT_RULES)
     rules_version = active_rules.version if active_rules else 1
 
     # Check bureau data for active judgments / problematic debt
@@ -129,6 +132,24 @@ async def run_decision_engine(
     )
     has_duplicate = (dup_result.scalar() or 0) > 0
 
+    # ── Scorecard parallel scoring (champion-challenger) ──
+    # Run BEFORE rules so scorecard score is available to R21
+    scorecard_score_for_rules = None
+    scorecard_results = []
+    try:
+        applicant_data = extract_applicant_data(profile, application, {
+            "bureau_score": bureau_data.get("score"),
+        })
+        scorecard_results = await score_all_models(application_id, applicant_data, db)
+        if scorecard_results:
+            for sr in scorecard_results:
+                if sr.is_decisioning:
+                    scorecard_score_for_rules = sr.total_score
+                    break
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Scorecard parallel scoring failed: %s", e)
+
     rule_input = RuleInput(
         credit_score=scoring_result.total_score,
         risk_band=scoring_result.risk_band,
@@ -147,6 +168,7 @@ async def run_decision_engine(
         has_active_debt_bureau=has_active_debt,
         has_court_judgment=has_court_judgment,
         has_duplicate_within_30_days=has_duplicate,
+        scorecard_score=scorecard_score_for_rules,
     )
 
     rules_output = evaluate_rules(rule_input, rules_config)
@@ -201,6 +223,16 @@ async def run_decision_engine(
         application.decided_at = datetime.utcnow()
     else:
         application.status = LoanStatus.DECISION_PENDING
+
+    # ── Store scorecard scores on decision record ──
+    if scorecard_results:
+        for sr in scorecard_results:
+            if sr.is_decisioning:
+                decision.scoring_breakdown = decision.scoring_breakdown or {}
+                decision.scoring_breakdown["scorecard_score"] = sr.total_score
+                decision.scoring_breakdown["scorecard_name"] = sr.scorecard_name
+                decision.scoring_breakdown["scorecard_decision"] = sr.decision
+                break
 
     # Audit log
     audit = AuditLog(

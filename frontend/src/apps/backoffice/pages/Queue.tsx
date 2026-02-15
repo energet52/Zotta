@@ -47,7 +47,6 @@ const COLUMNS: { key: SortKey; label: string }[] = [
   { key: 'applicant_name', label: 'Applicant' },
   { key: 'amount_requested', label: 'Amount' },
   { key: 'term_months', label: 'Term' },
-  { key: 'purpose', label: 'Purpose' },
   { key: 'status', label: 'Status' },
   { key: 'created_at', label: 'Date' },
 ];
@@ -244,7 +243,6 @@ export default function Applications() {
                     </td>
                     <td className="py-3 px-4 text-[var(--color-text)] font-medium">TTD {app.amount_requested.toLocaleString()}</td>
                     <td className="py-3 px-4 text-[var(--color-text-muted)]">{app.term_months}m</td>
-                    <td className="py-3 px-4 text-[var(--color-text-muted)] capitalize">{app.purpose.replace(/_/g, ' ')}</td>
                     <td className="py-3 px-4">{getStatusBadge(app.status)}</td>
                     <td className="py-3 px-4 text-[var(--color-text-muted)]">
                       {new Date(app.created_at).toLocaleDateString()}

@@ -127,6 +127,12 @@ async def update_profile(
         for field, value in data.model_dump(exclude_unset=True).items():
             setattr(profile, field, value)
 
+        # Keep User.phone in sync with the best available contact number
+        if not current_user.phone:
+            best = profile.whatsapp_number or profile.mobile_phone or profile.home_phone
+            if best:
+                current_user.phone = best
+
         await db.flush()
         await db.refresh(profile)
         return profile

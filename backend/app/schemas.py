@@ -755,12 +755,27 @@ class CollectionQueueEntry(BaseModel):
     assigned_agent_name: Optional[str] = None
     next_best_action: Optional[str] = None
     nba_confidence: Optional[float] = None
+    nba_reasoning: Optional[str] = None
     dispute_active: bool = False
     vulnerability_flag: bool = False
     do_not_contact: bool = False
     hardship_flag: bool = False
     priority_score: float = 0.0
     compliance_ok: Optional[bool] = None
+    # New enhanced fields
+    employer_name: Optional[str] = None
+    sector: Optional[str] = None
+    sector_risk_rating: Optional[str] = None
+    product_type: Optional[str] = None
+    ptp_status: Optional[str] = None
+    ptp_amount: Optional[float] = None
+    ptp_date: Optional[date] = None
+    last_contact_channel: Optional[str] = None
+    last_contact_outcome: Optional[str] = None
+    sla_deadline: Optional[datetime] = None
+    sla_hours_remaining: Optional[float] = None
+    propensity_score: Optional[int] = None
+    propensity_trend: Optional[str] = None
 
 
 # ── Collection Case ──────────────────────────────────
@@ -930,6 +945,20 @@ class CollectionsDashboardResponse(BaseModel):
 class BulkAssignRequest(BaseModel):
     case_ids: list[int]
     agent_id: int
+
+
+# ── Draft Message ────────────────────────────────────
+
+class DraftMessageRequest(BaseModel):
+    case_id: int
+    channel: str = "whatsapp"  # whatsapp, sms, email
+    template_type: str = "reminder"  # reminder, demand, follow_up, promise_reminder, broken_promise, payment_link, settlement_offer
+
+
+class DraftMessageResponse(BaseModel):
+    message: str
+    source: str  # "ai" or "template"
+    template_type: str
 
 
 # ── Report History ───────────────────────────────────

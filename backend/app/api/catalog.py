@@ -141,7 +141,9 @@ async def list_products(
 
 
 def _calculate_fee_amount(fee: ProductFee, purchase_amount: Decimal, financed_amount: Decimal) -> Decimal:
-    fee_value = Decimal(fee.fee_amount)
+    if fee.fee_amount is None:
+        return Decimal("0.00")
+    fee_value = Decimal(str(fee.fee_amount))
     if fee.fee_base == "purchase_amount":
         base = purchase_amount
     elif fee.fee_base == "financed_amount":

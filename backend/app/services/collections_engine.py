@@ -577,7 +577,7 @@ async def get_collections_analytics(
             "by_stage": latest.by_stage,
         }
     else:
-        # Fallback: compute live
+        # Fallback: compute live from collection_cases
         active_statuses = [CaseStatus.OPEN, CaseStatus.IN_PROGRESS, CaseStatus.LEGAL]
         total_q = select(func.count()).where(CollectionCase.status.in_(active_statuses))
         total = (await db.execute(total_q)).scalar() or 0
@@ -585,6 +585,26 @@ async def get_collections_analytics(
             CollectionCase.status.in_(active_statuses)
         )
         overdue = float((await db.execute(overdue_q)).scalar() or 0)
+
+        # Compute by_stage live from active cases
+        stage_q = (
+            select(
+                CollectionCase.delinquency_stage,
+                func.count().label("count"),
+                func.coalesce(func.sum(CollectionCase.total_overdue), 0).label("amount"),
+            )
+            .where(CollectionCase.status.in_(active_statuses))
+            .group_by(CollectionCase.delinquency_stage)
+        )
+        stage_rows = (await db.execute(stage_q)).all()
+        by_stage = {
+            row.delinquency_stage.value if hasattr(row.delinquency_stage, "value") else str(row.delinquency_stage): {
+                "count": row.count,
+                "amount": float(row.amount),
+            }
+            for row in stage_rows
+        }
+
         kpis = {
             "total_delinquent_accounts": total,
             "total_overdue_amount": overdue,
@@ -592,7 +612,7 @@ async def get_collections_analytics(
             "ptp_kept_rate": 0,
             "avg_days_to_collect": 0,
             "total_recovered_mtd": 0,
-            "by_stage": {},
+            "by_stage": by_stage,
         }
 
     return {

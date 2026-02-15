@@ -395,10 +395,7 @@ export default function ApplicationStatus() {
                 <span className="text-[var(--color-text-muted)]">Amount Requested</span>
                 <span className="font-medium">TTD {application.amount_requested.toLocaleString()}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-[var(--color-text-muted)]">Purpose</span>
-                <span className="font-medium capitalize">{application.purpose.replace(/_/g, ' ')}</span>
-              </div>
+              {/* purpose hidden — single product for now */}
             </div>
             {application.contract_signed_at && (
               <div className="pt-2 border-t border-[var(--color-border)] space-y-2">

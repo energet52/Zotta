@@ -62,6 +62,29 @@ router = APIRouter()
 UNDERWRITER_ROLES = (UserRole.JUNIOR_UNDERWRITER, UserRole.SENIOR_UNDERWRITER, UserRole.ADMIN)
 
 
+@router.get("/staff")
+async def get_staff(
+    current_user: User = Depends(require_roles(*UNDERWRITER_ROLES)),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all staff users (underwriters and admins)."""
+    q = select(User).where(
+        User.role.in_([UserRole.JUNIOR_UNDERWRITER, UserRole.SENIOR_UNDERWRITER, UserRole.ADMIN])
+    ).order_by(User.first_name)
+    result = await db.execute(q)
+    users = result.scalars().all()
+    return [
+        {
+            "id": u.id,
+            "email": u.email,
+            "first_name": u.first_name,
+            "last_name": u.last_name,
+            "role": u.role.value,
+        }
+        for u in users
+    ]
+
+
 @router.get("/queue", response_model=list[LoanApplicationResponse])
 async def get_queue(
     status_filter: Optional[str] = Query(None),
@@ -591,7 +614,7 @@ async def edit_application(
             for field_name in profile_fields:
                 new_val = getattr(data, field_name, None)
                 if new_val is not None:
-                    old_val = getattr(profile, field_name)
+                    old_val = getattr(profile, field_name, None)
                     if old_val is not None:
                         old_val = float(old_val) if isinstance(old_val, (int, float)) else str(old_val)
                     old_values[field_name] = old_val
@@ -600,6 +623,19 @@ async def edit_application(
 
         if not new_values:
             return {"message": "No changes provided"}
+
+        # Keep User.phone in sync with profile contact numbers
+        if profile:
+            phone_fields_changed = {"whatsapp_number", "mobile_phone", "home_phone"} & set(new_values.keys())
+            if phone_fields_changed:
+                user_result = await db.execute(
+                    select(User).where(User.id == application.applicant_id)
+                )
+                app_user = user_result.scalar_one_or_none()
+                if app_user:
+                    best = profile.whatsapp_number or profile.mobile_phone or profile.home_phone
+                    if best and best != app_user.phone:
+                        app_user.phone = best
 
         # Audit log
         audit = AuditLog(

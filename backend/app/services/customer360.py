@@ -80,6 +80,13 @@ async def get_customer_360(user_id: int, db: AsyncSession) -> dict:
         "id", "email", "first_name", "last_name", "phone",
         "role", "is_active", "created_at",
     ])
+    # Resolve best phone from all sources
+    user_data["best_phone"] = (
+        user.phone
+        or (profile.whatsapp_number if profile else None)
+        or (profile.mobile_phone if profile else None)
+        or (profile.home_phone if profile else None)
+    )
     profile_data = {}
     if profile:
         profile_data = _row_to_dict(profile, [

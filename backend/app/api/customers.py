@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.auth_utils import require_roles
 from app.models.user import User, UserRole
+from app.models.loan import ApplicantProfile
 from app.models.audit import AuditLog
 from app.models.credit_bureau_alert import (
     CreditBureauAlert, AlertStatus,
@@ -311,8 +312,21 @@ async def initiate_conversation(
         except ValueError:
             raise HTTPException(status_code=400, detail=f"Invalid channel: {body.channel}. Use 'web' or 'whatsapp'.")
 
+        # Resolve best phone: User.phone -> Profile.whatsapp_number -> Profile.mobile_phone
+        best_phone = customer.phone
+        if not best_phone:
+            profile_res = await db.execute(
+                select(ApplicantProfile).where(ApplicantProfile.user_id == user_id)
+            )
+            profile = profile_res.scalar_one_or_none()
+            if profile:
+                best_phone = profile.whatsapp_number or profile.mobile_phone or profile.home_phone
+                # Backfill User.phone so it's available next time
+                if best_phone:
+                    customer.phone = best_phone
+
         # For WhatsApp, customer needs a phone number
-        if channel == ConversationChannel.WHATSAPP and not customer.phone:
+        if channel == ConversationChannel.WHATSAPP and not best_phone:
             raise HTTPException(status_code=400, detail="Customer has no phone number on file. Cannot initiate WhatsApp conversation.")
 
         # Create conversation
@@ -322,7 +336,7 @@ async def initiate_conversation(
             current_state=ConversationState.ESCALATED_TO_HUMAN,
             entry_point=ConversationEntryPoint.SERVICING,
             assigned_agent_id=current_user.id,
-            participant_phone=customer.phone if channel == ConversationChannel.WHATSAPP else None,
+            participant_phone=best_phone if channel == ConversationChannel.WHATSAPP else None,
         )
         db.add(conv)
         await db.flush()
@@ -347,10 +361,10 @@ async def initiate_conversation(
         await db.flush()
 
         # If WhatsApp, attempt to send via WhatsApp notifier (best effort)
-        if channel == ConversationChannel.WHATSAPP and customer.phone:
+        if channel == ConversationChannel.WHATSAPP and best_phone:
             try:
                 from app.services.whatsapp_notifier import send_whatsapp_message
-                await send_whatsapp_message(customer.phone, body.message.strip())
+                await send_whatsapp_message(best_phone, body.message.strip())
             except Exception:
                 logger.warning("WhatsApp send failed for conversation %s — message saved to DB", conv.id)
 
@@ -372,6 +386,90 @@ async def initiate_conversation(
         raise
     except Exception as e:
         await log_error(e, db=db, module="api.customers", function_name="initiate_conversation")
+        raise
+
+
+# ---------------------------------------------------------------------------
+# PATCH /{user_id}/contact — Edit customer contact information
+# ---------------------------------------------------------------------------
+
+class UpdateContactRequest(BaseModel):
+    phone: Optional[str] = None
+    whatsapp_number: Optional[str] = None
+    contact_email: Optional[str] = None
+    mobile_phone: Optional[str] = None
+    home_phone: Optional[str] = None
+    employer_phone: Optional[str] = None
+
+
+@router.patch("/{user_id}/contact")
+async def update_contact_info(
+    user_id: int,
+    body: UpdateContactRequest,
+    current_user: User = Depends(require_roles(*STAFF_ROLES)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update a customer's contact information from the 360 view."""
+    try:
+        # Fetch user
+        user_result = await db.execute(select(User).where(User.id == user_id))
+        user = user_result.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=404, detail="Customer not found")
+
+        # Fetch or create profile
+        profile_result = await db.execute(
+            select(ApplicantProfile).where(ApplicantProfile.user_id == user_id)
+        )
+        profile = profile_result.scalar_one_or_none()
+        if not profile:
+            profile = ApplicantProfile(user_id=user_id)
+            db.add(profile)
+
+        old_values = {}
+        new_values = {}
+
+        # User.phone
+        if body.phone is not None and body.phone != (user.phone or ""):
+            old_values["phone"] = user.phone
+            new_values["phone"] = body.phone
+            user.phone = body.phone or None
+
+        # Profile fields
+        profile_fields = ["whatsapp_number", "contact_email", "mobile_phone", "home_phone", "employer_phone"]
+        for field in profile_fields:
+            new_val = getattr(body, field, None)
+            if new_val is not None:
+                old_val = getattr(profile, field, None) or ""
+                if new_val != old_val:
+                    old_values[field] = old_val
+                    new_values[field] = new_val
+                    setattr(profile, field, new_val or None)
+
+        if not new_values:
+            return {"message": "No changes", "changes": {}}
+
+        # Keep User.phone in sync with best available number
+        if not user.phone and (profile.whatsapp_number or profile.mobile_phone):
+            user.phone = profile.whatsapp_number or profile.mobile_phone
+
+        # Audit log
+        db.add(AuditLog(
+            entity_type="user",
+            entity_id=user_id,
+            action="contact_info_updated",
+            user_id=current_user.id,
+            old_values=old_values,
+            new_values=new_values,
+            details=f"Contact info updated by {current_user.first_name} {current_user.last_name}",
+        ))
+        await db.flush()
+
+        return {"message": "Contact info updated", "changes": new_values}
+    except HTTPException:
+        raise
+    except Exception as e:
+        await log_error(e, db=db, module="api.customers", function_name="update_contact_info")
         raise
 
 

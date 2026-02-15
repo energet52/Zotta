@@ -27,6 +27,16 @@ from app.services.collections_engine import (
     get_collections_analytics,
     get_agent_performance,
 )
+from app.services.collections_ai import (
+    generate_enhanced_nba,
+    compute_propensity_score,
+    analyze_behavioral_patterns,
+    get_risk_signals,
+    get_similar_borrower_outcomes,
+    generate_daily_briefing as ai_daily_briefing,
+    draft_collection_message,
+    _get_sector_risk,
+)
 
 logger = logging.getLogger(__name__)
 from app.models.user import User, UserRole
@@ -63,6 +73,8 @@ from app.schemas import (
     ComplianceCheckResponse,
     CollectionsDashboardResponse,
     BulkAssignRequest,
+    DraftMessageRequest,
+    DraftMessageResponse,
 )
 from app.auth_utils import require_roles
 
@@ -88,11 +100,17 @@ AUTO_REPLIES = [
 
 @router.get("/queue", response_model=list[CollectionQueueEntry])
 async def get_collection_queue(
-    search: Optional[str] = Query(None, description="Search by name, reference, phone"),
+    search: Optional[str] = Query(None, description="Search by name, reference, phone, employer"),
     stage: Optional[str] = Query(None, description="Filter by delinquency stage"),
     status: Optional[str] = Query(None, description="Filter by case status"),
     agent_id: Optional[int] = Query(None, description="Filter by assigned agent"),
-    sort_by: str = Query("days_past_due", description="Sort field"),
+    ptp_status: Optional[str] = Query(None, description="Filter by PTP status: pending, broken, kept, none"),
+    nba_action: Optional[str] = Query(None, description="Filter by NBA action type"),
+    sector: Optional[str] = Query(None, description="Filter by employer sector"),
+    propensity_band: Optional[str] = Query(None, description="Filter by propensity: high, medium, low"),
+    sla_status: Optional[str] = Query(None, description="Filter: approaching, breached"),
+    product_type: Optional[str] = Query(None, description="Filter by loan purpose/product"),
+    sort_by: str = Query("priority_score", description="Sort field"),
     sort_dir: str = Query("desc", description="Sort direction: asc or desc"),
     limit: int = Query(200, ge=1, le=1000),
     offset: int = Query(0, ge=0),
@@ -101,7 +119,7 @@ async def get_collection_queue(
 ):
     """Get overdue loans needing collection action — enhanced with search, filters, and NBA."""
     try:
-        # Get disbursed loans
+        # Get disbursed loans with profile info
         query = (
             select(LoanApplication, User.first_name, User.last_name, User.phone)
             .join(User, LoanApplication.applicant_id == User.id)
@@ -116,6 +134,7 @@ async def get_collection_queue(
                     (User.first_name + " " + User.last_name).ilike(search_pattern),
                     LoanApplication.reference_number.ilike(search_pattern),
                     User.phone.ilike(search_pattern),
+                    User.email.ilike(search_pattern),
                 )
             )
 
@@ -124,6 +143,8 @@ async def get_collection_queue(
 
         entries = []
         today = date.today()
+        now = datetime.now(timezone.utc)
+
         for row in rows:
             app = row[0]
             first_name = row[1]
@@ -189,7 +210,20 @@ async def get_collection_queue(
             elif agent_id is not None and not case:
                 continue
 
-            # Last contact
+            # NBA action filter
+            if nba_action and case:
+                if case.next_best_action != nba_action:
+                    continue
+            elif nba_action and not case:
+                continue
+
+            # Product type filter
+            if product_type:
+                loan_purpose = app.purpose.value if hasattr(app.purpose, "value") else str(app.purpose) if app.purpose else None
+                if loan_purpose != product_type:
+                    continue
+
+            # Last contact with details
             last_record = await db.execute(
                 select(CollectionRecord)
                 .where(CollectionRecord.loan_application_id == app.id)
@@ -199,6 +233,8 @@ async def get_collection_queue(
             last = last_record.scalar_one_or_none()
             last_contact = last.created_at if last else None
             next_action = last.next_action_date if last else None
+            last_contact_channel = (last.channel.value if last and hasattr(last.channel, "value") else str(last.channel) if last and last.channel else None)
+            last_contact_outcome = (last.outcome.value if last and hasattr(last.outcome, "value") else str(last.outcome) if last and last.outcome else None)
 
             # Agent name
             agent_name = None
@@ -209,6 +245,101 @@ async def get_collection_queue(
                 agent_row = agent_result.one_or_none()
                 if agent_row:
                     agent_name = f"{agent_row[0]} {agent_row[1]}"
+
+            # Profile data for sector/employer
+            profile_result = await db.execute(
+                select(ApplicantProfile).where(ApplicantProfile.user_id == app.applicant_id)
+            )
+            profile = profile_result.scalar_one_or_none()
+            employer_name = profile.employer_name if profile else None
+            employer_sector = profile.employer_sector if profile else None
+
+            # Sector filter
+            if sector and employer_sector:
+                if employer_sector.lower() != sector.lower():
+                    continue
+            elif sector and not employer_sector:
+                continue
+
+            # Sector risk rating
+            sector_risk_rating = None
+            if employer_sector:
+                sr = await _get_sector_risk(employer_sector, db)
+                sector_risk_rating = sr.get("risk_rating")
+
+            # PTP status
+            ptp_data = {"status": None, "amount": None, "date": None}
+            if case:
+                ptp_q = await db.execute(
+                    select(PromiseToPay)
+                    .where(PromiseToPay.collection_case_id == case.id)
+                    .order_by(PromiseToPay.created_at.desc())
+                    .limit(1)
+                )
+                latest_ptp = ptp_q.scalar_one_or_none()
+                if latest_ptp:
+                    ptp_data = {
+                        "status": latest_ptp.status.value if hasattr(latest_ptp.status, "value") else str(latest_ptp.status),
+                        "amount": float(latest_ptp.amount_promised),
+                        "date": latest_ptp.promise_date,
+                    }
+
+            # PTP status filter
+            if ptp_status:
+                if ptp_status == "none" and ptp_data["status"] is not None:
+                    continue
+                elif ptp_status != "none" and ptp_data["status"] != ptp_status:
+                    continue
+
+            # SLA info
+            sla_deadline_val = None
+            sla_hours_remaining_val = None
+            if case:
+                sla_deadline_val = case.sla_next_contact_deadline or case.sla_first_contact_deadline
+                if sla_deadline_val:
+                    delta = (sla_deadline_val - now).total_seconds() / 3600
+                    sla_hours_remaining_val = round(delta, 1)
+
+            # SLA status filter
+            if sla_status and sla_hours_remaining_val is not None:
+                if sla_status == "breached" and sla_hours_remaining_val > 0:
+                    continue
+                if sla_status == "approaching" and (sla_hours_remaining_val <= 0 or sla_hours_remaining_val > 4):
+                    continue
+            elif sla_status and sla_hours_remaining_val is None:
+                continue
+
+            # Simple propensity estimate for queue (lightweight)
+            prop_score = 50
+            if days_past_due <= 15:
+                prop_score = 70
+            elif days_past_due <= 30:
+                prop_score = 60
+            elif days_past_due <= 60:
+                prop_score = 40
+            elif days_past_due <= 90:
+                prop_score = 25
+            else:
+                prop_score = 15
+            # Adjust by PTP history
+            if ptp_data["status"] == "kept":
+                prop_score = min(100, prop_score + 15)
+            elif ptp_data["status"] == "broken":
+                prop_score = max(0, prop_score - 15)
+
+            prop_trend = "stable"
+            if days_past_due <= 30 and ptp_data["status"] == "kept":
+                prop_trend = "improving"
+            elif days_past_due > 60:
+                prop_trend = "declining"
+
+            # Propensity band filter
+            if propensity_band:
+                band = "high" if prop_score >= 65 else "medium" if prop_score >= 35 else "low"
+                if band != propensity_band:
+                    continue
+
+            loan_purpose = app.purpose.value if hasattr(app.purpose, "value") else str(app.purpose) if app.purpose else None
 
             entries.append(CollectionQueueEntry(
                 id=app.id,
@@ -223,7 +354,7 @@ async def get_collection_queue(
                 total_paid=total_paid,
                 outstanding_balance=max(outstanding, 0),
                 phone=phone,
-                # Enhanced fields
+                # Case fields
                 case_id=case.id if case else None,
                 case_status=case.status.value if case else None,
                 delinquency_stage=case.delinquency_stage.value if case else None,
@@ -231,16 +362,32 @@ async def get_collection_queue(
                 assigned_agent_name=agent_name,
                 next_best_action=case.next_best_action if case else None,
                 nba_confidence=case.nba_confidence if case else None,
+                nba_reasoning=case.nba_reasoning if case else None,
                 dispute_active=case.dispute_active if case else False,
                 vulnerability_flag=case.vulnerability_flag if case else False,
                 do_not_contact=case.do_not_contact if case else False,
                 hardship_flag=case.hardship_flag if case else False,
                 priority_score=case.priority_score if case else 0,
+                # New enhanced fields
+                employer_name=employer_name,
+                sector=employer_sector,
+                sector_risk_rating=sector_risk_rating,
+                product_type=loan_purpose,
+                ptp_status=ptp_data["status"],
+                ptp_amount=ptp_data["amount"],
+                ptp_date=ptp_data["date"],
+                last_contact_channel=last_contact_channel,
+                last_contact_outcome=last_contact_outcome,
+                sla_deadline=sla_deadline_val,
+                sla_hours_remaining=sla_hours_remaining_val,
+                propensity_score=prop_score,
+                propensity_trend=prop_trend,
             ))
 
         # Sort
         reverse = sort_dir.lower() == "desc"
-        sort_key = sort_by if sort_by in ("days_past_due", "amount_due", "outstanding_balance", "priority_score") else "days_past_due"
+        valid_sorts = {"days_past_due", "amount_due", "outstanding_balance", "priority_score", "propensity_score", "sla_hours_remaining"}
+        sort_key = sort_by if sort_by in valid_sorts else "priority_score"
         entries.sort(key=lambda x: getattr(x, sort_key, 0) or 0, reverse=reverse)
 
         # Pagination
@@ -375,6 +522,415 @@ async def get_collection_case(
         raise
     except Exception as e:
         await log_error(e, db=db, module="api.collections", function_name="get_collection_case")
+        raise
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Case Full View (aggregated for Case View screen)
+# ══════════════════════════════════════════════════════════════════════════
+
+@router.get("/cases/{case_id}/full")
+async def get_case_full(
+    case_id: int,
+    current_user: User = Depends(require_roles(*STAFF_ROLES)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the complete case payload for the Case View screen in one call."""
+    try:
+        # 1. Load case
+        case_result = await db.execute(
+            select(CollectionCase).where(CollectionCase.id == case_id)
+        )
+        case = case_result.scalar_one_or_none()
+        if not case:
+            raise HTTPException(status_code=404, detail="Collection case not found")
+
+        # 2. Load loan application
+        loan_result = await db.execute(
+            select(LoanApplication).where(LoanApplication.id == case.loan_application_id)
+        )
+        loan = loan_result.scalar_one_or_none()
+        if not loan:
+            raise HTTPException(status_code=404, detail="Loan application not found")
+
+        # 3. Load borrower user + profile
+        user_result = await db.execute(select(User).where(User.id == loan.applicant_id))
+        borrower = user_result.scalar_one_or_none()
+
+        profile_result = await db.execute(
+            select(ApplicantProfile).where(ApplicantProfile.user_id == loan.applicant_id)
+        )
+        profile = profile_result.scalar_one_or_none()
+
+        profile_dict = {}
+        if profile:
+            for f in ["employer_name", "employer_sector", "job_title", "employment_type",
+                       "monthly_income", "monthly_expenses", "other_income", "existing_debt",
+                       "whatsapp_number", "mobile_phone", "home_phone", "contact_email",
+                       "employer_phone", "address_line1", "address_line2", "city", "parish",
+                       "country", "national_id", "id_type", "gender", "marital_status",
+                       "date_of_birth", "dependents", "years_employed"]:
+                val = getattr(profile, f, None)
+                profile_dict[f] = float(val) if isinstance(val, Decimal) else (val.isoformat() if isinstance(val, (date, datetime)) else val)
+
+        # 4. Sector risk
+        sector_risk = await _get_sector_risk(profile_dict.get("employer_sector"), db)
+
+        # 5. Payment schedules
+        sched_result = await db.execute(
+            select(PaymentSchedule)
+            .where(PaymentSchedule.loan_application_id == loan.id)
+            .order_by(PaymentSchedule.installment_number)
+        )
+        schedules = sched_result.scalars().all()
+        schedules_data = []
+        total_principal = 0.0
+        total_interest = 0.0
+        total_fees = 0.0
+        arrears_breakdown = []
+        today = date.today()
+        for s in schedules:
+            sd = {
+                "id": s.id, "installment_number": s.installment_number,
+                "due_date": s.due_date.isoformat() if s.due_date else None,
+                "principal": float(s.principal), "interest": float(s.interest),
+                "fee": float(s.fee), "amount_due": float(s.amount_due),
+                "amount_paid": float(s.amount_paid),
+                "status": s.status.value if hasattr(s.status, "value") else str(s.status),
+            }
+            schedules_data.append(sd)
+            total_principal += float(s.principal)
+            total_interest += float(s.interest)
+            total_fees += float(s.fee)
+            if s.due_date and s.due_date <= today and float(s.amount_due) > float(s.amount_paid):
+                arrears_breakdown.append({
+                    "installment": s.installment_number,
+                    "due_date": s.due_date.isoformat(),
+                    "amount_overdue": round(float(s.amount_due) - float(s.amount_paid), 2),
+                })
+
+        # 6. Recent payments
+        pay_result = await db.execute(
+            select(Payment)
+            .where(Payment.loan_application_id == loan.id)
+            .order_by(Payment.payment_date.desc())
+            .limit(20)
+        )
+        payments = pay_result.scalars().all()
+        payments_data = [{
+            "id": p.id, "amount": float(p.amount),
+            "payment_date": p.payment_date.isoformat() if p.payment_date else None,
+            "payment_type": p.payment_type.value if hasattr(p.payment_type, "value") else str(p.payment_type) if p.payment_type else None,
+            "status": p.status.value if hasattr(p.status, "value") else str(p.status),
+            "reference_number": p.reference_number,
+        } for p in payments]
+
+        # 7. Interaction history (timeline)
+        rec_result = await db.execute(
+            select(CollectionRecord)
+            .where(CollectionRecord.loan_application_id == loan.id)
+            .order_by(CollectionRecord.created_at.desc())
+            .limit(100)
+        )
+        records = rec_result.scalars().all()
+        interactions_data = []
+        for r in records:
+            agent_name = None
+            if r.agent_id:
+                ar = await db.execute(select(User.first_name, User.last_name).where(User.id == r.agent_id))
+                agent_row = ar.one_or_none()
+                if agent_row:
+                    agent_name = f"{agent_row[0]} {agent_row[1]}"
+            interactions_data.append({
+                "id": r.id, "channel": r.channel.value if hasattr(r.channel, "value") else str(r.channel),
+                "notes": r.notes, "action_taken": r.action_taken,
+                "outcome": r.outcome.value if hasattr(r.outcome, "value") else str(r.outcome),
+                "agent_name": agent_name,
+                "next_action_date": r.next_action_date.isoformat() if r.next_action_date else None,
+                "promise_amount": float(r.promise_amount) if r.promise_amount else None,
+                "promise_date": r.promise_date.isoformat() if r.promise_date else None,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            })
+
+        # 8. WhatsApp chat
+        chat_result = await db.execute(
+            select(CollectionChat)
+            .where(CollectionChat.loan_application_id == loan.id)
+            .order_by(CollectionChat.created_at.desc())
+            .limit(100)
+        )
+        chats = chat_result.scalars().all()
+        chats_data = [{
+            "id": c.id, "direction": c.direction.value if hasattr(c.direction, "value") else str(c.direction),
+            "message": c.message,
+            "status": c.status.value if hasattr(c.status, "value") else str(c.status),
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+        } for c in chats]
+
+        # 9. PTPs
+        ptp_result = await db.execute(
+            select(PromiseToPay)
+            .where(PromiseToPay.collection_case_id == case.id)
+            .order_by(PromiseToPay.created_at.desc())
+        )
+        ptps = ptp_result.scalars().all()
+        ptps_data = []
+        active_ptp = None
+        for p in ptps:
+            agent_name = None
+            if p.agent_id:
+                ar = await db.execute(select(User.first_name, User.last_name).where(User.id == p.agent_id))
+                agent_row = ar.one_or_none()
+                if agent_row:
+                    agent_name = f"{agent_row[0]} {agent_row[1]}"
+            pd = {
+                "id": p.id, "amount_promised": float(p.amount_promised),
+                "promise_date": p.promise_date.isoformat() if p.promise_date else None,
+                "payment_method": p.payment_method,
+                "status": p.status.value if hasattr(p.status, "value") else str(p.status),
+                "amount_received": float(p.amount_received),
+                "agent_name": agent_name,
+                "notes": p.notes,
+                "broken_at": p.broken_at.isoformat() if p.broken_at else None,
+                "created_at": p.created_at.isoformat() if p.created_at else None,
+            }
+            ptps_data.append(pd)
+            if p.status == PTPStatus.PENDING and active_ptp is None:
+                active_ptp = pd
+
+        # 10. Settlements
+        settle_result = await db.execute(
+            select(SettlementOffer)
+            .where(SettlementOffer.collection_case_id == case.id)
+            .order_by(SettlementOffer.created_at.desc())
+        )
+        settlements = settle_result.scalars().all()
+        settlements_data = [{
+            "id": s.id,
+            "offer_type": s.offer_type.value if hasattr(s.offer_type, "value") else str(s.offer_type),
+            "original_balance": float(s.original_balance),
+            "settlement_amount": float(s.settlement_amount),
+            "discount_pct": float(s.discount_pct),
+            "plan_months": s.plan_months,
+            "plan_monthly_amount": float(s.plan_monthly_amount) if s.plan_monthly_amount else None,
+            "lump_sum": float(s.lump_sum) if s.lump_sum else None,
+            "status": s.status.value if hasattr(s.status, "value") else str(s.status),
+            "notes": s.notes,
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+        } for s in settlements]
+
+        # 11. Agent info
+        agent_name = None
+        if case.assigned_agent_id:
+            ar = await db.execute(
+                select(User.first_name, User.last_name).where(User.id == case.assigned_agent_id)
+            )
+            agent_row = ar.one_or_none()
+            if agent_row:
+                agent_name = f"{agent_row[0]} {agent_row[1]}"
+
+        # ── AI Insights ──
+        borrower_context = {
+            "name": f"{borrower.first_name} {borrower.last_name}" if borrower else "Unknown",
+            "phone": borrower.phone if borrower else None,
+            "profile": profile_dict,
+            "interactions": interactions_data,
+            "payments": [{"status": sd["status"], "payment_date": sd["due_date"]} for sd in schedules_data],
+            "ptps": ptps_data,
+            "reference_number": loan.reference_number,
+            "sector_risk": sector_risk,
+            "active_ptp": active_ptp,
+        }
+
+        # 12. Enhanced NBA
+        enhanced_nba = await generate_enhanced_nba(case, borrower_context, db)
+
+        # 13. Propensity score
+        propensity = await compute_propensity_score(
+            case, [{"status": sd["status"], "payment_date": sd["due_date"]} for sd in schedules_data],
+            ptps_data, profile_dict, sector_risk, db,
+        )
+
+        # 14. Behavioral patterns
+        patterns = await analyze_behavioral_patterns(case, interactions_data, payments_data, ptps_data, db)
+
+        # 15. Risk signals
+        risk_signals = await get_risk_signals(case, profile_dict, sector_risk, interactions_data, db)
+
+        # 16. Similar borrower outcomes
+        similar_outcomes = await get_similar_borrower_outcomes(case, profile_dict, db)
+
+        # 17. Payment heatmap (last 12 months)
+        heatmap = []
+        for i in range(12, 0, -1):
+            target = today.replace(day=1) - timedelta(days=(i - 1) * 30)
+            month_label = target.strftime("%b %Y")
+            month_schedules = [s for s in schedules_data if s["due_date"] and s["due_date"][:7] == target.strftime("%Y-%m")]
+            if month_schedules:
+                statuses = [s["status"] for s in month_schedules]
+                if all(st == "paid" for st in statuses):
+                    heatmap.append({"month": month_label, "status": "on_time"})
+                elif any(st == "overdue" for st in statuses):
+                    heatmap.append({"month": month_label, "status": "missed"})
+                elif any(st == "partial" for st in statuses):
+                    heatmap.append({"month": month_label, "status": "late"})
+                else:
+                    heatmap.append({"month": month_label, "status": "on_time"})
+            else:
+                heatmap.append({"month": month_label, "status": "none"})
+
+        # Build response
+        return {
+            # Borrower
+            "borrower": {
+                "id": borrower.id if borrower else None,
+                "first_name": borrower.first_name if borrower else None,
+                "last_name": borrower.last_name if borrower else None,
+                "email": borrower.email if borrower else None,
+                "phone": borrower.phone if borrower else None,
+                "whatsapp_number": profile_dict.get("whatsapp_number"),
+                "mobile_phone": profile_dict.get("mobile_phone"),
+                "employer_name": profile_dict.get("employer_name"),
+                "employer_sector": profile_dict.get("employer_sector"),
+                "job_title": profile_dict.get("job_title"),
+            },
+            "profile": profile_dict,
+            "sector_risk": sector_risk,
+            # Case
+            "case": {
+                "id": case.id,
+                "loan_application_id": case.loan_application_id,
+                "status": case.status.value,
+                "delinquency_stage": case.delinquency_stage.value,
+                "dpd": case.dpd,
+                "total_overdue": float(case.total_overdue),
+                "priority_score": case.priority_score,
+                "assigned_agent_id": case.assigned_agent_id,
+                "assigned_agent_name": agent_name,
+                "dispute_active": case.dispute_active,
+                "vulnerability_flag": case.vulnerability_flag,
+                "do_not_contact": case.do_not_contact,
+                "hardship_flag": case.hardship_flag,
+                "first_contact_at": case.first_contact_at.isoformat() if case.first_contact_at else None,
+                "last_contact_at": case.last_contact_at.isoformat() if case.last_contact_at else None,
+                "sla_first_contact_deadline": case.sla_first_contact_deadline.isoformat() if case.sla_first_contact_deadline else None,
+                "sla_next_contact_deadline": case.sla_next_contact_deadline.isoformat() if case.sla_next_contact_deadline else None,
+                "created_at": case.created_at.isoformat() if case.created_at else None,
+            },
+            # Loan
+            "loan": {
+                "id": loan.id,
+                "reference_number": loan.reference_number,
+                "amount_requested": float(loan.amount_requested),
+                "amount_approved": float(loan.amount_approved) if loan.amount_approved else None,
+                "term_months": loan.term_months,
+                "interest_rate": float(loan.interest_rate) if loan.interest_rate else None,
+                "monthly_payment": float(loan.monthly_payment) if loan.monthly_payment else None,
+                "purpose": loan.purpose.value if hasattr(loan.purpose, "value") else str(loan.purpose) if loan.purpose else None,
+                "disbursed_at": loan.disbursed_at.isoformat() if loan.disbursed_at else None,
+                "status": loan.status.value if hasattr(loan.status, "value") else str(loan.status),
+            },
+            # Financial breakdown
+            "balance_breakdown": {
+                "total_principal": round(total_principal, 2),
+                "total_interest": round(total_interest, 2),
+                "total_fees": round(total_fees, 2),
+                "arrears_breakdown": arrears_breakdown,
+            },
+            # Data lists
+            "schedules": schedules_data,
+            "payments": payments_data,
+            "interactions": interactions_data,
+            "chats": chats_data,
+            "ptps": ptps_data,
+            "active_ptp": active_ptp,
+            "settlements": settlements_data,
+            "payment_heatmap": heatmap,
+            # AI Insights
+            "ai": {
+                "nba": enhanced_nba,
+                "propensity": propensity,
+                "patterns": patterns,
+                "risk_signals": risk_signals,
+                "similar_outcomes": similar_outcomes,
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        await log_error(e, db=db, module="api.collections", function_name="get_case_full")
+        raise
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Daily Briefing
+# ══════════════════════════════════════════════════════════════════════════
+
+@router.get("/daily-briefing")
+async def get_daily_briefing(
+    current_user: User = Depends(require_roles(*STAFF_ROLES)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return AI daily briefing for the authenticated collections agent."""
+    try:
+        briefing = await ai_daily_briefing(current_user.id, db)
+        return briefing
+    except Exception as e:
+        await log_error(e, db=db, module="api.collections", function_name="get_daily_briefing")
+        raise
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# AI Message Drafting
+# ══════════════════════════════════════════════════════════════════════════
+
+@router.post("/draft-message", response_model=DraftMessageResponse)
+async def draft_message(
+    data: DraftMessageRequest,
+    current_user: User = Depends(require_roles(*STAFF_ROLES)),
+    db: AsyncSession = Depends(get_db),
+):
+    """AI-draft a collection message for a case."""
+    try:
+        case_result = await db.execute(
+            select(CollectionCase).where(CollectionCase.id == data.case_id)
+        )
+        case = case_result.scalar_one_or_none()
+        if not case:
+            raise HTTPException(status_code=404, detail="Case not found")
+
+        # Load borrower context
+        loan_result = await db.execute(
+            select(LoanApplication).where(LoanApplication.id == case.loan_application_id)
+        )
+        loan = loan_result.scalar_one_or_none()
+        user_result = await db.execute(select(User).where(User.id == loan.applicant_id)) if loan else None
+        borrower = user_result.scalar_one_or_none() if user_result else None
+
+        # Get active PTP
+        ptp_result = await db.execute(
+            select(PromiseToPay)
+            .where(PromiseToPay.collection_case_id == case.id, PromiseToPay.status == PTPStatus.PENDING)
+            .order_by(PromiseToPay.created_at.desc())
+            .limit(1)
+        )
+        active_ptp = ptp_result.scalar_one_or_none()
+
+        borrower_context = {
+            "name": f"{borrower.first_name} {borrower.last_name}" if borrower else "Customer",
+            "reference_number": loan.reference_number if loan else "N/A",
+            "active_ptp": {
+                "amount_promised": float(active_ptp.amount_promised),
+                "promise_date": active_ptp.promise_date.isoformat() if active_ptp.promise_date else None,
+            } if active_ptp else None,
+        }
+
+        result = await draft_collection_message(case, data.channel, data.template_type, borrower_context, db)
+        return DraftMessageResponse(**result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        await log_error(e, db=db, module="api.collections", function_name="draft_message")
         raise
 
 
@@ -1040,7 +1596,11 @@ async def trigger_sync_cases(
         )
         cases = case_result.scalars().all()
         for c in cases:
-            await compute_next_best_action(c, db)
+            await update_case_nba(c, db)
+        await db.flush()
+
+        # Generate daily snapshot
+        await generate_daily_snapshot(db)
         await db.flush()
 
         result["nba_computed"] = len(cases)

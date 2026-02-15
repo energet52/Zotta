@@ -6,7 +6,7 @@ import {
   MessageCircle, Shield, Send, ChevronDown, Plus, X,
   Banknote, User, Phone, Mail, Building, Calendar,
   Activity, Bot, StickyNote, FileUp, Eye, EyeOff,
-  Download, ExternalLink, Scroll,
+  Download, ExternalLink, Scroll, Edit3, Save, XCircle,
 } from 'lucide-react';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -135,7 +135,7 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 export default function Customer360() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const userId = Number(id);
+  const targetId = Number(id);
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -174,26 +174,26 @@ export default function Customer360() {
   const load360 = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await customerApi.get360(userId);
+      const res = await customerApi.get360(targetId);
       setData(res.data);
     } catch {
       setData(null);
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [targetId]);
 
   const loadAiSummary = useCallback(async () => {
     setAiLoading(true);
     try {
-      const res = await customerApi.getAiSummary(userId);
+      const res = await customerApi.getAiSummary(targetId);
       setAiSummary(res.data);
     } catch {
       setAiSummary(null);
     } finally {
       setAiLoading(false);
     }
-  }, [userId]);
+  }, [targetId]);
 
   const loadTimeline = useCallback(async () => {
     setTlLoading(true);
@@ -201,14 +201,14 @@ export default function Customer360() {
       const params: any = { limit: 100 };
       if (tlFilter.length) params.categories = tlFilter.join(',');
       if (tlSearch) params.search = tlSearch;
-      const res = await customerApi.getTimeline(userId, params);
+      const res = await customerApi.getTimeline(targetId, params);
       setTimeline(res.data?.events || []);
     } catch {
       setTimeline([]);
     } finally {
       setTlLoading(false);
     }
-  }, [userId, tlFilter, tlSearch]);
+  }, [targetId, tlFilter, tlSearch]);
 
   useEffect(() => { load360(); loadAiSummary(); }, [load360, loadAiSummary]);
   useEffect(() => { loadTimeline(); }, [loadTimeline]);
@@ -220,7 +220,7 @@ export default function Customer360() {
     setAskHistory((h) => [...h, { role: 'user', content: q }]);
     setAskLoading(true);
     try {
-      const res = await customerApi.askAi(userId, {
+      const res = await customerApi.askAi(targetId, {
         question: q,
         history: askHistory,
       });
@@ -232,11 +232,12 @@ export default function Customer360() {
     }
   };
 
+
   const handleInitiateConversation = async () => {
     if (!commMessage.trim()) return;
     setCommSending(true);
     try {
-      const res = await customerApi.initiateConversation(userId, {
+      const res = await customerApi.initiateConversation(targetId, {
         channel: commChannel,
         message: commMessage.trim(),
       });
@@ -269,7 +270,7 @@ export default function Customer360() {
     if (!inlineMsg.trim() || !activeConvId) return;
     setInlineSending(true);
     try {
-      const res = await customerApi.staffSendMessage(userId, activeConvId, inlineMsg.trim());
+      const res = await customerApi.staffSendMessage(targetId, activeConvId, inlineMsg.trim());
       setActiveConvMessages((prev) => [...prev, res.data]);
       setInlineMsg('');
     } catch (err: any) {
@@ -458,6 +459,7 @@ export default function Customer360() {
               schedules={schedules} creditReports={creditReports}
               timeline={timeline} tlLoading={tlLoading} tlFilter={tlFilter}
               setTlFilter={setTlFilter} tlSearch={tlSearch} setTlSearch={setTlSearch}
+              targetId={targetId} loadData={load360}
             />
           )}
           {activeTab === 'Applications' && <ApplicationsTab apps={apps} decisions={decisions} />}
@@ -469,7 +471,7 @@ export default function Customer360() {
               conversations={conversations}
               comments={comments}
               notes={notes}
-              userId={userId}
+              userId={targetId}
               onStartNew={() => setShowNewComm(true)}
               activeConvId={activeConvId}
               activeConvMessages={activeConvMessages}
@@ -482,7 +484,7 @@ export default function Customer360() {
             />
           )}
           {activeTab === 'Documents' && <DocumentsTab documents={documents} apps={apps} />}
-          {activeTab === 'Bureau Alerts' && <BureauAlertsTab alerts={bureauAlerts} userId={userId} onRefresh={load360} />}
+          {activeTab === 'Bureau Alerts' && <BureauAlertsTab alerts={bureauAlerts} userId={targetId} onRefresh={load360} />}
           {activeTab === 'Audit Trail' && <AuditTab logs={auditLogs} />}
         </div>
       </div>
@@ -532,11 +534,11 @@ export default function Customer360() {
                   WhatsApp
                 </button>
               </div>
-              {commChannel === 'whatsapp' && !u.phone && (
+              {commChannel === 'whatsapp' && !(u.best_phone || u.phone) && (
                 <p className="text-xs text-red-400 mt-2">This customer has no phone number on file. WhatsApp is not available.</p>
               )}
-              {commChannel === 'whatsapp' && u.phone && (
-                <p className="text-xs text-[var(--color-text-muted)] mt-2">Will be sent to {u.phone}</p>
+              {commChannel === 'whatsapp' && (u.best_phone || u.phone) && (
+                <p className="text-xs text-[var(--color-text-muted)] mt-2">Will be sent to {u.best_phone || u.phone}</p>
               )}
             </div>
 
@@ -558,7 +560,7 @@ export default function Customer360() {
               <Button
                 variant="primary"
                 onClick={handleInitiateConversation}
-                disabled={commSending || !commMessage.trim() || (commChannel === 'whatsapp' && !u.phone)}
+                disabled={commSending || !commMessage.trim() || (commChannel === 'whatsapp' && !(u.best_phone || u.phone))}
                 className="flex items-center gap-2"
               >
                 {commSending ? (
@@ -633,7 +635,7 @@ function StatCard({ label, value, sub, icon }: { label: string; value: string; s
 // ══════════════════════════════════════════════════════════════════════════
 // TAB: Overview
 // ══════════════════════════════════════════════════════════════════════════
-function OverviewTab({ u, p, qs, apps, payments, schedules, creditReports, timeline, tlLoading, tlFilter, setTlFilter, tlSearch, setTlSearch }: any) {
+function OverviewTab({ u, p, qs, apps, payments, schedules, creditReports, timeline, tlLoading, tlFilter, setTlFilter, tlSearch, setTlSearch, targetId, loadData }: any) {
   // Charts data
   const exposureData = apps
     .filter((a: any) => a.status === 'disbursed')
@@ -677,7 +679,6 @@ function OverviewTab({ u, p, qs, apps, payments, schedules, creditReports, timel
             <p className="text-[var(--color-text-muted)]">Personal</p>
             <Info label="Full Name" value={`${u.first_name} ${u.last_name}`} />
             <Info label="Email" value={u.email} />
-            <Info label="Phone" value={u.phone} />
             <Info label="Date of Birth" value={fmtDate(p.date_of_birth)} />
             <Info label="Gender" value={p.gender} />
             <Info label="Marital Status" value={p.marital_status} />
@@ -701,6 +702,9 @@ function OverviewTab({ u, p, qs, apps, payments, schedules, creditReports, timel
           </div>
         </div>
       </Card>
+
+      {/* Contact Information Card — Editable (separate component to avoid Vite React Refresh transform bug) */}
+      <ContactInfoCard user={u} profile={p} uid={targetId} refresh={loadData} />
 
       {/* Financial Snapshot */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -827,12 +831,111 @@ function OverviewTab({ u, p, qs, apps, payments, schedules, creditReports, timel
   );
 }
 
+// ── Contact Info Card (extracted to avoid Vite React Refresh transform bug in large components) ──
+function ContactInfoCard({ user: u, profile: p, uid, refresh }: { user: any; profile: any; uid: number; refresh: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+
+  const startEdit = () => {
+    setForm({
+      phone: u.phone || '',
+      whatsapp_number: p.whatsapp_number || '',
+      contact_email: p.contact_email || '',
+      mobile_phone: p.mobile_phone || '',
+      home_phone: p.home_phone || '',
+      employer_phone: p.employer_phone || '',
+    });
+    setEditing(true);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await customerApi.updateContact(uid, form);
+      setEditing(false);
+      refresh();
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-semibold flex items-center gap-2"><Phone className="w-4 h-4" /> Contact Information</h3>
+        {!editing ? (
+          <button onClick={startEdit} className="flex items-center gap-1 text-xs text-[var(--color-primary)] hover:underline">
+            <Edit3 className="w-3.5 h-3.5" /> Edit
+          </button>
+        ) : (
+          <div className="flex items-center gap-2">
+            <button onClick={() => setEditing(false)} className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
+              <XCircle className="w-3.5 h-3.5" /> Cancel
+            </button>
+            <button onClick={save} disabled={saving} className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 disabled:opacity-50">
+              <Save className="w-3.5 h-3.5" /> {saving ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        )}
+      </div>
+      {!editing ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div className="space-y-2">
+            <Info label="Primary Phone" value={u.phone || u.best_phone} />
+            <Info label="WhatsApp Number" value={p.whatsapp_number} />
+          </div>
+          <div className="space-y-2">
+            <Info label="Mobile Phone" value={p.mobile_phone} />
+            <Info label="Home Phone" value={p.home_phone} />
+          </div>
+          <div className="space-y-2">
+            <Info label="Contact Email" value={p.contact_email} />
+            <Info label="Employer Phone" value={p.employer_phone} />
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div className="space-y-3">
+            <ContactField label="Primary Phone" field="phone" value={form.phone} onChange={(v) => setForm(f => ({ ...f, phone: v }))} />
+            <ContactField label="WhatsApp Number" field="whatsapp_number" value={form.whatsapp_number} onChange={(v) => setForm(f => ({ ...f, whatsapp_number: v }))} />
+          </div>
+          <div className="space-y-3">
+            <ContactField label="Mobile Phone" field="mobile_phone" value={form.mobile_phone} onChange={(v) => setForm(f => ({ ...f, mobile_phone: v }))} />
+            <ContactField label="Home Phone" field="home_phone" value={form.home_phone} onChange={(v) => setForm(f => ({ ...f, home_phone: v }))} />
+          </div>
+          <div className="space-y-3">
+            <ContactField label="Contact Email" field="contact_email" value={form.contact_email} onChange={(v) => setForm(f => ({ ...f, contact_email: v }))} />
+            <ContactField label="Employer Phone" field="employer_phone" value={form.employer_phone} onChange={(v) => setForm(f => ({ ...f, employer_phone: v }))} />
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 // Helper sub-components
 function Info({ label, value }: { label: string; value: any }) {
   return (
     <div className="flex justify-between">
       <span className="text-[var(--color-text-muted)]">{label}</span>
       <span className="font-medium text-right">{value ?? '—'}</span>
+    </div>
+  );
+}
+function ContactField({ label, field, value, onChange }: { label: string; field: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div>
+      <label className="block text-xs text-[var(--color-text-muted)] mb-1">{label}</label>
+      <input
+        type={field === 'contact_email' ? 'email' : 'text'}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={label}
+        className="w-full px-3 py-1.5 text-sm rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+      />
     </div>
   );
 }

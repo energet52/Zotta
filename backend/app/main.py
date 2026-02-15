@@ -24,9 +24,11 @@ from app.api import (
     gl,
     sector_analysis,
     error_logs,
+    scorecards,
 )
 from app.seed_catalog import seed_catalog_data
 from app.seed_gl import seed_gl_data
+from app.seed_scorecard import seed_scorecard_data
 
 
 @asynccontextmanager
@@ -39,6 +41,8 @@ async def lifespan(app: FastAPI):
             await seed_catalog_data(db)
         async with async_session() as db:
             await seed_gl_data(db)
+        async with async_session() as db:
+            await seed_scorecard_data(db)
     yield
 
 
@@ -77,6 +81,7 @@ app.include_router(customers.router, prefix="/api/customers", tags=["Customer 36
 app.include_router(gl.router, prefix="/api/gl", tags=["General Ledger"])
 app.include_router(sector_analysis.router, prefix="/api/sector-analysis", tags=["Sector Analysis"])
 app.include_router(error_logs.router, prefix="/api/error-logs", tags=["Error Monitoring"])
+app.include_router(scorecards.router, prefix="/api/scorecards", tags=["Scorecards"])
 
 
 @app.get("/api/health")

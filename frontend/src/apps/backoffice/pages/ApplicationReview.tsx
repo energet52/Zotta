@@ -623,8 +623,6 @@ export default function ApplicationReview() {
                   {/* Standard fields */}
                   <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
                     <InfoField label="Amount Requested" value={formatCurrency(app.amount_requested)} />
-                    <InfoField label="Purpose" value={app.purpose?.replace(/_/g, ' ')} />
-                    <InfoField label="Description" value={app.purpose_description || '-'} />
                     <InfoField label="Submitted" value={app.submitted_at ? new Date(app.submitted_at).toLocaleString() : '-'} />
                     {app.amount_approved && <InfoField label="Amount Approved" value={formatCurrency(app.amount_approved)} highlight="success" />}
                     {app.interest_rate && <InfoField label="Interest Rate" value={`${app.interest_rate}%`} />}

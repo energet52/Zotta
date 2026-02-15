@@ -36,6 +36,10 @@ import RulesManagement from './apps/backoffice/pages/RulesManagement';
 import CustomerList from './apps/backoffice/pages/CustomerList';
 import Customer360 from './apps/backoffice/pages/Customer360';
 
+// Scorecard pages
+import ScorecardManagement from './apps/backoffice/pages/ScorecardManagement';
+import ScorecardDetail, { CreateScorecardForm } from './apps/backoffice/pages/ScorecardDetail';
+
 // Sector Analysis pages
 import SectorDashboard from './apps/backoffice/pages/sector/SectorDashboard';
 import SectorDetail from './apps/backoffice/pages/sector/SectorDetail';
@@ -137,6 +141,10 @@ export default function App() {
           <Route path="/backoffice/error-monitor" element={<ErrorMonitor />} />
           <Route path="/backoffice/customers" element={<CustomerList />} />
           <Route path="/backoffice/customers/:id" element={<Customer360 />} />
+          {/* Scorecards */}
+          <Route path="/backoffice/scorecards" element={<ScorecardManagement />} />
+          <Route path="/backoffice/scorecards/new" element={<CreateScorecardForm />} />
+          <Route path="/backoffice/scorecards/:id" element={<ScorecardDetail />} />
           {/* Sector Analysis */}
           <Route path="/backoffice/sector-analysis" element={<SectorDashboard />} />
           <Route path="/backoffice/sector-analysis/policies" element={<SectorPolicies />} />

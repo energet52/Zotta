@@ -383,7 +383,6 @@ export default function Dashboard() {
                   <th className="text-left py-3 px-2 text-[var(--color-text-muted)] font-medium">Reference</th>
                   <th className="text-left py-3 px-2 text-[var(--color-text-muted)] font-medium">Amount</th>
                   <th className="text-left py-3 px-2 text-[var(--color-text-muted)] font-medium">Term</th>
-                  <th className="text-left py-3 px-2 text-[var(--color-text-muted)] font-medium">Purpose</th>
                   <th className="text-left py-3 px-2 text-[var(--color-text-muted)] font-medium">Status</th>
                   <th className="text-left py-3 px-2 text-[var(--color-text-muted)] font-medium">Date</th>
                 </tr>
@@ -398,7 +397,6 @@ export default function Dashboard() {
                     </td>
                     <td className="py-3 px-2">TTD {app.amount_requested.toLocaleString()}</td>
                     <td className="py-3 px-2">{app.term_months} months</td>
-                    <td className="py-3 px-2 capitalize">{app.purpose.replace('_', ' ')}</td>
                     <td className="py-3 px-2">{getStatusBadge(app.status)}</td>
                     <td className="py-3 px-2 text-[var(--color-text-muted)]">{new Date(app.created_at).toLocaleDateString()}</td>
                   </tr>
