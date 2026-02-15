@@ -33,20 +33,20 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-dark)] flex items-center justify-center px-4">
+    <div className="theme-consumer min-h-screen bg-[var(--color-bg)] flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-[var(--color-accent)] rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 bg-[var(--color-primary)] rounded-2xl flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl font-bold text-white">Z</span>
           </div>
-          <h1 className="text-3xl font-bold text-white">Zotta</h1>
-          <p className="text-white/70 mt-1">Consumer Lending Portal</p>
+          <h1 className="text-3xl font-bold text-[var(--color-text)]">Zotta</h1>
+          <p className="text-[var(--color-text-muted)] mt-1">Consumer Lending Portal</p>
         </div>
 
         <Card padding="lg">
-          <h2 className="text-xl font-semibold mb-6">Sign In</h2>
+          <h2 className="text-xl font-semibold mb-6 text-[var(--color-text)]">Sign In</h2>
           {error && (
-            <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">{error}</div>
+            <div className="mb-4 p-3 bg-red-500/20 text-red-400 rounded-lg text-sm border border-red-500/30">{error}</div>
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
@@ -69,14 +69,14 @@ export default function Login() {
               Sign In
             </Button>
           </form>
-          <p className="text-center text-sm text-gray-500 mt-6">
+          <p className="text-center text-sm text-[var(--color-text-muted)] mt-6">
             Don't have an account?{' '}
             <Link to="/register" className="text-[var(--color-primary)] font-medium hover:underline">
               Register
             </Link>
           </p>
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <p className="text-xs text-center text-gray-400">
+          <div className="mt-4 pt-4 border-t border-[var(--color-border)]">
+            <p className="text-xs text-center text-[var(--color-text-muted)]">
               Staff member?{' '}
               <Link to="/login" className="text-[var(--color-primary)] hover:underline">
                 Sign in with your staff credentials

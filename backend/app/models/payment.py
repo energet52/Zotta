@@ -14,6 +14,7 @@ class PaymentType(str, enum.Enum):
     MANUAL = "manual"
     ONLINE = "online"
     BANK_TRANSFER = "bank_transfer"
+    DISBURSEMENT = "disbursement"
 
 
 class PaymentStatus(str, enum.Enum):
@@ -69,6 +70,7 @@ class PaymentSchedule(Base):
     due_date: Mapped[date] = mapped_column(Date, nullable=False)
     principal: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     interest: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    fee: Mapped[float] = mapped_column(Numeric(12, 2), default=0, nullable=False)
     amount_due: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     amount_paid: Mapped[float] = mapped_column(
         Numeric(12, 2), default=0, nullable=False

@@ -1,13 +1,12 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
-  ArrowLeft, MessageCircle, Phone, Mail, Send, Plus,
-  Calendar, DollarSign, Clock, User
+  ArrowLeft, MessageCircle, Phone, Mail, Send, Plus, User
 } from 'lucide-react';
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
-import { collectionsApi, underwriterApi, paymentsApi } from '../../../api/endpoints';
+import { collectionsApi, underwriterApi } from '../../../api/endpoints';
 
 interface CollectionRecord {
   id: number;
@@ -75,6 +74,18 @@ export default function CollectionDetail() {
     loadData();
   }, [appId]);
 
+  // Poll for new chat messages every 4 seconds when the chat tab is active
+  useEffect(() => {
+    if (tab !== 'chat') return;
+    const interval = setInterval(async () => {
+      try {
+        const chatRes = await collectionsApi.getChat(appId);
+        setChat(chatRes.data);
+      } catch { /* ignore */ }
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [appId, tab]);
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chat]);
@@ -123,7 +134,7 @@ export default function CollectionDetail() {
   const fmt = (val: number | null | undefined) =>
     val != null ? `TTD ${val.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—';
 
-  const inputClass = "w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)]";
+  const inputClass = "w-full h-[38px] px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)]";
 
   if (loading) return <div className="flex items-center justify-center h-64 text-[var(--color-text-muted)]">Loading...</div>;
   if (!app) return <div className="text-center text-[var(--color-text-muted)]">Application not found</div>;

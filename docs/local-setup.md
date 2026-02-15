@@ -155,6 +155,50 @@ docker compose ps
 
 ---
 
+## Running Tests
+
+### E2E (Browser) Tests
+
+End-to-end tests use Playwright to automate the browser and verify the hire-purchase flow, admin pages, and login.
+
+**Prerequisites:**
+- Application running (`docker compose up`)
+- Database seeded (`docker compose exec backend python seed.py`)
+
+**First-time setup:**
+```bash
+cd Zotta
+npm install
+npx playwright install chromium
+```
+
+**Run all e2e tests:**
+```bash
+npm run test:e2e
+```
+
+**Run with UI (interactive debugging):**
+```bash
+npm run test:e2e:ui
+```
+
+**What the tests cover:**
+- **Auth:** Login, register, applicant/admin login redirects
+- **Consumer:** Dashboard, hire-purchase flow (steps 1–2), full apply & submit, application status, profile
+- **Backoffice:** Dashboard, applications queue, application review, loan book, collections, reports, new application form, products list, product detail, merchants, categories
+
+**Test accounts used:**
+- Applicant: `marcus.mohammed0@email.com` / `Applicant1!`
+- Admin: `admin@zotta.tt` / `Admin123!`
+
+### Backend Tests
+
+```bash
+docker compose exec backend pytest
+```
+
+---
+
 ## Common Problems
 
 ### "Port 5432 already in use"

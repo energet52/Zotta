@@ -1,5 +1,6 @@
 """Collection endpoints for managing overdue loan recovery."""
 
+import logging
 import random
 from datetime import datetime, date, timezone, timedelta
 
@@ -8,6 +9,9 @@ from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.services.whatsapp_notifier import send_whatsapp_message
+
+logger = logging.getLogger(__name__)
 from app.models.user import User, UserRole
 from app.models.loan import LoanApplication, LoanStatus, ApplicantProfile
 from app.models.payment import Payment, PaymentSchedule, ScheduleStatus
@@ -107,6 +111,7 @@ async def get_collection_queue(
         entries.append(CollectionQueueEntry(
             id=app.id,
             reference_number=app.reference_number,
+            applicant_id=app.applicant_id,
             applicant_name=f"{first_name} {last_name}",
             amount_approved=float(app.amount_approved) if app.amount_approved else None,
             amount_due=total_due,
@@ -216,7 +221,7 @@ async def send_whatsapp(
     current_user: User = Depends(require_roles(*STAFF_ROLES)),
     db: AsyncSession = Depends(get_db),
 ):
-    """Send a WhatsApp message (simulated). Returns the outbound message and a simulated reply."""
+    """Send a WhatsApp message via Twilio. Returns the outbound message record."""
     # Get applicant's phone
     app_result = await db.execute(
         select(LoanApplication).where(LoanApplication.id == application_id)
@@ -231,6 +236,13 @@ async def send_whatsapp(
     applicant = user_result.scalar_one_or_none()
     phone = applicant.phone if applicant else "+1868-555-0000"
 
+    # Send via Twilio
+    twilio_result = await send_whatsapp_message(phone, data.message)
+    twilio_sid = twilio_result.get("sid", "")
+    twilio_error = twilio_result.get("error")
+
+    status = ChatMessageStatus.FAILED if twilio_error else ChatMessageStatus.SENT
+
     # Outbound message
     outbound = CollectionChat(
         loan_application_id=application_id,
@@ -239,26 +251,15 @@ async def send_whatsapp(
         direction=ChatDirection.OUTBOUND,
         message=data.message,
         channel="whatsapp",
-        status=ChatMessageStatus.DELIVERED,
+        status=status,
     )
     db.add(outbound)
     await db.flush()
-
-    # Simulated auto-reply (after a short delay simulation)
-    rng = random.Random()
-    reply_msg = rng.choice(AUTO_REPLIES)
-    inbound = CollectionChat(
-        loan_application_id=application_id,
-        agent_id=None,
-        phone_number=phone,
-        direction=ChatDirection.INBOUND,
-        message=reply_msg,
-        channel="whatsapp",
-        status=ChatMessageStatus.READ,
-    )
-    db.add(inbound)
-    await db.flush()
-
     await db.refresh(outbound)
-    await db.refresh(inbound)
-    return [outbound, inbound]
+
+    if twilio_error:
+        logger.warning(
+            "WhatsApp send failed for app %s: %s", application_id, twilio_error
+        )
+
+    return [outbound]

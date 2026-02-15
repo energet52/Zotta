@@ -65,6 +65,90 @@ def generate_payment_schedule(
     return schedules
 
 
+# ── Consumer loan dashboard summary ──────────────────────────────────────
+
+@router.get("/summary/my-loans")
+async def get_my_loans_summary(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return a summary of all disbursed loans for the current consumer,
+    including next payment, remaining balance, and arrears info."""
+    today = date.today()
+
+    # Get all disbursed applications for this user
+    apps_result = await db.execute(
+        select(LoanApplication).where(
+            LoanApplication.applicant_id == current_user.id,
+            LoanApplication.status == LoanStatus.DISBURSED,
+        )
+    )
+    apps = apps_result.scalars().all()
+
+    if not apps:
+        return {"loans": []}
+
+    summaries = []
+    for app in apps:
+        # Fetch schedule for this application
+        sched_result = await db.execute(
+            select(PaymentSchedule)
+            .where(PaymentSchedule.loan_application_id == app.id)
+            .order_by(PaymentSchedule.installment_number)
+        )
+        schedules = sched_result.scalars().all()
+
+        total_due = sum(float(s.amount_due) for s in schedules)
+        total_paid = sum(float(s.amount_paid) for s in schedules)
+        remaining_balance = round(total_due - total_paid, 2)
+
+        # Next unpaid installment
+        next_payment = None
+        for s in schedules:
+            if s.status != ScheduleStatus.PAID:
+                next_payment = {
+                    "due_date": s.due_date.isoformat(),
+                    "amount_due": round(float(s.amount_due) - float(s.amount_paid), 2),
+                    "installment_number": s.installment_number,
+                }
+                break
+
+        # Overdue installments (due_date < today and not fully paid)
+        overdue_items = [
+            s for s in schedules
+            if s.due_date < today and s.status != ScheduleStatus.PAID
+        ]
+        overdue_amount = round(
+            sum(float(s.amount_due) - float(s.amount_paid) for s in overdue_items), 2
+        )
+        days_past_due = 0
+        if overdue_items:
+            earliest_overdue = min(s.due_date for s in overdue_items)
+            days_past_due = (today - earliest_overdue).days
+
+        total_installments = len(schedules)
+        paid_installments = sum(1 for s in schedules if s.status == ScheduleStatus.PAID)
+
+        summaries.append({
+            "application_id": app.id,
+            "reference_number": app.reference_number,
+            "loan_amount": float(app.amount_approved or app.proposed_amount or app.amount_requested),
+            "monthly_payment": float(app.monthly_payment or 0),
+            "interest_rate": float(app.interest_rate or app.proposed_rate or 0),
+            "term_months": app.proposed_term or app.term_months,
+            "remaining_balance": remaining_balance,
+            "total_paid": round(total_paid, 2),
+            "total_installments": total_installments,
+            "paid_installments": paid_installments,
+            "next_payment": next_payment,
+            "overdue_amount": overdue_amount,
+            "days_past_due": days_past_due,
+            "in_arrears": overdue_amount > 0,
+        })
+
+    return {"loans": summaries}
+
+
 @router.post("/{application_id}/record", response_model=PaymentResponse)
 async def record_payment(
     application_id: int,
@@ -108,7 +192,47 @@ async def record_payment(
     db.add(audit)
     await db.flush()
     await db.refresh(payment)
+
+    # ── Post to General Ledger ──────────────────────
+    try:
+        from app.services.gl.mapping_engine import generate_journal_entry
+        from app.models.gl import JournalSourceType
+        from decimal import Decimal as _Decimal
+
+        await generate_journal_entry(
+            db,
+            event_type=JournalSourceType.REPAYMENT,
+            source_reference=f"PAY-{ref}",
+            amount_breakdown={
+                "principal": _Decimal(str(data.amount)),
+                "full_amount": _Decimal(str(data.amount)),
+            },
+            product_id=getattr(app, "credit_product_id", None),
+            description=f"Payment recorded for loan #{application_id} — {ref}",
+            created_by=current_user.id,
+            loan_reference=f"LOAN-{application_id}",
+            auto_post=True,
+        )
+    except Exception:
+        import logging as _logging
+        _logging.getLogger(__name__).warning(
+            "GL posting for payment %s failed (no mapping template?)", ref, exc_info=True
+        )
+
     return payment
+
+
+async def _can_access_application(db: AsyncSession, application_id: int, user: User) -> bool:
+    """Staff can access any application; applicants only their own."""
+    if user.role in (UserRole.ADMIN, UserRole.SENIOR_UNDERWRITER, UserRole.JUNIOR_UNDERWRITER):
+        return True
+    app_result = await db.execute(
+        select(LoanApplication).where(
+            LoanApplication.id == application_id,
+            LoanApplication.applicant_id == user.id,
+        )
+    )
+    return app_result.scalar_one_or_none() is not None
 
 
 @router.get("/{application_id}/history", response_model=list[PaymentResponse])
@@ -118,6 +242,8 @@ async def get_payment_history(
     db: AsyncSession = Depends(get_db),
 ):
     """Get payment history for an application."""
+    if not await _can_access_application(db, application_id, current_user):
+        raise HTTPException(status_code=404, detail="Application not found")
     result = await db.execute(
         select(Payment)
         .where(Payment.loan_application_id == application_id)
@@ -133,6 +259,8 @@ async def get_payment_schedule(
     db: AsyncSession = Depends(get_db),
 ):
     """Get payment schedule for an application."""
+    if not await _can_access_application(db, application_id, current_user):
+        raise HTTPException(status_code=404, detail="Application not found")
     result = await db.execute(
         select(PaymentSchedule)
         .where(PaymentSchedule.loan_application_id == application_id)

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Download, FileText, BarChart3, Users, Clock, Shield,
-  TrendingUp, DollarSign, AlertTriangle, Banknote, Calendar, RefreshCw
+  TrendingUp, DollarSign, AlertTriangle, Banknote, RefreshCw
 } from 'lucide-react';
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
@@ -53,11 +53,23 @@ export default function Reports() {
   };
 
   const handleGenerate = async (reportType: string) => {
+    if (reportType === 'loan_statement') {
+      const appId = appIdInput.trim();
+      if (!appId) {
+        alert('Please enter an Application ID for the Loan Statement report.');
+        return;
+      }
+      const parsed = parseInt(appId, 10);
+      if (isNaN(parsed) || parsed < 1) {
+        alert('Please enter a valid positive Application ID.');
+        return;
+      }
+    }
     setGenerating(reportType);
     try {
       const params: any = { date_from: dateFrom, date_to: dateTo };
-      if (reportType === 'loan_statement' && appIdInput) {
-        params.application_id = parseInt(appIdInput);
+      if (reportType === 'loan_statement') {
+        params.application_id = parseInt(appIdInput.trim(), 10);
       }
       const res = await reportsApi.generateReport(reportType, params);
       // Decode and download
@@ -71,8 +83,9 @@ export default function Reports() {
       window.URL.revokeObjectURL(url);
       // Refresh history
       loadHistory();
-    } catch {
-      alert('Report generation failed');
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail ?? err?.message ?? 'Report generation failed';
+      alert(typeof msg === 'string' ? msg : msg?.join?.(' ') ?? 'Report generation failed');
     }
     setGenerating('');
   };
@@ -92,7 +105,7 @@ export default function Reports() {
     }
   };
 
-  const inputClass = "px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)]";
+  const inputClass = "h-[38px] px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)]";
 
   return (
     <div className="space-y-6">

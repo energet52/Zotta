@@ -1,18 +1,34 @@
-import { useEffect, useState } from 'react';
-import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
+import { ChevronDown, ChevronUp, Plus, Trash2, Upload, Tags } from 'lucide-react';
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
 import { adminApi } from '../../../api/endpoints';
 
 type Merchant = { id: number; name: string; is_active: boolean };
 type Branch = { id: number; merchant_id: number; name: string; address?: string; is_online: boolean; is_active: boolean };
+type Category = { id: number; name: string };
+
+function parseCategoriesFromCsv(text: string): string[] {
+  const names = new Set<string>();
+  const lines = text.split(/\r?\n/);
+  for (const line of lines) {
+    const parts = line.split(';').map((p) => p.trim()).filter(Boolean);
+    parts.forEach((p) => names.add(p));
+  }
+  return Array.from(names);
+}
 
 export default function MerchantManagement() {
   const [merchants, setMerchants] = useState<Merchant[]>([]);
   const [branchesByMerchant, setBranchesByMerchant] = useState<Record<number, Branch[]>>({});
+  const [categoriesByMerchant, setCategoriesByMerchant] = useState<Record<number, Category[]>>({});
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const [newMerchant, setNewMerchant] = useState('');
   const [newBranch, setNewBranch] = useState<Record<number, { name: string; address: string; is_online: boolean }>>({});
+  const [newCategory, setNewCategory] = useState<Record<number, string>>({});
+  const [categoryEditing, setCategoryEditing] = useState<Record<number, string>>({});
+  const [importStatus, setImportStatus] = useState<Record<number, { success?: number; error?: string }>>({});
+  const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
   const loadMerchants = async () => {
     const res = await adminApi.getMerchants();
@@ -22,6 +38,11 @@ export default function MerchantManagement() {
   const loadBranches = async (merchantId: number) => {
     const res = await adminApi.getBranches(merchantId);
     setBranchesByMerchant((prev) => ({ ...prev, [merchantId]: res.data || [] }));
+  };
+
+  const loadCategories = async (merchantId: number) => {
+    const res = await adminApi.getCategories(merchantId);
+    setCategoriesByMerchant((prev) => ({ ...prev, [merchantId]: res.data || [] }));
   };
 
   useEffect(() => {
@@ -66,7 +87,7 @@ export default function MerchantManagement() {
                 <div>
                   <div className="font-semibold">{m.name}</div>
                   <div className="text-xs text-[var(--color-text-muted)]">
-                    {m.is_active ? 'Active' : 'Inactive'} • {branches.length} branches
+                    {m.is_active ? 'Active' : 'Inactive'} • {branches.length} branches • {(categoriesByMerchant[m.id] || []).length} categories
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -86,7 +107,9 @@ export default function MerchantManagement() {
                     onClick={async () => {
                       const next = !isOpen;
                       setExpanded((prev) => ({ ...prev, [m.id]: next }));
-                      if (next) await loadBranches(m.id);
+                      if (next) {
+                        await Promise.all([loadBranches(m.id), loadCategories(m.id)]);
+                      }
                     }}
                   >
                     {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -181,6 +204,125 @@ export default function MerchantManagement() {
                     >
                       <Plus size={14} className="mr-1" /> Add Branch
                     </Button>
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t border-[var(--color-border)]">
+                    <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                      <Tags size={16} /> Product Categories
+                    </h3>
+                    <div className="flex flex-wrap items-center gap-2 mb-3">
+                      <input
+                        placeholder="Add category..."
+                        value={newCategory[m.id] || ''}
+                        onChange={(e) => setNewCategory((prev) => ({ ...prev, [m.id]: e.target.value }))}
+                        className="flex-1 min-w-[160px] px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={async () => {
+                          const name = (newCategory[m.id] || '').trim();
+                          if (!name) return;
+                          await adminApi.createCategory(m.id, { name });
+                          setNewCategory((prev) => ({ ...prev, [m.id]: '' }));
+                          await loadCategories(m.id);
+                        }}
+                      >
+                        <Plus size={14} className="mr-1" /> Add
+                      </Button>
+                      <input
+                        ref={(el) => { fileInputRefs.current[m.id] = el; }}
+                        type="file"
+                        accept=".csv,.txt"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          e.target.value = '';
+                          setImportStatus((prev) => ({ ...prev, [m.id]: {} }));
+                          try {
+                            const text = await file.text();
+                            const names = parseCategoriesFromCsv(text);
+                            if (names.length === 0) {
+                              setImportStatus((prev) => ({ ...prev, [m.id]: { error: 'No valid names in file' } }));
+                              return;
+                            }
+                            let created = 0;
+                            for (const n of names) {
+                              try {
+                                await adminApi.createCategory(m.id, { name: n });
+                                created++;
+                              } catch { /* skip */ }
+                            }
+                            await loadCategories(m.id);
+                            setImportStatus((prev) => ({ ...prev, [m.id]: { success: created } }));
+                          } catch {
+                            setImportStatus((prev) => ({ ...prev, [m.id]: { error: 'Failed to read file' } }));
+                          }
+                        }}
+                      />
+                      <Button variant="outline" size="sm" onClick={() => fileInputRefs.current[m.id]?.click()}>
+                        <Upload size={14} className="mr-1" /> Import CSV
+                      </Button>
+                    </div>
+                    {importStatus[m.id] && (
+                      <div className={`mb-2 text-sm ${importStatus[m.id].error ? 'text-red-400' : 'text-emerald-400'}`}>
+                        {importStatus[m.id].error ?? `Imported ${importStatus[m.id].success} categories`}
+                      </div>
+                    )}
+                    <div className="border border-[var(--color-border)] rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)]">
+                            <th className="px-3 py-2 text-left">Category Name</th>
+                            <th className="px-3 py-2 text-left">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(categoriesByMerchant[m.id] || []).map((c) => (
+                            <tr key={c.id} className="border-b border-[var(--color-border)]">
+                              <td className="px-3 py-2">
+                                <input
+                                  value={categoryEditing[c.id] ?? c.name}
+                                  onChange={(e) => setCategoryEditing((prev) => ({ ...prev, [c.id]: e.target.value }))}
+                                  className="w-full px-2 py-1 bg-[var(--color-bg)] border border-[var(--color-border)] rounded"
+                                />
+                              </td>
+                              <td className="px-3 py-2">
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    className="text-[var(--color-primary)]"
+                                    onClick={async () => {
+                                      const name = (categoryEditing[c.id] ?? c.name).trim();
+                                      if (!name) return;
+                                      await adminApi.updateCategory(c.id, { name });
+                                      await loadCategories(m.id);
+                                    }}
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    className="text-red-400 inline-flex items-center gap-1"
+                                    onClick={async () => {
+                                      await adminApi.deleteCategory(c.id);
+                                      await loadCategories(m.id);
+                                    }}
+                                  >
+                                    <Trash2 size={14} /> Delete
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                          {(!categoriesByMerchant[m.id] || categoriesByMerchant[m.id].length === 0) && (
+                            <tr>
+                              <td colSpan={2} className="px-3 py-6 text-center text-[var(--color-text-muted)]">
+                                No categories. Add one or import from CSV (semicolon delimiter).
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               )}

@@ -16,6 +16,34 @@
   --color-border: #e2e8f0;
 }
 
+/* Consumer portal – dark, elegant, minimalistic */
+.theme-consumer {
+  --color-primary: #6366f1;
+  --color-primary-light: #818cf8;
+  --color-primary-dark: #4f46e5;
+  --color-accent: #22d3ee;
+  --color-success: #34d399;
+  --color-danger: #f87171;
+  --color-warning: #fbbf24;
+  --color-bg: #0c0a14;
+  --color-surface: #16111c;
+  --color-surface-hover: #1e1528;
+  --color-text: #f4f4f5;
+  --color-text-muted: #71717a;
+  --color-border: #27272a;
+}
+
+.theme-consumer body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+.theme-consumer select {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
 /* Dark theme for Back-Office portal */
 .theme-dark {
   --color-primary: #38bdf8;

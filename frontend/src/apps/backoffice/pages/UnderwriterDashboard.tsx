@@ -1,16 +1,29 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  FileText, CheckCircle, XCircle, Clock, TrendingUp, DollarSign,
-  AlertTriangle, ArrowRight, Banknote, Activity, BarChart3
+  CheckCircle, TrendingUp, DollarSign,
+  AlertTriangle, ArrowRight
 } from 'lucide-react';
 import Card from '../../../components/ui/Card';
 import { reportsApi } from '../../../api/endpoints';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line,
-  Area, AreaChart
+  ResponsiveContainer, PieChart, Pie, Cell, Area, AreaChart
 } from 'recharts';
+
+interface ArrearsBucket {
+  label: string;
+  loan_count: number;
+  total_outstanding: number;
+  total_overdue: number;
+}
+
+interface ArrearsSummary {
+  total_delinquent_loans: number;
+  total_overdue_amount: number;
+  total_outstanding_at_risk: number;
+  buckets: ArrearsBucket[];
+}
 
 interface DashboardData {
   total_applications: number;
@@ -28,6 +41,10 @@ interface DashboardData {
   total_principal_disbursed: number;
   projected_profit: number;
   daily_volume: { date: string; count: number; volume: number }[];
+  arrears_summary: ArrearsSummary | null;
+  interest_collected: number;
+  expected_default_loss: number;
+  net_pnl: number;
 }
 
 const RISK_COLORS: Record<string, string> = {
@@ -86,6 +103,49 @@ export default function UnderwriterDashboard() {
         </Link>
       </div>
 
+      {/* Live P&L Panel */}
+      <div className="mb-6">
+        <div className="relative rounded-xl border-2 border-transparent bg-gradient-to-r from-emerald-500/10 via-sky-500/10 to-rose-500/10 p-[2px]">
+          <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-emerald-500/40 via-sky-500/30 to-rose-500/40 blur-sm -z-10" />
+          <div className="rounded-[10px] bg-[var(--color-surface)] p-5">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500/20 to-sky-500/20 flex items-center justify-center">
+                <DollarSign size={20} className="text-emerald-500" />
+              </div>
+              <div>
+                <h3 className="font-bold text-[var(--color-text)]">Live Portfolio P&L</h3>
+                <p className="text-[11px] text-[var(--color-text-muted)]">Real-time profit & loss based on actual collections</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-6">
+              <div className="text-center p-4 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+                <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">Interest Earned</p>
+                <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{fmt(data.interest_collected)}</p>
+                <p className="text-[10px] text-[var(--color-text-muted)] mt-1">Collected from paid instalments</p>
+              </div>
+              <div className="text-center p-4 rounded-lg bg-rose-500/5 border border-rose-500/20">
+                <p className="text-xs font-semibold text-rose-600 dark:text-rose-400 uppercase tracking-wider mb-1">Expected Losses (60+ DPD)</p>
+                <p className="text-2xl font-bold text-rose-600 dark:text-rose-400">{fmt(data.expected_default_loss)}</p>
+                <p className="text-[10px] text-[var(--color-text-muted)] mt-1">Outstanding on likely defaults</p>
+              </div>
+              <div className={`text-center p-4 rounded-lg border ${
+                data.net_pnl >= 0
+                  ? 'bg-emerald-500/5 border-emerald-500/20'
+                  : 'bg-rose-500/5 border-rose-500/20'
+              }`}>
+                <p className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Net P&L</p>
+                <p className={`text-2xl font-bold ${data.net_pnl >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                  {data.net_pnl >= 0 ? '+' : ''}{fmt(data.net_pnl)}
+                </p>
+                <p className="text-[10px] text-[var(--color-text-muted)] mt-1">
+                  {data.net_pnl >= 0 ? 'Portfolio is profitable' : 'Portfolio at risk'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* KPI Cards - Clickable */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <div onClick={() => navigate('/backoffice/loans')} className="cursor-pointer group">
@@ -96,7 +156,7 @@ export default function UnderwriterDashboard() {
           </Card>
         </div>
 
-        <div onClick={() => navigate('/backoffice/applications')} className="cursor-pointer group">
+        <div onClick={() => navigate('/backoffice/applications?status_filter=decision_pending')} className="cursor-pointer group">
           <Card padding="sm" className="transition-all group-hover:border-[var(--color-warning)]/50">
             <p className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-2">Pending Review</p>
             <p className="text-3xl font-bold text-[var(--color-warning)]">{data.pending_review}</p>
@@ -135,32 +195,12 @@ export default function UnderwriterDashboard() {
         </div>
       </div>
 
-      {/* Disbursed + P&L Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        <div onClick={() => navigate('/backoffice/loans?status=disbursed')} className="cursor-pointer">
-          <Card padding="sm" className="border-[var(--color-success)]/30 hover:border-[var(--color-success)]/60 transition-all">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="w-10 h-10 rounded-lg bg-[var(--color-success)]/15 flex items-center justify-center">
-                  <Banknote size={20} className="text-[var(--color-success)]" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider">Total Disbursed</p>
-                  <p className="text-2xl font-bold text-[var(--color-success)]">
-                    TTD {data.total_disbursed.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-medium text-[var(--color-text)]">{disbursedCount} loans</p>
-                <p className="text-xs text-[var(--color-text-muted)]">disbursed to date</p>
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        {/* P&L Card */}
-        <Card padding="sm" className="border-[var(--color-cyan,#22d3ee)]/30">
+      {/* Profit & Loss Projection (includes Total Disbursed) */}
+      <div
+        onClick={() => navigate('/backoffice/loans?status=disbursed')}
+        className="cursor-pointer mb-6"
+      >
+        <Card padding="sm" className="border-[var(--color-cyan,#22d3ee)]/30 hover:border-[var(--color-cyan,#22d3ee)]/60 transition-all">
           <div className="flex items-center space-x-4 mb-3">
             <div className="w-10 h-10 rounded-lg bg-[var(--color-cyan,#22d3ee)]/15 flex items-center justify-center">
               <TrendingUp size={20} className="text-[var(--color-cyan,#22d3ee)]" />
@@ -169,7 +209,14 @@ export default function UnderwriterDashboard() {
               <p className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider">Profit & Loss Projection</p>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div>
+              <p className="text-xs text-[var(--color-text-muted)]">Total Disbursed</p>
+              <p className="text-lg font-bold text-[var(--color-success)]">
+                {fmt(data.total_disbursed)}
+              </p>
+              <p className="text-xs text-[var(--color-text-muted)]">{disbursedCount} loans</p>
+            </div>
             <div>
               <p className="text-xs text-[var(--color-text-muted)]">Interest Income</p>
               <p className="text-lg font-bold text-[var(--color-success)]">{fmt(data.projected_interest_income)}</p>
@@ -187,6 +234,110 @@ export default function UnderwriterDashboard() {
           </div>
         </Card>
       </div>
+
+      {/* Arrears / Delinquency Summary */}
+      {data.arrears_summary && (
+        <div className="mb-6">
+          <Card padding="sm" className={data.arrears_summary.total_delinquent_loans > 0 ? 'border-red-400/40' : ''}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                  data.arrears_summary.total_delinquent_loans > 0
+                    ? 'bg-red-500/15'
+                    : 'bg-green-500/15'
+                }`}>
+                  <AlertTriangle size={20} className={
+                    data.arrears_summary.total_delinquent_loans > 0 ? 'text-red-500' : 'text-green-500'
+                  } />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-[var(--color-text)]">Portfolio Arrears</h3>
+                  <p className="text-xs text-[var(--color-text-muted)]">Aged delinquency report</p>
+                </div>
+              </div>
+              {data.arrears_summary.total_delinquent_loans > 0 && (
+                <div
+                  onClick={() => navigate('/backoffice/loans?arrears=1')}
+                  className="cursor-pointer flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 transition-colors"
+                >
+                  <span className="text-sm font-bold text-red-500">{data.arrears_summary.total_delinquent_loans}</span>
+                  <span className="text-xs text-red-400">delinquent loan{data.arrears_summary.total_delinquent_loans !== 1 ? 's' : ''}</span>
+                  <ArrowRight size={14} className="text-red-400" />
+                </div>
+              )}
+            </div>
+
+            {data.arrears_summary.total_delinquent_loans > 0 ? (
+              <>
+                {/* Summary stats row */}
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div
+                    onClick={() => navigate('/backoffice/loans?arrears=1')}
+                    className="cursor-pointer rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-3 text-center hover:border-red-400 transition-colors"
+                  >
+                    <p className="text-xs text-red-500 uppercase font-semibold tracking-wider mb-1">Total Overdue</p>
+                    <p className="text-xl font-bold text-red-600 dark:text-red-400">{fmt(data.arrears_summary.total_overdue_amount)}</p>
+                  </div>
+                  <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 text-center">
+                    <p className="text-xs text-amber-600 dark:text-amber-400 uppercase font-semibold tracking-wider mb-1">Outstanding at Risk</p>
+                    <p className="text-xl font-bold text-amber-600 dark:text-amber-400">{fmt(data.arrears_summary.total_outstanding_at_risk)}</p>
+                  </div>
+                  <div
+                    onClick={() => navigate('/backoffice/loans?arrears=1')}
+                    className="cursor-pointer rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] p-3 text-center hover:border-red-400 transition-colors"
+                  >
+                    <p className="text-xs text-[var(--color-text-muted)] uppercase font-semibold tracking-wider mb-1">Delinquent Loans</p>
+                    <p className="text-xl font-bold text-red-500">{data.arrears_summary.total_delinquent_loans}</p>
+                    <p className="text-[10px] text-[var(--color-text-muted)]">Click to view</p>
+                  </div>
+                </div>
+
+                {/* Aged buckets */}
+                <div className="grid grid-cols-4 gap-3">
+                  {data.arrears_summary.buckets.map((bucket) => {
+                    const colors = {
+                      '1–30 days': { bg: 'bg-yellow-50 dark:bg-yellow-950/20', border: 'border-yellow-300 dark:border-yellow-800', text: 'text-yellow-600 dark:text-yellow-400', bar: 'bg-yellow-400' },
+                      '31–60 days': { bg: 'bg-orange-50 dark:bg-orange-950/20', border: 'border-orange-300 dark:border-orange-800', text: 'text-orange-600 dark:text-orange-400', bar: 'bg-orange-400' },
+                      '61–90 days': { bg: 'bg-red-50 dark:bg-red-950/20', border: 'border-red-300 dark:border-red-800', text: 'text-red-500', bar: 'bg-red-400' },
+                      '90+ days': { bg: 'bg-red-100 dark:bg-red-950/40', border: 'border-red-400 dark:border-red-700', text: 'text-red-600 dark:text-red-400', bar: 'bg-red-600' },
+                    };
+                    const c = colors[bucket.label as keyof typeof colors] || colors['90+ days'];
+                    const pct = data.arrears_summary!.total_overdue_amount > 0
+                      ? Math.round((bucket.total_overdue / data.arrears_summary!.total_overdue_amount) * 100)
+                      : 0;
+
+                    return (
+                      <div key={bucket.label} className={`rounded-lg ${c.bg} border ${c.border} p-3`}>
+                        <p className={`text-[10px] uppercase font-bold tracking-wider mb-2 ${c.text}`}>{bucket.label}</p>
+                        <p className={`text-lg font-bold ${c.text}`}>{bucket.loan_count}</p>
+                        <p className="text-[10px] text-[var(--color-text-muted)]">
+                          loan{bucket.loan_count !== 1 ? 's' : ''}
+                        </p>
+                        {bucket.total_overdue > 0 && (
+                          <div className="mt-2 pt-2 border-t border-[var(--color-border)]/50">
+                            <p className="text-xs text-[var(--color-text-muted)]">Overdue</p>
+                            <p className={`text-sm font-semibold ${c.text}`}>{fmt(bucket.total_overdue)}</p>
+                            {/* Mini progress bar showing proportion */}
+                            <div className="mt-1 h-1 rounded-full bg-[var(--color-border)] overflow-hidden">
+                              <div className={`h-full rounded-full ${c.bar}`} style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-4">
+                <CheckCircle size={24} className="mx-auto text-green-500 mb-2" />
+                <p className="text-sm text-green-600 dark:text-green-400 font-medium">No loans in arrears</p>
+                <p className="text-xs text-[var(--color-text-muted)]">All payments are current</p>
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -274,7 +425,11 @@ export default function UnderwriterDashboard() {
       <Card>
         <h3 className="font-semibold text-[var(--color-text)] mb-4">Applications by Status</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          {Object.entries(data.applications_by_status).map(([status, count]) => {
+          {Object.entries(data.applications_by_status)
+            .filter(([status]) =>
+              ['draft', 'disbursed', 'declined', 'decision_pending', 'rejected_by_applicant', 'approved', 'cancelled', 'counter_proposed'].includes(status)
+            )
+            .map(([status, count]) => {
             const statusColors: Record<string, string> = {
               draft: '#64748b', submitted: '#38bdf8', under_review: '#38bdf8',
               credit_check: '#a78bfa', decision_pending: '#fbbf24', approved: '#34d399',
@@ -287,7 +442,7 @@ export default function UnderwriterDashboard() {
               <div
                 key={status}
                 className="text-center p-3 rounded-lg bg-[var(--color-bg)] cursor-pointer hover:ring-1 hover:ring-[var(--color-primary)]/30 transition-all"
-                onClick={() => navigate(`/backoffice/loans?status=${status}`)}
+                onClick={() => navigate(status === 'disbursed' ? '/backoffice/loans' : `/backoffice/applications?status_filter=${status}`)}
               >
                 <p className="text-2xl font-bold" style={{ color }}>{count}</p>
                 <p className="text-xs text-[var(--color-text-muted)] capitalize mt-1">{status.replace(/_/g, ' ')}</p>

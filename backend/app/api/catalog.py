@@ -77,12 +77,15 @@ async def list_branches(
     return branches
 
 
-@router.get("/categories", response_model=list[ProductCategoryResponse])
+@router.get("/merchants/{merchant_id}/categories", response_model=list[ProductCategoryResponse])
 async def list_categories(
+    merchant_id: int,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(ProductCategory).order_by(ProductCategory.name))
+    result = await db.execute(
+        select(ProductCategory).where(ProductCategory.merchant_id == merchant_id).order_by(ProductCategory.name)
+    )
     return result.scalars().all()
 
 

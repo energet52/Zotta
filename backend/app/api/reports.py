@@ -8,6 +8,7 @@ from datetime import datetime, date, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select, func, case, extract
+from sqlalchemy.orm import aliased
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -164,6 +165,123 @@ async def get_dashboard_metrics(
         for row in daily.all()
     ]
 
+    # ── Arrears / Delinquency summary ──
+    from app.schemas import ArrearsBucket, ArrearsSummary
+
+    today = date.today()
+    # Get all disbursed application IDs
+    disbursed_apps = await db.execute(
+        select(LoanApplication.id, LoanApplication.amount_approved)
+        .where(LoanApplication.status == LoanStatus.DISBURSED)
+    )
+    disbursed_list = disbursed_apps.all()
+
+    # Aged buckets: 1-30, 31-60, 61-90, 90+
+    bucket_defs = [
+        ("1–30 days", 1, 30),
+        ("31–60 days", 31, 60),
+        ("61–90 days", 61, 90),
+        ("90+ days", 91, 999999),
+    ]
+    buckets_data = {label: {"loan_ids": set(), "overdue": 0.0, "outstanding": 0.0} for label, _, _ in bucket_defs}
+
+    if disbursed_list:
+        app_ids = [row[0] for row in disbursed_list]
+        # Fetch all schedules for disbursed loans that are not fully paid and past due
+        overdue_sched = await db.execute(
+            select(PaymentSchedule)
+            .where(
+                PaymentSchedule.loan_application_id.in_(app_ids),
+                PaymentSchedule.due_date < today,
+                PaymentSchedule.status != ScheduleStatus.PAID,
+            )
+        )
+        overdue_items = overdue_sched.scalars().all()
+
+        for s in overdue_items:
+            dpd = (today - s.due_date).days
+            owed = float(s.amount_due) - float(s.amount_paid)
+            if owed <= 0:
+                continue
+            for label, lo, hi in bucket_defs:
+                if lo <= dpd <= hi:
+                    buckets_data[label]["loan_ids"].add(s.loan_application_id)
+                    buckets_data[label]["overdue"] += owed
+                    break
+
+        # Calculate outstanding balance for delinquent loans
+        delinquent_ids = set()
+        for bd in buckets_data.values():
+            delinquent_ids |= bd["loan_ids"]
+
+        if delinquent_ids:
+            outstanding_sched = await db.execute(
+                select(
+                    PaymentSchedule.loan_application_id,
+                    func.sum(PaymentSchedule.amount_due - PaymentSchedule.amount_paid),
+                )
+                .where(
+                    PaymentSchedule.loan_application_id.in_(list(delinquent_ids)),
+                    PaymentSchedule.status != ScheduleStatus.PAID,
+                )
+                .group_by(PaymentSchedule.loan_application_id)
+            )
+            outstanding_by_app = {row[0]: float(row[1]) for row in outstanding_sched.all()}
+        else:
+            outstanding_by_app = {}
+
+        # Assign outstanding to buckets (using highest bucket per loan)
+        loan_bucket: dict[int, str] = {}
+        for label, _, _ in reversed(bucket_defs):
+            for lid in buckets_data[label]["loan_ids"]:
+                if lid not in loan_bucket:
+                    loan_bucket[lid] = label
+
+        for lid, blabel in loan_bucket.items():
+            buckets_data[blabel]["outstanding"] += outstanding_by_app.get(lid, 0.0)
+
+    total_delinquent = len(set().union(*(bd["loan_ids"] for bd in buckets_data.values())))
+    total_overdue_amt = sum(bd["overdue"] for bd in buckets_data.values())
+    total_outstanding_risk = sum(bd["outstanding"] for bd in buckets_data.values())
+
+    arrears_buckets = [
+        ArrearsBucket(
+            label=label,
+            loan_count=len(buckets_data[label]["loan_ids"]),
+            total_outstanding=round(buckets_data[label]["outstanding"], 2),
+            total_overdue=round(buckets_data[label]["overdue"], 2),
+        )
+        for label, _, _ in bucket_defs
+    ]
+
+    arrears_summary = ArrearsSummary(
+        total_delinquent_loans=total_delinquent,
+        total_overdue_amount=round(total_overdue_amt, 2),
+        total_outstanding_at_risk=round(total_outstanding_risk, 2),
+        buckets=arrears_buckets,
+    )
+
+    # ── Live P&L: actual interest collected + expected losses ──
+    interest_collected = 0.0
+    if disbursed_list:
+        interest_collected_q = await db.execute(
+            select(func.coalesce(func.sum(PaymentSchedule.interest), 0))
+            .where(
+                PaymentSchedule.loan_application_id.in_(app_ids),
+                PaymentSchedule.status == ScheduleStatus.PAID,
+            )
+        )
+        interest_collected = float(interest_collected_q.scalar() or 0)
+
+    # Expected loss: remaining principal on loans with 60+ DPD (assumed to default)
+    loss_bucket_labels = ["61–90 days", "90+ days"]
+    expected_default_loss = sum(
+        buckets_data[label]["outstanding"]
+        for label in loss_bucket_labels
+    )
+
+    net_pnl = interest_collected - expected_default_loss
+
     return DashboardMetrics(
         total_applications=total_count,
         pending_review=pending,
@@ -180,6 +298,10 @@ async def get_dashboard_metrics(
         total_principal_disbursed=round(total_principal, 2),
         projected_profit=round(projected_profit, 2),
         daily_volume=daily_data,
+        arrears_summary=arrears_summary,
+        interest_collected=round(interest_collected, 2),
+        expected_default_loss=round(expected_default_loss, 2),
+        net_pnl=round(net_pnl, 2),
     )
 
 
@@ -211,14 +333,19 @@ async def generate_report(
     output = io.StringIO()
     writer = csv.writer(output)
 
-    if report_type == "aged":
+    if report_type == "loan_statement":
+        if not params.application_id:
+            raise HTTPException(
+                status_code=400,
+                detail="application_id is required for loan statement report. Enter an application ID in the App ID field.",
+            )
+        await _generate_loan_statement(writer, db, params.application_id)
+    elif report_type == "aged":
         await _generate_aged_report(writer, db, date_from, date_to)
     elif report_type == "exposure":
         await _generate_exposure_report(writer, db, date_from, date_to)
     elif report_type == "interest_fees":
         await _generate_interest_fees_report(writer, db, date_from, date_to)
-    elif report_type == "loan_statement":
-        await _generate_loan_statement(writer, db, params.application_id)
     elif report_type == "portfolio_summary":
         await _generate_portfolio_summary(writer, db, date_from, date_to)
     elif report_type == "loan_book":
@@ -346,9 +473,11 @@ async def _generate_aged_report(writer, db, date_from, date_to):
     today = date.today()
 
     buckets = {"Current": [], "1-30 Days": [], "31-60 Days": [], "61-90 Days": [], "91-120 Days": [], "120+ Days": []}
+    loan_details = []  # (app, applicant_name, outstanding, max_dpd, bucket)
 
     for row in rows:
         app = row[0]
+        applicant_name = f"{row[1]} {row[2]}"
         # Get overdue days from schedule
         sched_result = await db.execute(
             select(PaymentSchedule).where(
@@ -369,17 +498,25 @@ async def _generate_aged_report(writer, db, date_from, date_to):
             outstanding = float(app.amount_approved or 0)
 
         if max_dpd == 0:
+            bucket = "Current"
             buckets["Current"].append(outstanding)
         elif max_dpd <= 30:
+            bucket = "1-30 Days"
             buckets["1-30 Days"].append(outstanding)
         elif max_dpd <= 60:
+            bucket = "31-60 Days"
             buckets["31-60 Days"].append(outstanding)
         elif max_dpd <= 90:
+            bucket = "61-90 Days"
             buckets["61-90 Days"].append(outstanding)
         elif max_dpd <= 120:
+            bucket = "91-120 Days"
             buckets["91-120 Days"].append(outstanding)
         else:
+            bucket = "120+ Days"
             buckets["120+ Days"].append(outstanding)
+
+        loan_details.append((app, applicant_name, outstanding, max_dpd, bucket))
 
     total_outstanding = sum(sum(v) for v in buckets.values())
     for bucket, amounts in buckets.items():
@@ -390,6 +527,24 @@ async def _generate_aged_report(writer, db, date_from, date_to):
 
     writer.writerow([])
     writer.writerow(["Total", sum(len(v) for v in buckets.values()), f"{total_outstanding:,.2f}", "100%"])
+
+    # Loan-level details
+    writer.writerow([])
+    writer.writerow(["=== Loan Details ==="])
+    writer.writerow([
+        "Reference", "Applicant", "Amount Approved", "Outstanding", "Days Past Due",
+        "Bucket", "Purpose", "Term (months)", "Interest Rate", "Disbursed Date",
+    ])
+    for app, applicant_name, outstanding, max_dpd, bucket in loan_details:
+        writer.writerow([
+            app.reference_number, applicant_name,
+            f"{float(app.amount_approved or 0):,.2f}",
+            f"{outstanding:,.2f}", max_dpd, bucket,
+            app.purpose.value if app.purpose else "",
+            app.term_months or "",
+            f"{float(app.interest_rate)}%" if app.interest_rate else "",
+            app.decided_at.strftime("%Y-%m-%d") if app.decided_at else "",
+        ])
 
 
 async def _generate_exposure_report(writer, db, date_from, date_to):
@@ -442,6 +597,37 @@ async def _generate_exposure_report(writer, db, date_from, date_to):
     for row in result.all():
         writer.writerow([row[0], row[1], f"{float(row[2] or 0):.0f}"])
 
+    # Loan-level details
+    writer.writerow([])
+    writer.writerow(["=== Loan Details ==="])
+    writer.writerow([
+        "Reference", "Applicant", "Status", "Purpose", "Amount Requested", "Amount Approved",
+        "Term (months)", "Interest Rate", "Risk Band", "Submitted", "Decided",
+    ])
+    latest_decision = select(
+        Decision.loan_application_id, func.max(Decision.id).label("max_id")
+    ).group_by(Decision.loan_application_id).subquery()
+    loan_result = await db.execute(
+        select(LoanApplication, User.first_name, User.last_name, Decision.risk_band)
+        .join(User, LoanApplication.applicant_id == User.id)
+        .outerjoin(latest_decision, latest_decision.c.loan_application_id == LoanApplication.id)
+        .outerjoin(Decision, Decision.id == latest_decision.c.max_id)
+        .order_by(LoanApplication.created_at.desc())
+    )
+    for row in loan_result.all():
+        app, first, last, risk_band = row
+        writer.writerow([
+            app.reference_number, f"{first} {last}",
+            app.status.value, app.purpose.value if app.purpose else "",
+            f"{float(app.amount_requested):,.2f}",
+            f"{float(app.amount_approved or 0):,.2f}" if app.amount_approved else "",
+            app.term_months or "",
+            f"{float(app.interest_rate)}%" if app.interest_rate else "",
+            risk_band or "",
+            app.submitted_at.strftime("%Y-%m-%d") if app.submitted_at else "",
+            app.decided_at.strftime("%Y-%m-%d") if app.decided_at else "",
+        ])
+
 
 async def _generate_interest_fees_report(writer, db, date_from, date_to):
     """Projected and earned interest summary."""
@@ -475,13 +661,46 @@ async def _generate_interest_fees_report(writer, db, date_from, date_to):
     writer.writerow(["Interest Earned (Paid)", f"{earned:,.2f}"])
     writer.writerow(["Interest Outstanding", f"{projected - earned:,.2f}"])
 
+    # Loan-level details
+    writer.writerow([])
+    writer.writerow(["=== Loan Details ==="])
+    writer.writerow([
+        "Reference", "Applicant", "Amount Approved", "Interest Rate", "Term (months)",
+        "Projected Interest", "Interest Earned", "Interest Outstanding", "Status",
+    ])
+    loan_result = await db.execute(
+        select(LoanApplication, User.first_name, User.last_name)
+        .join(User, LoanApplication.applicant_id == User.id)
+        .where(
+            LoanApplication.status.in_([LoanStatus.DISBURSED, LoanStatus.ACCEPTED]),
+            LoanApplication.amount_approved.isnot(None),
+            LoanApplication.interest_rate.isnot(None),
+        )
+        .order_by(LoanApplication.created_at.desc())
+    )
+    for row in loan_result.all():
+        app, first, last = row
+        proj = float(app.amount_approved or 0) * float(app.interest_rate or 0) / 100.0 * (app.term_months or 0) / 12.0
+        earned_result = await db.execute(
+            select(func.coalesce(func.sum(PaymentSchedule.interest), 0))
+            .where(
+                PaymentSchedule.loan_application_id == app.id,
+                PaymentSchedule.status == "paid",
+            )
+        )
+        earned_loan = float(earned_result.scalar() or 0)
+        writer.writerow([
+            app.reference_number, f"{first} {last}",
+            f"{float(app.amount_approved or 0):,.2f}",
+            f"{float(app.interest_rate)}%" if app.interest_rate else "",
+            app.term_months or "",
+            f"{proj:,.2f}", f"{earned_loan:,.2f}", f"{proj - earned_loan:,.2f}",
+            app.status.value,
+        ])
+
 
 async def _generate_loan_statement(writer, db, application_id):
     """Individual loan statement."""
-    if not application_id:
-        writer.writerow(["Error: application_id is required for loan statement"])
-        return
-
     result = await db.execute(
         select(LoanApplication, User.first_name, User.last_name)
         .join(User, LoanApplication.applicant_id == User.id)
@@ -570,6 +789,32 @@ async def _generate_portfolio_summary(writer, db, date_from, date_to):
 
     avg_term = await db.execute(select(func.avg(LoanApplication.term_months)))
     writer.writerow(["Average Term (months)", f"{float(avg_term.scalar() or 0):.1f}"])
+
+    # Loan-level details
+    writer.writerow([])
+    writer.writerow(["=== Loan Details ==="])
+    writer.writerow([
+        "Reference", "Applicant", "Status", "Amount Requested", "Amount Approved",
+        "Term (months)", "Interest Rate", "Purpose", "Submitted", "Decided",
+    ])
+    loan_result = await db.execute(
+        select(LoanApplication, User.first_name, User.last_name)
+        .join(User, LoanApplication.applicant_id == User.id)
+        .order_by(LoanApplication.created_at.desc())
+    )
+    for row in loan_result.all():
+        app, first, last = row
+        writer.writerow([
+            app.reference_number, f"{first} {last}",
+            app.status.value,
+            f"{float(app.amount_requested):,.2f}",
+            f"{float(app.amount_approved or 0):,.2f}" if app.amount_approved else "",
+            app.term_months or "",
+            f"{float(app.interest_rate)}%" if app.interest_rate else "",
+            app.purpose.value if app.purpose else "",
+            app.submitted_at.strftime("%Y-%m-%d") if app.submitted_at else "",
+            app.decided_at.strftime("%Y-%m-%d") if app.decided_at else "",
+        ])
 
 
 async def _generate_loan_book(writer, db):
@@ -686,12 +931,54 @@ async def _generate_collection_report(writer, db, date_from, date_to):
     for row in channel_result.all():
         writer.writerow([row[0].value, row[1]])
 
+    # Record-level details (per loan/application)
+    writer.writerow([])
+    writer.writerow(["=== Record Details ==="])
+    writer.writerow([
+        "Reference", "Applicant", "Outcome", "Channel", "Notes", "Action Taken",
+        "Agent", "Created", "Next Action Date", "Promise Amount", "Promise Date",
+    ])
+    Agent = aliased(User)
+    dt_from = datetime.combine(date_from, datetime.min.time())
+    dt_to = datetime.combine(date_to, datetime.max.time())
+    record_result = await db.execute(
+        select(
+            CollectionRecord, LoanApplication.reference_number,
+            User.first_name, User.last_name,
+            Agent.first_name, Agent.last_name,
+        )
+        .join(LoanApplication, CollectionRecord.loan_application_id == LoanApplication.id)
+        .join(User, LoanApplication.applicant_id == User.id)
+        .outerjoin(Agent, CollectionRecord.agent_id == Agent.id)
+        .where(
+            CollectionRecord.created_at >= dt_from,
+            CollectionRecord.created_at <= dt_to,
+        )
+        .order_by(CollectionRecord.created_at.desc())
+    )
+    for row in record_result.all():
+        rec, ref, app_first, app_last, agent_first, agent_last = row
+        writer.writerow([
+            ref, f"{app_first} {app_last}",
+            rec.outcome.value, rec.channel.value,
+            (rec.notes or "")[:200] if rec.notes else "",
+            rec.action_taken or "",
+            f"{agent_first or ''} {agent_last or ''}".strip() if agent_first or agent_last else "",
+            rec.created_at.strftime("%Y-%m-%d %H:%M") if rec.created_at else "",
+            rec.next_action_date.strftime("%Y-%m-%d") if rec.next_action_date else "",
+            f"{float(rec.promise_amount):,.2f}" if rec.promise_amount else "",
+            rec.promise_date.strftime("%Y-%m-%d") if rec.promise_date else "",
+        ])
+
 
 async def _generate_disbursement_report(writer, db, date_from, date_to):
     """Loans disbursed in period."""
     writer.writerow(["Disbursement Report", f"Period: {date_from} to {date_to}"])
     writer.writerow([])
-    writer.writerow(["Reference", "Applicant", "Amount", "Rate", "Term", "Disbursed Date"])
+    writer.writerow([
+        "Reference", "Applicant", "Amount", "Rate", "Term", "Monthly Payment",
+        "Purpose", "Disbursed Date", "Application ID",
+    ])
 
     result = await db.execute(
         select(LoanApplication, User.first_name, User.last_name)
@@ -713,7 +1000,10 @@ async def _generate_disbursement_report(writer, db, date_from, date_to):
             f"{amt:,.2f}",
             f"{float(app.interest_rate)}%" if app.interest_rate else "N/A",
             f"{app.term_months} months",
+            f"{float(app.monthly_payment):,.2f}" if app.monthly_payment else "",
+            app.purpose.value if app.purpose else "",
             app.decided_at.strftime("%Y-%m-%d") if app.decided_at else "",
+            app.id,
         ])
 
     writer.writerow([])

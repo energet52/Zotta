@@ -10,7 +10,22 @@ import {
   PlusCircle,
   Boxes,
   Store,
-  Tags,
+  Scale,
+  MessageCircle,
+  Landmark,
+  FileText,
+  BookOpenCheck,
+  CalendarDays,
+  BarChart,
+  GitBranch,
+  TrendingUp,
+  FileBarChart,
+  Wrench,
+  ShieldAlert,
+  MessageSquare,
+  Users,
+  PieChart,
+  Target,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { clsx } from 'clsx';
@@ -27,16 +42,37 @@ export default function BackOfficeLayout() {
 
   const navItems = [
     { to: '/backoffice', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/backoffice/conversations', icon: MessageCircle, label: 'Conversations' },
     { to: '/backoffice/applications', icon: ClipboardList, label: 'Applications' },
     { to: '/backoffice/loans', icon: BookOpen, label: 'Loan Book' },
     { to: '/backoffice/collections', icon: AlertTriangle, label: 'Collections' },
+    { to: '/backoffice/customers', icon: Users, label: 'Customers' },
     { to: '/backoffice/new-application', icon: PlusCircle, label: 'New Application' },
     { to: '/backoffice/reports', icon: BarChart3, label: 'Reports' },
+  ];
+  const sectorNavItems = [
+    { to: '/backoffice/sector-analysis', icon: PieChart, label: 'Concentration' },
+    { to: '/backoffice/sector-analysis/policies', icon: Target, label: 'Policies & Alerts' },
+  ];
+  const glNavItems = [
+    { to: '/backoffice/gl', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/backoffice/gl/anomalies', icon: ShieldAlert, label: 'Anomalies' },
+    { to: '/backoffice/gl/chat', icon: MessageSquare, label: 'GL Chat' },
+    { to: '/backoffice/gl/accounts', icon: Landmark, label: 'Chart of Accounts' },
+    { to: '/backoffice/gl/entries', icon: FileText, label: 'Journal Entries' },
+    { to: '/backoffice/gl/ledger', icon: BookOpenCheck, label: 'Account Ledger' },
+    { to: '/backoffice/gl/trial-balance', icon: BarChart, label: 'Trial Balance' },
+    { to: '/backoffice/gl/balance-sheet', icon: Scale, label: 'Balance Sheet' },
+    { to: '/backoffice/gl/income-statement', icon: TrendingUp, label: 'Income Statement' },
+    { to: '/backoffice/gl/periods', icon: CalendarDays, label: 'Periods' },
+    { to: '/backoffice/gl/mappings', icon: GitBranch, label: 'GL Mappings' },
+    { to: '/backoffice/gl/reports', icon: FileBarChart, label: 'Reports' },
+    { to: '/backoffice/gl/report-builder', icon: Wrench, label: 'Report Builder' },
   ];
   const adminNavItems = [
     { to: '/backoffice/products', icon: Boxes, label: 'Products' },
     { to: '/backoffice/merchants', icon: Store, label: 'Merchants' },
-    { to: '/backoffice/categories', icon: Tags, label: 'Categories' },
+    { to: '/backoffice/rules', icon: Scale, label: 'Rules' },
   ];
   const isAdmin = user?.role === 'admin';
 
@@ -61,6 +97,48 @@ export default function BackOfficeLayout() {
             const isActive = to === '/backoffice'
               ? location.pathname === '/backoffice'
               : location.pathname.startsWith(to);
+            return (
+              <Link
+                key={to}
+                to={to}
+                className={clsx(
+                  'flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition-all',
+                  isActive
+                    ? 'bg-[var(--color-primary)]/15 text-[var(--color-primary)] font-medium'
+                    : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-hover)]'
+                )}
+              >
+                <Icon size={18} />
+                <span>{label}</span>
+              </Link>
+            );
+          })}
+          <div className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] px-3 pt-3 pb-1">
+            Sector Analysis
+          </div>
+          {sectorNavItems.map(({ to, icon: Icon, label }) => {
+            const isActive = to === '/backoffice/sector-analysis' ? location.pathname === '/backoffice/sector-analysis' : location.pathname.startsWith(to);
+            return (
+              <Link
+                key={to}
+                to={to}
+                className={clsx(
+                  'flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition-all',
+                  isActive
+                    ? 'bg-[var(--color-primary)]/15 text-[var(--color-primary)] font-medium'
+                    : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-hover)]'
+                )}
+              >
+                <Icon size={18} />
+                <span>{label}</span>
+              </Link>
+            );
+          })}
+          <div className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] px-3 pt-3 pb-1">
+            General Ledger
+          </div>
+          {glNavItems.map(({ to, icon: Icon, label }) => {
+            const isActive = to === '/backoffice/gl' ? location.pathname === '/backoffice/gl' : location.pathname.startsWith(to);
             return (
               <Link
                 key={to}
@@ -143,7 +221,7 @@ export default function BackOfficeLayout() {
 
         {/* Mobile nav */}
         <nav className="md:hidden bg-[var(--color-surface)] border-b border-[var(--color-border)] px-4 py-2 flex space-x-2 overflow-x-auto">
-          {[...navItems, ...(isAdmin ? adminNavItems : [])].map(({ to, icon: Icon, label }) => {
+          {[...navItems, ...sectorNavItems, ...glNavItems, ...(isAdmin ? adminNavItems : [])].map(({ to, icon: Icon, label }) => {
             const isActive = to === '/backoffice'
               ? location.pathname === '/backoffice'
               : location.pathname.startsWith(to);

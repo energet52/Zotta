@@ -71,6 +71,7 @@ class TestRules:
             loan_to_income_ratio=1.5,
             loan_amount_requested=100000,
             monthly_income=15000,
+            monthly_expenses=5000,
             applicant_age=35,
             years_employed=5,
             national_id="19880315001",

@@ -2,9 +2,9 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies (gcc for Python packages, libreoffice for DOCX→PDF)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc libpq-dev && \
+    gcc libpq-dev libreoffice-writer && \
     rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

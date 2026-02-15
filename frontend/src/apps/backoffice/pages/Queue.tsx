@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { RefreshCw, Search, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
@@ -9,6 +9,7 @@ import { underwriterApi } from '../../../api/endpoints';
 interface Application {
   id: number;
   reference_number: string;
+  applicant_id: number;
   applicant_name: string | null;
   amount_requested: number;
   term_months: number;
@@ -51,13 +52,25 @@ const COLUMNS: { key: SortKey; label: string }[] = [
   { key: 'created_at', label: 'Date' },
 ];
 
+const INITIAL_STATUSES = ['all', '', 'draft', 'submitted', 'under_review', 'credit_check', 'decision_pending', 'awaiting_documents', 'approved', 'declined', 'offer_sent', 'accepted', 'counter_proposed', 'disbursed', 'rejected_by_applicant', 'cancelled'];
+
 export default function Applications() {
+  const [searchParams] = useSearchParams();
+  const urlStatus = searchParams.get('status_filter');
+  const initialFilter = urlStatus && INITIAL_STATUSES.includes(urlStatus) ? urlStatus : 'all';
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState(initialFilter);
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('created_at');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+
+  // Sync filter from URL when navigating with status_filter (e.g. from dashboard tile)
+  useEffect(() => {
+    if (urlStatus && INITIAL_STATUSES.includes(urlStatus)) {
+      setFilter(urlStatus);
+    }
+  }, [urlStatus]);
 
   const loadApplications = () => {
     setLoading(true);
@@ -224,7 +237,11 @@ export default function Applications() {
                         {app.reference_number}
                       </Link>
                     </td>
-                    <td className="py-3 px-4 text-[var(--color-text)]">{app.applicant_name || '—'}</td>
+                    <td className="py-3 px-4 text-[var(--color-text)]">
+                      <Link to={`/backoffice/customers/${app.applicant_id}`} className="hover:text-[var(--color-primary)] transition-colors">
+                        {app.applicant_name || '—'}
+                      </Link>
+                    </td>
                     <td className="py-3 px-4 text-[var(--color-text)] font-medium">TTD {app.amount_requested.toLocaleString()}</td>
                     <td className="py-3 px-4 text-[var(--color-text-muted)]">{app.term_months}m</td>
                     <td className="py-3 px-4 text-[var(--color-text-muted)] capitalize">{app.purpose.replace(/_/g, ' ')}</td>

@@ -104,7 +104,7 @@ async def run_decision_engine(
         .order_by(DecisionRulesConfig.version.desc())
     )
     active_rules = rules_result_db.scalars().first()
-    rules_config = {"rules": active_rules.rules} if active_rules else DEFAULT_RULES
+    rules_config = active_rules.rules if active_rules else DEFAULT_RULES
     rules_version = active_rules.version if active_rules else 1
 
     # Check bureau data for active judgments / problematic debt

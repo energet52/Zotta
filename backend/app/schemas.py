@@ -1,7 +1,7 @@
 """Pydantic schemas for request/response validation."""
 
 from datetime import datetime, date
-from typing import Optional, Literal
+from typing import Any, Optional, Literal
 from pydantic import BaseModel, EmailStr, Field, model_validator
 
 
@@ -39,18 +39,32 @@ class UserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class UserUpdate(BaseModel):
+    """Optional fields for updating current user profile."""
+    first_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    last_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    phone: Optional[str] = Field(None, max_length=20)
+
+
 # ── Applicant Profile ────────────────────────────────
 
 class ApplicantProfileCreate(BaseModel):
     date_of_birth: Optional[date] = None
-    national_id: Optional[str] = None
+    id_type: Optional[str] = None  # national_id, passport, drivers_license, tax_number
+    national_id: Optional[str] = None  # stores the actual ID number
     gender: Optional[str] = None
     marital_status: Optional[str] = None
     address_line1: Optional[str] = None
     address_line2: Optional[str] = None
     city: Optional[str] = None
     parish: Optional[str] = None
+    whatsapp_number: Optional[str] = None
+    contact_email: Optional[str] = None
+    mobile_phone: Optional[str] = None
+    home_phone: Optional[str] = None
+    employer_phone: Optional[str] = None
     employer_name: Optional[str] = None
+    employer_sector: Optional[str] = None
     job_title: Optional[str] = None
     employment_type: Optional[str] = None
     years_employed: Optional[int] = None
@@ -121,8 +135,12 @@ class LoanApplicationResponse(BaseModel):
     merchant_id: Optional[int] = None
     branch_id: Optional[int] = None
     credit_product_id: Optional[int] = None
+    merchant_name: Optional[str] = None  # populated when relations loaded
+    branch_name: Optional[str] = None
+    credit_product_name: Optional[str] = None
     downpayment: Optional[float] = None
     total_financed: Optional[float] = None
+    items: list["ApplicationItemResponse"] = []  # populated when relations loaded
     status: str
     assigned_underwriter_id: Optional[int]
     # Counterproposal
@@ -140,6 +158,32 @@ class LoanApplicationResponse(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _safe_relations(cls, data: Any) -> Any:  # type: ignore[override]
+        """Prevent lazy-load errors on unloaded ORM relationships.
+
+        When model_validate is called on an ORM object whose relationships
+        (merchant, branch, credit_product, items) were NOT eagerly loaded,
+        accessing them raises MissingGreenlet in async SQLAlchemy.  This
+        validator catches those errors and falls back to safe defaults.
+        """
+        if not isinstance(data, dict):
+            # ORM object – read safe attrs
+            d: dict = {}
+            for field_name in cls.model_fields:
+                try:
+                    val = getattr(data, field_name, None)
+                    # Resolve enums
+                    if hasattr(val, "value"):
+                        val = val.value
+                    d[field_name] = val
+                except Exception:
+                    # Lazy-load failure → use default
+                    pass
+            return d
+        return data
 
 
 class LoanSubmitResponse(BaseModel):
@@ -167,6 +211,10 @@ class ApplicationItemResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# Resolve forward ref for LoanApplicationResponse.items
+LoanApplicationResponse.model_rebuild()
 
 
 # ── Catalog / Admin ──────────────────────────────────
@@ -435,6 +483,18 @@ class VerificationResponse(BaseModel):
 
 # ── Reports ───────────────────────────────────────────
 
+class ArrearsBucket(BaseModel):
+    label: str
+    loan_count: int
+    total_outstanding: float
+    total_overdue: float
+
+class ArrearsSummary(BaseModel):
+    total_delinquent_loans: int
+    total_overdue_amount: float
+    total_outstanding_at_risk: float
+    buckets: list[ArrearsBucket]
+
 class DashboardMetrics(BaseModel):
     total_applications: int
     pending_review: int
@@ -452,6 +512,12 @@ class DashboardMetrics(BaseModel):
     total_principal_disbursed: float = 0.0
     projected_profit: float = 0.0
     daily_volume: list = []
+    # Arrears / delinquency summary
+    arrears_summary: Optional[ArrearsSummary] = None
+    # Live P&L
+    interest_collected: float = 0.0
+    expected_default_loss: float = 0.0
+    net_pnl: float = 0.0
 
 
 # ── Credit Report ─────────────────────────────────────
@@ -482,6 +548,13 @@ class CounterproposalRequest(BaseModel):
 
 class ContractSignRequest(BaseModel):
     signature_data: str  # base64 PNG
+    typed_name: str = Field(min_length=2, max_length=200)
+    agreed: bool
+
+
+class SubmitWithConsentRequest(BaseModel):
+    """Submit a draft application together with signed consent/contract."""
+    signature_data: str  # base64 PNG from canvas
     typed_name: str = Field(min_length=2, max_length=200)
     agreed: bool
 
@@ -533,9 +606,15 @@ class ApplicationEditRequest(BaseModel):
     monthly_expenses: Optional[float] = None
     existing_debt: Optional[float] = None
     employer_name: Optional[str] = None
+    employer_sector: Optional[str] = None
     job_title: Optional[str] = None
     employment_type: Optional[str] = None
     years_employed: Optional[int] = None
+    whatsapp_number: Optional[str] = None
+    contact_email: Optional[str] = None
+    mobile_phone: Optional[str] = None
+    home_phone: Optional[str] = None
+    employer_phone: Optional[str] = None
 
 
 # ── Loan Book ────────────────────────────────────────
@@ -543,6 +622,7 @@ class ApplicationEditRequest(BaseModel):
 class LoanBookEntry(BaseModel):
     id: int
     reference_number: str
+    applicant_id: int
     applicant_name: str
     amount_requested: float
     amount_approved: Optional[float]
@@ -594,6 +674,7 @@ class PaymentScheduleResponse(BaseModel):
     due_date: date
     principal: float
     interest: float
+    fee: float = 0
     amount_due: float
     amount_paid: float
     status: str
@@ -656,6 +737,7 @@ class CollectionChatResponse(BaseModel):
 class CollectionQueueEntry(BaseModel):
     id: int
     reference_number: str
+    applicant_id: int
     applicant_name: str
     amount_approved: Optional[float]
     amount_due: float = 0
@@ -687,6 +769,45 @@ class ReportHistoryResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ── Disbursement ────────────────────────────────────
+
+class DisbursementRequest(BaseModel):
+    """Request to disburse funds for an approved/accepted loan.
+
+    method: 'manual' for now. Future: 'bank_transfer', 'mobile_money', etc.
+    Bank fields are optional — required when method is bank_transfer.
+    """
+    method: str = "manual"
+    notes: Optional[str] = None
+    # Bank transfer fields (for future integrations)
+    recipient_account_name: Optional[str] = None
+    recipient_account_number: Optional[str] = None
+    recipient_bank: Optional[str] = None
+    recipient_bank_branch: Optional[str] = None
+
+
+class DisbursementResponse(BaseModel):
+    id: int
+    loan_application_id: int
+    amount: float
+    method: str
+    status: str
+    reference_number: Optional[str]
+    provider: Optional[str]
+    provider_reference: Optional[str]
+    recipient_account_name: Optional[str]
+    recipient_account_number: Optional[str]
+    recipient_bank: Optional[str]
+    recipient_bank_branch: Optional[str]
+    disbursed_by: int
+    disbursed_by_name: Optional[str] = None
+    notes: Optional[str]
+    disbursed_at: datetime
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 # ── Staff Create Application ─────────────────────────
 
 class StaffCreateApplicationRequest(BaseModel):
@@ -697,20 +818,138 @@ class StaffCreateApplicationRequest(BaseModel):
     phone: Optional[str] = None
     # Profile info
     date_of_birth: Optional[date] = None
-    national_id: Optional[str] = None
+    id_type: Optional[str] = None  # national_id, passport, drivers_license, tax_number
+    national_id: Optional[str] = None  # stores the actual ID number
     gender: Optional[str] = None
+    marital_status: Optional[str] = None
     address_line1: Optional[str] = None
+    address_line2: Optional[str] = None
     city: Optional[str] = None
     parish: Optional[str] = None
+    whatsapp_number: Optional[str] = None
+    contact_email: Optional[str] = None
+    mobile_phone: Optional[str] = None
+    home_phone: Optional[str] = None
+    employer_phone: Optional[str] = None
     employer_name: Optional[str] = None
+    employer_sector: Optional[str] = None
     job_title: Optional[str] = None
     employment_type: Optional[str] = None
     years_employed: Optional[int] = None
     monthly_income: Optional[float] = None
+    other_income: Optional[float] = None
     monthly_expenses: Optional[float] = None
     existing_debt: Optional[float] = None
+    dependents: Optional[int] = None
     # Loan details
     amount_requested: float = Field(gt=0, le=500000)
     term_months: int = Field(ge=3, le=84)
     purpose: str
     purpose_description: Optional[str] = None
+    # Shopping / hire-purchase (optional)
+    merchant_id: Optional[int] = None
+    branch_id: Optional[int] = None
+    credit_product_id: Optional[int] = None
+    downpayment: Optional[float] = None
+    total_financed: Optional[float] = None
+    items: Optional[list[dict]] = None  # [{category_id, description, price, quantity}]
+
+
+# ── Bank Statement Analysis ──────────────────────────
+
+class BankAnalysisFlag(BaseModel):
+    type: str
+    severity: str
+    detail: str
+    amount_involved: Optional[float] = None
+    occurrences: Optional[int] = None
+
+class BankAnalysisMonthlyStat(BaseModel):
+    month: str
+    total_inflow: float = 0
+    total_outflow: float = 0
+    net: float = 0
+    min_balance: Optional[float] = None
+
+class BankAnalysisResponse(BaseModel):
+    id: int
+    loan_application_id: int
+    document_id: int
+    status: str
+    summary: Optional[str] = None
+    cashflow_data: Optional[dict] = None
+    flags: Optional[list[BankAnalysisFlag]] = None
+    volatility_score: Optional[float] = None
+    monthly_stats: Optional[list[BankAnalysisMonthlyStat]] = None
+    risk_assessment: Optional[str] = None
+    income_stability: Optional[str] = None
+    avg_monthly_inflow: Optional[float] = None
+    avg_monthly_outflow: Optional[float] = None
+    avg_monthly_net: Optional[float] = None
+    error_message: Optional[str] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ── ID Parsing (OCR) ─────────────────────────────────
+
+class ParsedIdResponse(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    date_of_birth: Optional[str] = None  # ISO YYYY-MM-DD
+    id_type: Optional[str] = None  # national_id, passport, drivers_license, tax_number
+    national_id: Optional[str] = None  # the actual ID number
+    gender: Optional[str] = None
+    address_line1: Optional[str] = None
+    address_line2: Optional[str] = None
+    city: Optional[str] = None
+    parish: Optional[str] = None
+    raw_text: Optional[str] = None  # debug: full extracted text
+
+
+# ── Conversations (Customer Support) ───────────────────
+
+class ConversationCreate(BaseModel):
+    channel: Optional[str] = "web"
+    entry_point: Optional[str] = None  # cold_start, pre_qualified, returning_applicant, existing_customer, servicing
+    entry_context: Optional[dict] = None  # e.g. product_id, max_amount for pre_qualified
+
+
+class ConversationResponse(BaseModel):
+    id: int
+    channel: str
+    current_state: str
+    loan_application_id: Optional[int] = None
+    entry_point: Optional[str] = None
+    assigned_agent_id: Optional[int] = None
+    escalated_at: Optional[datetime] = None
+    escalation_reason: Optional[str] = None
+    created_at: datetime
+    last_activity_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ConversationMessageResponse(BaseModel):
+    id: int
+    conversation_id: int
+    role: str
+    content: str
+    metadata: Optional[dict] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ConversationDetailResponse(ConversationResponse):
+    messages: list[ConversationMessageResponse] = []
+    application_summary: Optional[dict] = None
+class SendMessageRequest(BaseModel):
+    content: str = Field(..., min_length=1, max_length=4000)
+
+
+class StartApplicationRequest(BaseModel):
+    amount_requested: float = Field(..., gt=0)
+    term_months: int = Field(..., ge=3, le=84)
+    purpose: str = Field(default="personal")

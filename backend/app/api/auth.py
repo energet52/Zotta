@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.user import User, UserRole
 from app.models.loan import ApplicantProfile
-from app.schemas import UserCreate, UserLogin, TokenResponse, UserResponse
+from app.schemas import UserCreate, UserLogin, TokenResponse, UserResponse, UserUpdate
 from app.auth_utils import (
     hash_password,
     verify_password,
@@ -62,4 +62,22 @@ async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
+    return current_user
+
+
+@router.patch("/me", response_model=UserResponse)
+async def update_me(
+    data: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update current user's profile (first_name, last_name, phone)."""
+    if data.first_name is not None:
+        current_user.first_name = data.first_name
+    if data.last_name is not None:
+        current_user.last_name = data.last_name
+    if data.phone is not None:
+        current_user.phone = data.phone
+    await db.flush()
+    await db.refresh(current_user)
     return current_user

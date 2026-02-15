@@ -1,21 +1,22 @@
 version: "3.9"
 
-# LOCAL DEVELOPMENT ONLY. Default credentials below are for local dev.
-# For production, use docker-compose.prod.yml which requires .env.production.
+# LOCAL DEVELOPMENT ONLY.
+# All configuration is loaded from the root .env file (single source of truth).
+# For production, use docker-compose.prod.yml which reads .env.production.
 
 services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: zotta
-      POSTGRES_PASSWORD: zotta_secret
-      POSTGRES_DB: zotta
+      POSTGRES_USER: ${POSTGRES_USER:-zotta}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zotta_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-zotta}
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U zotta"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zotta}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -40,11 +41,13 @@ services:
     volumes:
       - ./backend:/app
       - ./uploads:/app/uploads
+      - ./.env:/app/.env:ro
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://zotta:zotta_secret@db:5432/zotta
-      DATABASE_URL_SYNC: postgresql://zotta:zotta_secret@db:5432/zotta
+      # Override DB/Redis hosts to use Docker service names
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-zotta}:${POSTGRES_PASSWORD:-zotta_secret}@db:5432/${POSTGRES_DB:-zotta}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-zotta}:${POSTGRES_PASSWORD:-zotta_secret}@db:5432/${POSTGRES_DB:-zotta}
       REDIS_URL: redis://redis:6379/0
     depends_on:
       db:
@@ -60,11 +63,12 @@ services:
     volumes:
       - ./backend:/app
       - ./uploads:/app/uploads
+      - ./.env:/app/.env:ro
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://zotta:zotta_secret@db:5432/zotta
-      DATABASE_URL_SYNC: postgresql://zotta:zotta_secret@db:5432/zotta
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-zotta}:${POSTGRES_PASSWORD:-zotta_secret}@db:5432/${POSTGRES_DB:-zotta}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-zotta}:${POSTGRES_PASSWORD:-zotta_secret}@db:5432/${POSTGRES_DB:-zotta}
       REDIS_URL: redis://redis:6379/0
     depends_on:
       db:
@@ -83,7 +87,7 @@ services:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      VITE_API_URL: http://localhost:8000
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
 
 volumes:
   pgdata:

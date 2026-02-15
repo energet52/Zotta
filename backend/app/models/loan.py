@@ -65,6 +65,11 @@ class LoanApplication(Base):
     downpayment: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     total_financed: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
 
+    # Conversation (when created via chat flow)
+    conversation_id: Mapped[int | None] = mapped_column(
+        ForeignKey("conversations.id"), nullable=True, index=True
+    )
+
     # Status
     status: Mapped[LoanStatus] = mapped_column(
         Enum(LoanStatus), default=LoanStatus.DRAFT, nullable=False
@@ -87,6 +92,7 @@ class LoanApplication(Base):
     # Timestamps
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    disbursed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -103,6 +109,11 @@ class LoanApplication(Base):
     documents = relationship("Document", back_populates="loan_application")
     decisions = relationship("Decision", back_populates="loan_application")
     credit_reports = relationship("CreditReport", back_populates="loan_application")
+    conversation = relationship(
+        "Conversation",
+        uselist=False,
+        foreign_keys=[conversation_id],
+    )
 
 
 class ApplicantProfile(Base):
@@ -113,7 +124,8 @@ class ApplicantProfile(Base):
 
     # Personal
     date_of_birth: Mapped[date | None] = mapped_column(Date, nullable=True)
-    national_id: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
+    id_type: Mapped[str | None] = mapped_column(String(30), nullable=True)  # national_id, passport, drivers_license, tax_number
+    national_id: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)  # stores the actual number regardless of id_type
     gender: Mapped[str | None] = mapped_column(String(10), nullable=True)
     marital_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
@@ -126,6 +138,7 @@ class ApplicantProfile(Base):
 
     # Employment
     employer_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    employer_sector: Mapped[str | None] = mapped_column(String(100), nullable=True)
     job_title: Mapped[str | None] = mapped_column(String(100), nullable=True)
     employment_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     years_employed: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -136,6 +149,13 @@ class ApplicantProfile(Base):
     monthly_expenses: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     existing_debt: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     dependents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Contact
+    whatsapp_number: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    mobile_phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    home_phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    employer_phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
 
     # Verification
     id_verified: Mapped[bool | None] = mapped_column(default=False)

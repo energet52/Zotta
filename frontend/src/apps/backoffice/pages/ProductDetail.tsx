@@ -274,14 +274,14 @@ export default function ProductDetail() {
                     placeholder="Min score"
                     value={newScoreRange.min_score}
                     onChange={(e) => setNewScoreRange((s) => ({ ...s, min_score: Number(e.target.value) }))}
-                    className="px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg"
+                    className="h-[38px] px-3 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm"
                   />
                   <input
                     type="number"
                     placeholder="Max score"
                     value={newScoreRange.max_score}
                     onChange={(e) => setNewScoreRange((s) => ({ ...s, max_score: Number(e.target.value) }))}
-                    className="px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg"
+                    className="h-[38px] px-3 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm"
                   />
                 </div>
               )}
@@ -355,13 +355,13 @@ export default function ProductDetail() {
 
             {canManageRanges && (
               <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
-                <select value={newFee.fee_type} onChange={(e) => setNewFee((f) => ({ ...f, fee_type: e.target.value }))} className="px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg">
+                <select value={newFee.fee_type} onChange={(e) => setNewFee((f) => ({ ...f, fee_type: e.target.value }))} className="h-[38px] px-3 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm">
                   {FEE_TYPES.map((ft) => <option key={ft} value={ft}>{ft}</option>)}
                 </select>
-                <select value={newFee.fee_base} onChange={(e) => setNewFee((f) => ({ ...f, fee_base: e.target.value }))} className="px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg">
+                <select value={newFee.fee_base} onChange={(e) => setNewFee((f) => ({ ...f, fee_base: e.target.value }))} className="h-[38px] px-3 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm">
                   {FEE_BASES.map((fb) => <option key={fb} value={fb}>{fb}</option>)}
                 </select>
-                <input type="number" value={newFee.fee_amount} onChange={(e) => setNewFee((f) => ({ ...f, fee_amount: Number(e.target.value) }))} className="px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg" />
+                <input type="number" value={newFee.fee_amount} onChange={(e) => setNewFee((f) => ({ ...f, fee_amount: Number(e.target.value) }))} className="h-[38px] px-3 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm" />
                 <label className="inline-flex items-center gap-2 px-3 py-2 border border-[var(--color-border)] rounded-lg">
                   <input type="checkbox" checked={newFee.is_available} onChange={(e) => setNewFee((f) => ({ ...f, is_available: e.target.checked }))} />
                   <span>Available</span>

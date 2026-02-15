@@ -1,26 +1,49 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, Shield, AlertTriangle, CheckCircle, XCircle,
-  FileText, Clock, Edit3, Save, X, Send, History, Calculator, Paperclip
+  FileText, Edit3, Save, X, Send, History, Calculator, Paperclip,
+  Banknote, Download, Trash2, Calendar, DollarSign, MessageSquare, Plus
 } from 'lucide-react';
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
 import Badge, { getStatusBadge } from '../../../components/ui/Badge';
-import { underwriterApi, paymentsApi } from '../../../api/endpoints';
+import ReferencesEditor from '../../../components/ReferencesEditor';
+import type { Reference } from '../../../components/ReferencesEditor';
+import { underwriterApi, loanApi, paymentsApi } from '../../../api/endpoints';
+import SearchableSelect from '../../../components/ui/SearchableSelect';
+import { Users } from 'lucide-react';
+
+const EMPLOYER_SECTORS = [
+  'Banking & Financial Services', 'Insurance', 'Hospitality & Tourism',
+  'Agriculture & Agro-processing', 'Oil & Gas / Energy', 'Mining & Extractives',
+  'Telecommunications', 'Retail & Distribution', 'Real Estate & Construction',
+  'Manufacturing', 'Transportation & Logistics', 'Healthcare & Pharmaceuticals',
+  'Education', 'Government & Public Sector', 'Utilities (Water & Electricity)',
+  'Creative Industries & Entertainment', 'Maritime & Shipping',
+  'Professional Services (Legal, Accounting, Consulting)',
+  'Information Technology', 'Microfinance & Credit Unions', 'Other', 'Not Applicable',
+];
 
 // ── Types ───────────────────────────────────────
 interface Profile {
   id: number;
   user_id: number;
   date_of_birth: string | null;
+  id_type: string | null;
   national_id: string | null;
   gender: string | null;
   marital_status: string | null;
   address_line1: string | null;
   city: string | null;
   parish: string | null;
+  whatsapp_number?: string | null;
+  contact_email?: string | null;
+  mobile_phone?: string | null;
+  home_phone?: string | null;
+  employer_phone?: string | null;
   employer_name: string | null;
+  employer_sector: string | null;
   job_title: string | null;
   employment_type: string | null;
   years_employed: number | null;
@@ -87,7 +110,7 @@ interface FullApp {
   contract: ContractInfo | null;
 }
 
-type TabKey = 'details' | 'decision' | 'credit_bureau' | 'schedule' | 'payments' | 'documents' | 'audit';
+type TabKey = 'details' | 'decision' | 'credit_bureau' | 'bank_analysis' | 'references' | 'documents' | 'schedule' | 'transactions' | 'audit';
 
 // ── Helpers ──────────────────────────────────────
 function parseApiError(err: any, fallback = 'Operation failed'): string {
@@ -108,38 +131,6 @@ function daysSince(dateStr: string | null) {
   if (!dateStr) return '-';
   const diff = Date.now() - new Date(dateStr).getTime();
   return Math.floor(diff / 86400000);
-}
-
-function generateAmortization(principal: number, annualRate: number, termMonths: number) {
-  const monthlyRate = annualRate / 100 / 12;
-  let payment: number;
-  if (monthlyRate > 0) {
-    payment = principal * (monthlyRate * Math.pow(1 + monthlyRate, termMonths)) / (Math.pow(1 + monthlyRate, termMonths) - 1);
-  } else {
-    payment = principal / termMonths;
-  }
-
-  const schedule = [];
-  let balance = principal;
-  const startDate = new Date();
-
-  for (let i = 1; i <= termMonths; i++) {
-    const interest = balance * monthlyRate;
-    const principalPart = payment - interest;
-    balance = Math.max(0, balance - principalPart);
-    const payDate = new Date(startDate);
-    payDate.setMonth(payDate.getMonth() + i);
-
-    schedule.push({
-      number: i,
-      date: payDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short' }),
-      principal: principalPart,
-      interest,
-      payment,
-      balance,
-    });
-  }
-  return { schedule, totalInterest: schedule.reduce((s, r) => s + r.interest, 0), totalPayments: payment * termMonths };
 }
 
 // ── Component ────────────────────────────────────
@@ -169,6 +160,70 @@ export default function ApplicationReview() {
   const [editing, setEditing] = useState(false);
   const [editValues, setEditValues] = useState<Record<string, any>>({});
 
+  // Document upload (back-office)
+  const [docUploadType, setDocUploadType] = useState('other');
+  const [docUploadFile, setDocUploadFile] = useState<File | null>(null);
+  const [docUploading, setDocUploading] = useState(false);
+  const [docDeleting, setDocDeleting] = useState<number | null>(null);
+
+  // Disbursement
+  const [showDisburse, setShowDisburse] = useState(false);
+  const [disbursing, setDisbursing] = useState(false);
+  const [disbursementMethod, setDisbursementMethod] = useState('manual');
+  const [disbursementNotes, setDisbursementNotes] = useState('');
+  const [bankAccountName, setBankAccountName] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [bankBranch, setBankBranch] = useState('');
+  const [disbursementInfo, setDisbursementInfo] = useState<any>(null);
+  const [schedule, setSchedule] = useState<any[]>([]);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [showRepaymentForm, setShowRepaymentForm] = useState(false);
+  const [repaymentData, setRepaymentData] = useState({ amount: '', payment_type: 'manual', payment_date: new Date().toISOString().split('T')[0], reference_number: '', notes: '' });
+  const [recordingPayment, setRecordingPayment] = useState(false);
+  const [notes, setNotes] = useState<any[]>([]);
+  const [newNote, setNewNote] = useState('');
+  const [appComments, setAppComments] = useState<any[]>([]);
+  const [newReply, setNewReply] = useState('');
+  const [addingReply, setAddingReply] = useState(false);
+  const [references, setReferences] = useState<Reference[]>([]);
+  const [addingNote, setAddingNote] = useState(false);
+
+  // Compute a projected amortization schedule from application data
+  const computeProjectedSchedule = (principal: number, annualRate: number, termMonths: number) => {
+    if (!principal || !termMonths || principal <= 0 || termMonths <= 0) return [];
+    const r = annualRate / 100 / 12;
+    let pmt: number;
+    if (r > 0) {
+      pmt = principal * (r * Math.pow(1 + r, termMonths)) / (Math.pow(1 + r, termMonths) - 1);
+    } else {
+      pmt = principal / termMonths;
+    }
+    const rows: any[] = [];
+    let balance = principal;
+    const startDate = new Date();
+    for (let i = 1; i <= termMonths; i++) {
+      const interestPortion = balance * r;
+      const principalPortion = pmt - interestPortion;
+      balance = Math.max(0, balance - principalPortion);
+      const dueDate = new Date(startDate);
+      dueDate.setMonth(dueDate.getMonth() + i);
+      rows.push({
+        id: i,
+        installment_number: i,
+        due_date: dueDate.toISOString().split('T')[0],
+        principal: Math.round(principalPortion * 100) / 100,
+        interest: Math.round(interestPortion * 100) / 100,
+        fee: 0,
+        amount_due: Math.round(pmt * 100) / 100,
+        amount_paid: 0,
+        status: 'projected',
+      });
+    }
+    return rows;
+  };
+
   const loadData = () => {
     if (!id) return;
     setLoading(true);
@@ -176,8 +231,39 @@ export default function ApplicationReview() {
       .then((res) => {
         setData(res.data);
         const d = res.data.decisions?.[0];
-        if (d?.suggested_amount) setApprovedAmount(String(d.suggested_amount));
-        if (d?.suggested_rate) setApprovedRate(String(d.suggested_rate));
+        const req = res.data.application?.amount_requested;
+        const amt = d?.suggested_amount != null && req != null
+          ? Math.min(Number(req), Number(d.suggested_amount))
+          : (d?.suggested_amount ?? req);
+        if (amt != null) setApprovedAmount(String(amt));
+        if (d?.suggested_rate != null) setApprovedRate(String(d.suggested_rate));
+        // Load disbursement info if disbursed
+        if (res.data.application?.status === 'disbursed') {
+          underwriterApi.getDisbursement(parseInt(id))
+            .then((dRes) => setDisbursementInfo(dRes.data))
+            .catch(() => setDisbursementInfo(null));
+        }
+        // Always try to load payment schedule and transactions
+        setScheduleLoading(true);
+        Promise.all([
+          paymentsApi.getSchedule(parseInt(id)).catch(() => ({ data: [] })),
+          paymentsApi.getHistory(parseInt(id)).catch(() => ({ data: [] })),
+        ]).then(([sRes, tRes]) => {
+          setSchedule(sRes.data || []);
+          setTransactions(tRes.data || []);
+        }).finally(() => setScheduleLoading(false));
+        // Load notes
+        underwriterApi.listNotes(parseInt(id))
+          .then((nRes) => setNotes(nRes.data || []))
+          .catch(() => setNotes([]));
+        // Load applicant comments
+        loanApi.listComments(parseInt(id))
+          .then((cRes) => setAppComments(cRes.data || []))
+          .catch(() => setAppComments([]));
+        // Load references
+        loanApi.listReferences(parseInt(id))
+          .then((rRes) => setReferences(rRes.data || []))
+          .catch(() => setReferences([]));
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -189,12 +275,7 @@ export default function ApplicationReview() {
     if (!action || !reason) { setError('Select action and provide a reason'); return; }
     setSubmitting(true); setError('');
     try {
-      await underwriterApi.decide(parseInt(id!), {
-        action,
-        reason,
-        approved_amount: approvedAmount ? parseFloat(approvedAmount) : undefined,
-        approved_rate: approvedRate ? parseFloat(approvedRate) : undefined,
-      });
+      await underwriterApi.decide(parseInt(id!), { action, reason });
       setSuccessMsg('Decision recorded');
       loadData();
     } catch (err: any) {
@@ -234,6 +315,70 @@ export default function ApplicationReview() {
     } finally { setSubmitting(false); }
   };
 
+  const handleDisburse = async () => {
+    setDisbursing(true); setError('');
+    try {
+      const payload: any = {
+        method: disbursementMethod,
+        notes: disbursementNotes || undefined,
+      };
+      if (disbursementMethod === 'bank_transfer') {
+        payload.recipient_account_name = bankAccountName || undefined;
+        payload.recipient_account_number = bankAccountNumber || undefined;
+        payload.recipient_bank = bankName || undefined;
+        payload.recipient_bank_branch = bankBranch || undefined;
+      }
+      const res = await underwriterApi.disburse(parseInt(id!), payload);
+      setDisbursementInfo(res.data);
+      setSuccessMsg(`Loan disbursed — ref ${res.data.reference_number}`);
+      setShowDisburse(false);
+      loadData();
+    } catch (err: any) {
+      setError(parseApiError(err, 'Disbursement failed'));
+    } finally { setDisbursing(false); }
+  };
+
+  const handleDocUpload = async () => {
+    if (!id || !docUploadFile) return;
+    setDocUploading(true); setError('');
+    try {
+      const formData = new FormData();
+      formData.append('document_type', docUploadType);
+      formData.append('file', docUploadFile);
+      await underwriterApi.uploadDocument(parseInt(id), formData);
+      setSuccessMsg('Document uploaded');
+      setDocUploadFile(null);
+      loadData();
+    } catch (err: any) {
+      setError(parseApiError(err, 'Upload failed'));
+    } finally { setDocUploading(false); }
+  };
+
+  const handleDocDownload = async (docId: number, fileName: string) => {
+    if (!id) return;
+    try {
+      const res = await underwriterApi.downloadDocument(parseInt(id), docId);
+      const url = URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName || 'document';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { /* ignore */ }
+  };
+
+  const handleDocDelete = async (docId: number) => {
+    if (!id) return;
+    setDocDeleting(docId);
+    try {
+      await underwriterApi.deleteDocument(parseInt(id), docId);
+      setSuccessMsg('Document deleted');
+      loadData();
+    } catch (err: any) {
+      setError(parseApiError(err, 'Delete failed'));
+    } finally { setDocDeleting(null); }
+  };
+
   if (loading) return <div className="text-center py-12 text-[var(--color-text-muted)]">Loading application...</div>;
   if (!data) return <div className="text-center py-12 text-[var(--color-danger)]">Application not found</div>;
 
@@ -248,19 +393,15 @@ export default function ApplicationReview() {
     { key: 'details', label: 'Application Details', icon: FileText },
     { key: 'decision', label: 'Decision Engine', icon: Shield },
     { key: 'credit_bureau', label: 'Credit Bureau', icon: Shield },
-    { key: 'schedule', label: 'Repayment Schedule', icon: Calculator },
-    { key: 'payments', label: 'Payments', icon: Calculator },
+    { key: 'bank_analysis', label: 'Bank Analysis', icon: Banknote },
+    { key: 'references', label: 'References', icon: Users },
     { key: 'documents', label: 'Documents & Contract', icon: Paperclip },
+    ...(app.status === 'disbursed' ? [
+      { key: 'schedule' as TabKey, label: 'Payment Schedule', icon: Calendar },
+      { key: 'transactions' as TabKey, label: 'Transactions', icon: DollarSign },
+    ] : []),
     { key: 'audit', label: 'Audit History', icon: History },
   ];
-
-  // Amortization
-  const amortPrincipal = app.amount_approved || app.proposed_amount || app.amount_requested;
-  const amortRate = app.interest_rate || app.proposed_rate || decision?.suggested_rate || 12;
-  const amortTerm = app.term_months;
-  const amort = amortPrincipal && amortRate && amortTerm
-    ? generateAmortization(Number(amortPrincipal), Number(amortRate), amortTerm)
-    : null;
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -359,7 +500,8 @@ export default function ApplicationReview() {
                 {/* Personal Info */}
                 <h4 className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-3">Personal</h4>
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6 text-sm">
-                  <InfoField label="National ID" value={profile?.national_id} />
+                  <InfoField label="ID Type" value={profile?.id_type === 'drivers_license' ? "Driver's License" : profile?.id_type === 'passport' ? 'Passport' : profile?.id_type === 'tax_number' ? 'Tax Number' : profile?.id_type === 'national_id' ? 'National ID' : profile?.id_type} />
+                  <InfoField label="ID Number" value={profile?.national_id} />
                   <InfoField label="Date of Birth" value={profile?.date_of_birth} />
                   <InfoField label="Gender" value={profile?.gender} />
                   <InfoField label="Marital Status" value={profile?.marital_status} />
@@ -369,10 +511,32 @@ export default function ApplicationReview() {
                   <InfoField label="ID Verified" value={profile?.id_verified ? 'Yes' : 'No'} />
                 </div>
 
+                {/* Contact Details */}
+                <h4 className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-3">Contact Details</h4>
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6 text-sm">
+                  <EditableField label="WhatsApp" field="whatsapp_number" value={profile?.whatsapp_number} editing={editing} editValues={editValues} setEditValues={setEditValues} />
+                  <EditableField label="Contact Email" field="contact_email" value={profile?.contact_email} editing={editing} editValues={editValues} setEditValues={setEditValues} />
+                  <EditableField label="Mobile Phone" field="mobile_phone" value={profile?.mobile_phone} editing={editing} editValues={editValues} setEditValues={setEditValues} />
+                  <EditableField label="Home Phone" field="home_phone" value={profile?.home_phone} editing={editing} editValues={editValues} setEditValues={setEditValues} />
+                  <EditableField label="Employer Phone" field="employer_phone" value={profile?.employer_phone} editing={editing} editValues={editValues} setEditValues={setEditValues} />
+                </div>
+
                 {/* Employment */}
                 <h4 className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-3">Employment & Financials</h4>
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6 text-sm">
                   <EditableField label="Employer" field="employer_name" value={profile?.employer_name} editing={editing} editValues={editValues} setEditValues={setEditValues} />
+                  {editing ? (
+                    <SearchableSelect
+                      label="Employment Sector"
+                      labelClassName="text-xs text-[var(--color-text-muted)] mb-1 block"
+                      value={editValues.employer_sector ?? profile?.employer_sector ?? ''}
+                      onChange={(v) => setEditValues({ ...editValues, employer_sector: v })}
+                      options={EMPLOYER_SECTORS.map(s => ({ value: s, label: s }))}
+                      placeholder="Search sector..."
+                    />
+                  ) : (
+                    <InfoField label="Employment Sector" value={profile?.employer_sector || '-'} />
+                  )}
                   <EditableField label="Job Title" field="job_title" value={profile?.job_title} editing={editing} editValues={editValues} setEditValues={setEditValues} />
                   <EditableField label="Employment Type" field="employment_type" value={profile?.employment_type} editing={editing} editValues={editValues} setEditValues={setEditValues} />
                   <EditableField label="Years Employed" field="years_employed" value={profile?.years_employed} editing={editing} editValues={editValues} setEditValues={setEditValues} type="number" />
@@ -383,19 +547,169 @@ export default function ApplicationReview() {
                   <InfoField label="Dependents" value={profile?.dependents} />
                 </div>
 
-                {/* Loan Details */}
+                {/* Loan Details — Shopping + Plan Selection (same as consumer portal) */}
                 <h4 className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-3">Loan Details</h4>
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
-                  <InfoField label="Amount Requested" value={formatCurrency(app.amount_requested)} />
-                  <EditableField label="Term" field="term_months" value={app.term_months} editing={editing} editValues={editValues} setEditValues={setEditValues} type="number" suffix="months" />
-                  <InfoField label="Purpose" value={app.purpose?.replace(/_/g, ' ')} />
-                  <InfoField label="Description" value={app.purpose_description || '-'} />
-                  <InfoField label="Submitted" value={app.submitted_at ? new Date(app.submitted_at).toLocaleString() : '-'} />
-                  {app.amount_approved && <InfoField label="Amount Approved" value={formatCurrency(app.amount_approved)} highlight="success" />}
-                  {app.interest_rate && <InfoField label="Interest Rate" value={`${app.interest_rate}%`} />}
-                  {app.monthly_payment && <InfoField label="Monthly Payment" value={formatCurrency(app.monthly_payment)} />}
+                <div className="space-y-4">
+                  {/* Shopping Context */}
+                  {(app.merchant_name || app.branch_name || (app.items && app.items.length > 0)) && (
+                    <div className="p-3 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)]">
+                      <h5 className="text-xs font-medium text-[var(--color-text-muted)] uppercase mb-2">Shopping Context</h5>
+                      <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                        <InfoField label="Merchant" value={app.merchant_name || '—'} />
+                        <InfoField label="Branch" value={app.branch_name || '—'} />
+                      </div>
+                      {app.items && app.items.length > 0 && (
+                        <>
+                          <h5 className="text-xs font-medium text-[var(--color-text-muted)] uppercase mb-2">Items</h5>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="text-left text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
+                                  <th className="py-2 pr-2">Category</th>
+                                  <th className="py-2 pr-2">Price</th>
+                                  <th className="py-2 pr-2">Qty</th>
+                                  <th className="py-2 pr-2">Description</th>
+                                  <th className="py-2">Total</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {app.items.map((it: any) => (
+                                  <tr key={it.id} className="border-b border-[var(--color-border)]/50">
+                                    <td className="py-2 pr-2">{it.category_name || '—'}</td>
+                                    <td className="py-2 pr-2">{formatCurrency(it.price)}</td>
+                                    <td className="py-2 pr-2">{it.quantity}</td>
+                                    <td className="py-2 pr-2">{it.description || '—'}</td>
+                                    <td className="py-2 font-medium">{formatCurrency((it.price || 0) * (it.quantity || 1))}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <p className="text-sm mt-2">
+                            <span className="text-[var(--color-text-muted)]">Total Purchase:</span>{' '}
+                            <span className="font-bold text-[var(--color-text)]">
+                              {formatCurrency(app.items.reduce((s: number, it: any) => s + (it.price || 0) * (it.quantity || 1), 0))}
+                            </span>
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {/* Plan Selection */}
+                  <div className="p-3 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)]">
+                    <h5 className="text-xs font-medium text-[var(--color-text-muted)] uppercase mb-2">Plan Selection</h5>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+                      <InfoField label="Credit Product" value={app.credit_product_name || '—'} />
+                      <EditableField label="Term" field="term_months" value={app.term_months} editing={editing} editValues={editValues} setEditValues={setEditValues} type="number" suffix="months" />
+                      <InfoField label="Total Financed" value={formatCurrency(app.total_financed)} />
+                      <InfoField label="Downpayment" value={formatCurrency(app.downpayment)} />
+                      <InfoField label="Monthly Payment" value={formatCurrency(app.monthly_payment)} />
+                    </div>
+                  </div>
+                  {/* Standard fields */}
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                    <InfoField label="Amount Requested" value={formatCurrency(app.amount_requested)} />
+                    <InfoField label="Purpose" value={app.purpose?.replace(/_/g, ' ')} />
+                    <InfoField label="Description" value={app.purpose_description || '-'} />
+                    <InfoField label="Submitted" value={app.submitted_at ? new Date(app.submitted_at).toLocaleString() : '-'} />
+                    {app.amount_approved && <InfoField label="Amount Approved" value={formatCurrency(app.amount_approved)} highlight="success" />}
+                    {app.interest_rate && <InfoField label="Interest Rate" value={`${app.interest_rate}%`} />}
+                  </div>
+                  {data.contract?.signed_at && (
+                    <div className="flex items-center justify-between pt-2 mt-2 border-t border-[var(--color-border)]">
+                      <span className="text-[var(--color-text-muted)]">Hire Purchase Agreement and Consent</span>
+                      <span className="text-xs text-[var(--color-success)]">Signed</span>
+                    </div>
+                  )}
                 </div>
               </Card>
+
+              {/* Payment Schedule – shown inline for non-disbursed applications with known amounts */}
+              {app.status !== 'disbursed' && (() => {
+                const loanAmt = Number(app.amount_approved || app.amount_requested || 0);
+                const rate = Number(app.interest_rate || 0);
+                const term = Number(app.term_months || 0);
+                // Use actual schedule (disbursed) or compute projected
+                const displaySchedule = schedule.length > 0 ? schedule : computeProjectedSchedule(loanAmt, rate, term);
+                const isProjected = schedule.length === 0 && displaySchedule.length > 0;
+                if (scheduleLoading || displaySchedule.length === 0) {
+                  return loanAmt > 0 && term > 0 ? (
+                    <Card>
+                      <h3 className="font-semibold text-[var(--color-text)] mb-4 flex items-center">
+                        <Calendar size={18} className="mr-2 text-[var(--color-primary)]" />
+                        Payment Schedule
+                      </h3>
+                      <p className="text-sm text-[var(--color-text-muted)]">{scheduleLoading ? 'Loading schedule...' : 'Interest rate not yet determined. Schedule will appear once the application is approved.'}</p>
+                    </Card>
+                  ) : null;
+                }
+                return (
+                  <Card>
+                    <h3 className="font-semibold text-[var(--color-text)] mb-4 flex items-center">
+                      <Calendar size={18} className="mr-2 text-[var(--color-primary)]" />
+                      Payment Schedule
+                      {isProjected && <Badge variant="warning" className="ml-2 text-[10px]">Projected</Badge>}
+                    </h3>
+                    {/* Summary totals */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                      <div className="p-3 rounded-lg bg-[var(--color-bg)]">
+                        <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider">Loan Amount</p>
+                        <p className="text-lg font-bold text-[var(--color-text)]">{formatCurrency(loanAmt)}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-[var(--color-bg)]">
+                        <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider">Total Interest</p>
+                        <p className="text-lg font-bold text-[var(--color-text)]">{formatCurrency(displaySchedule.reduce((s: number, r: any) => s + Number(r.interest || 0), 0))}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-[var(--color-bg)]">
+                        <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider">Total Fees</p>
+                        <p className="text-lg font-bold text-[var(--color-text)]">{formatCurrency(displaySchedule.reduce((s: number, r: any) => s + Number(r.fee || 0), 0))}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-[var(--color-bg)]">
+                        <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider">Total Payable</p>
+                        <p className="text-lg font-bold text-[var(--color-primary)]">{formatCurrency(displaySchedule.reduce((s: number, r: any) => s + Number(r.amount_due || 0), 0))}</p>
+                      </div>
+                    </div>
+                    {/* Schedule table */}
+                    <div className="overflow-x-auto max-h-72 overflow-y-auto border border-[var(--color-border)] rounded-lg">
+                      <table className="min-w-full text-xs">
+                        <thead className="bg-[var(--color-bg)] sticky top-0">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-[var(--color-text-muted)]">#</th>
+                            <th className="px-3 py-2 text-left text-[var(--color-text-muted)]">Due Date</th>
+                            <th className="px-3 py-2 text-right text-[var(--color-text-muted)]">Principal</th>
+                            <th className="px-3 py-2 text-right text-[var(--color-text-muted)]">Interest</th>
+                            <th className="px-3 py-2 text-right text-[var(--color-text-muted)]">Amount Due</th>
+                            {!isProjected && <th className="px-3 py-2 text-right text-[var(--color-text-muted)]">Paid</th>}
+                            <th className="px-3 py-2 text-center text-[var(--color-text-muted)]">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[var(--color-border)]">
+                          {displaySchedule.map((row: any) => (
+                            <tr key={row.id} className="hover:bg-[var(--color-bg)]/50">
+                              <td className="px-3 py-2 text-[var(--color-text)]">{row.installment_number}</td>
+                              <td className="px-3 py-2 text-[var(--color-text)]">{row.due_date ? new Date(row.due_date).toLocaleDateString() : '-'}</td>
+                              <td className="px-3 py-2 text-right text-[var(--color-text)]">{formatCurrency(row.principal)}</td>
+                              <td className="px-3 py-2 text-right text-[var(--color-text)]">{formatCurrency(row.interest)}</td>
+                              <td className="px-3 py-2 text-right font-medium text-[var(--color-text)]">{formatCurrency(row.amount_due)}</td>
+                              {!isProjected && <td className="px-3 py-2 text-right text-[var(--color-text)]">{formatCurrency(row.amount_paid)}</td>}
+                              <td className="px-3 py-2 text-center">
+                                <Badge variant={row.status === 'paid' ? 'success' : row.status === 'overdue' ? 'danger' : row.status === 'projected' ? 'info' : 'warning'}>
+                                  {row.status}
+                                </Badge>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {isProjected && (
+                      <p className="text-xs text-[var(--color-text-muted)] mt-2 italic">
+                        This is a projected schedule based on the current loan terms. Actual schedule will be generated upon disbursement.
+                      </p>
+                    )}
+                  </Card>
+                );
+              })()}
             </div>
           )}
 
@@ -560,56 +874,24 @@ export default function ApplicationReview() {
             </Card>
           )}
 
-          {/* Tab: Repayment Schedule */}
-          {activeTab === 'schedule' && (
+          {/* Tab: References */}
+          {activeTab === 'references' && (
             <Card>
-              <h3 className="font-semibold text-[var(--color-text)] mb-4">Repayment Schedule</h3>
-              {amort ? (
-                <>
-                  <div className="grid grid-cols-3 gap-4 mb-4 p-3 rounded-lg bg-[var(--color-bg)]">
-                    <div>
-                      <span className="text-xs text-[var(--color-text-muted)]">Total Payments</span>
-                      <p className="font-bold text-[var(--color-text)]">{formatCurrency(amort.totalPayments)}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-[var(--color-text-muted)]">Total Interest</span>
-                      <p className="font-bold text-[var(--color-warning)]">{formatCurrency(amort.totalInterest)}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-[var(--color-text-muted)]">Monthly Payment</span>
-                      <p className="font-bold text-[var(--color-primary)]">{formatCurrency(amort.schedule[0]?.payment)}</p>
-                    </div>
-                  </div>
-                  <div className="overflow-x-auto max-h-96 overflow-y-auto">
-                    <table className="w-full text-sm">
-                      <thead className="sticky top-0 bg-[var(--color-surface)]">
-                        <tr className="border-b border-[var(--color-border)]">
-                          <th className="text-left py-2 px-3 text-xs text-[var(--color-text-muted)] uppercase">#</th>
-                          <th className="text-left py-2 px-3 text-xs text-[var(--color-text-muted)] uppercase">Date</th>
-                          <th className="text-right py-2 px-3 text-xs text-[var(--color-text-muted)] uppercase">Principal</th>
-                          <th className="text-right py-2 px-3 text-xs text-[var(--color-text-muted)] uppercase">Interest</th>
-                          <th className="text-right py-2 px-3 text-xs text-[var(--color-text-muted)] uppercase">Payment</th>
-                          <th className="text-right py-2 px-3 text-xs text-[var(--color-text-muted)] uppercase">Balance</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {amort.schedule.map((row) => (
-                          <tr key={row.number} className="border-b border-[var(--color-border)]/30">
-                            <td className="py-1.5 px-3 text-[var(--color-text-muted)]">{row.number}</td>
-                            <td className="py-1.5 px-3 text-[var(--color-text-muted)]">{row.date}</td>
-                            <td className="py-1.5 px-3 text-right text-[var(--color-text)]">{formatCurrency(row.principal)}</td>
-                            <td className="py-1.5 px-3 text-right text-[var(--color-warning)]">{formatCurrency(row.interest)}</td>
-                            <td className="py-1.5 px-3 text-right text-[var(--color-text)] font-medium">{formatCurrency(row.payment)}</td>
-                            <td className="py-1.5 px-3 text-right text-[var(--color-text-muted)]">{formatCurrency(row.balance)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              ) : (
-                <p className="text-center py-8 text-[var(--color-text-muted)]">No approved amount or rate to calculate schedule.</p>
-              )}
+              <ReferencesEditor
+                references={references}
+                onAdd={async (ref) => {
+                  const res = await loanApi.addReference(parseInt(id!), ref);
+                  setReferences((prev) => [...prev, res.data]);
+                }}
+                onUpdate={async (refId, ref) => {
+                  const res = await loanApi.updateReference(parseInt(id!), refId, ref);
+                  setReferences((prev) => prev.map((r) => r.id === refId ? res.data : r));
+                }}
+                onDelete={async (refId) => {
+                  await loanApi.deleteReference(parseInt(id!), refId);
+                  setReferences((prev) => prev.filter((r) => r.id !== refId));
+                }}
+              />
             </Card>
           )}
 
@@ -617,7 +899,39 @@ export default function ApplicationReview() {
           {activeTab === 'documents' && (
             <div className="space-y-4">
               <Card>
-                <h3 className="font-semibold text-[var(--color-text)] mb-4">Uploaded Documents</h3>
+                <h3 className="font-semibold text-[var(--color-text)] mb-4">Upload Document</h3>
+                <div className="flex flex-wrap gap-3 items-end mb-4 p-3 rounded-lg bg-[var(--color-bg)]">
+                  <div>
+                    <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Document Type</label>
+                    <select
+                      value={docUploadType}
+                      onChange={(e) => setDocUploadType(e.target.value)}
+                      className="px-3 py-2 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+                    >
+                      <option value="national_id">National ID</option>
+                      <option value="passport">Passport</option>
+                      <option value="drivers_license">Driver&apos;s License</option>
+                      <option value="proof_of_income">Proof of Income</option>
+                      <option value="bank_statement">Bank Statement</option>
+                      <option value="utility_bill">Utility Bill</option>
+                      <option value="employment_letter">Employment Letter</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div className="flex-1 min-w-[180px]">
+                    <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">File</label>
+                    <input
+                      type="file"
+                      onChange={(e) => setDocUploadFile(e.target.files?.[0] || null)}
+                      className="block w-full text-sm text-[var(--color-text-muted)] file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[var(--color-primary)] file:text-white file:cursor-pointer"
+                    />
+                  </div>
+                  <Button size="sm" onClick={handleDocUpload} isLoading={docUploading} disabled={!docUploadFile}>
+                    <Paperclip size={14} className="mr-1" /> Upload
+                  </Button>
+                </div>
+
+                <h3 className="font-semibold text-[var(--color-text)] mt-6 mb-4">Uploaded Documents</h3>
                 {data.documents.length > 0 ? (
                   <div className="space-y-2">
                     {data.documents.map((doc) => (
@@ -629,7 +943,15 @@ export default function ApplicationReview() {
                             <p className="text-xs text-[var(--color-text-muted)] capitalize">{doc.document_type.replace(/_/g, ' ')} &middot; {(doc.file_size / 1024).toFixed(0)} KB</p>
                           </div>
                         </div>
-                        {getStatusBadge(doc.status)}
+                        <div className="flex items-center gap-2">
+                          {getStatusBadge(doc.status)}
+                          <Button size="sm" variant="ghost" onClick={() => handleDocDownload(doc.id, doc.file_name)}>
+                            <Download size={14} />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => handleDocDelete(doc.id)} isLoading={docDeleting === doc.id}>
+                            <Trash2 size={14} className="text-[var(--color-danger)]" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -640,7 +962,49 @@ export default function ApplicationReview() {
 
               {/* Contract */}
               <Card>
-                <h3 className="font-semibold text-[var(--color-text)] mb-4">Signed Contract</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-[var(--color-text)]">Contract</h3>
+                  <div className="flex gap-2">
+                    {data.contract?.signed_at && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          try {
+                            const res = await loanApi.getConsentPdf(parseInt(id!));
+                            const blob = res.data instanceof Blob ? res.data : new Blob([res.data], { type: 'application/pdf' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `hire-purchase-agreement-signed-${app.reference_number}.pdf`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                          } catch { /* ignore */ }
+                        }}
+                      >
+                        <Download size={14} className="mr-1" /> Download Signed Contract (PDF)
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant={data.contract?.signed_at ? 'ghost' : 'outline'}
+                      onClick={async () => {
+                        try {
+                          const res = await underwriterApi.generateContract(parseInt(id!));
+                          const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `contract-${app.reference_number}.docx`;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        } catch { /* ignore */ }
+                      }}
+                    >
+                      <FileText size={14} className="mr-1" /> {data.contract?.signed_at ? 'Download Contract (Word)' : 'Generate Contract for Printing'}
+                    </Button>
+                  </div>
+                </div>
                 {data.contract ? (
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4 text-sm">
@@ -661,7 +1025,230 @@ export default function ApplicationReview() {
                     )}
                   </div>
                 ) : (
-                  <p className="text-sm text-[var(--color-text-muted)]">Contract not yet signed by applicant</p>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 p-4 bg-[var(--color-warning)]/10 border border-[var(--color-warning)]/30 rounded-lg">
+                      <AlertTriangle size={18} className="text-[var(--color-warning)] shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-[var(--color-text)]">Contract not yet signed</p>
+                        <p className="text-xs text-[var(--color-text-muted)]">Use the &quot;Generate Contract for Printing&quot; button above to create a pre-filled contract PDF that can be printed and signed at the branch.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            </div>
+          )}
+
+          {/* Tab: Payment Schedule (disbursed) */}
+          {activeTab === 'schedule' && (
+            <Card>
+              <h3 className="font-semibold text-[var(--color-text)] mb-4 flex items-center">
+                <Calendar size={18} className="mr-2 text-[var(--color-primary)]" />
+                Payment Schedule
+              </h3>
+              {scheduleLoading ? (
+                <p className="text-sm text-[var(--color-text-muted)]">Loading schedule...</p>
+              ) : schedule.length > 0 ? (
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    <div className="p-3 rounded-lg bg-[var(--color-bg)]">
+                      <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider">Loan Amount</p>
+                      <p className="text-lg font-bold text-[var(--color-text)]">{formatCurrency(app.amount_approved || app.amount_requested)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-[var(--color-bg)]">
+                      <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider">Total Interest</p>
+                      <p className="text-lg font-bold text-[var(--color-text)]">{formatCurrency(schedule.reduce((s: number, r: any) => s + Number(r.interest || 0), 0))}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-[var(--color-bg)]">
+                      <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider">Total Fees</p>
+                      <p className="text-lg font-bold text-[var(--color-text)]">{formatCurrency(schedule.reduce((s: number, r: any) => s + Number(r.fee || 0), 0))}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-[var(--color-bg)]">
+                      <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider">Total Payable</p>
+                      <p className="text-lg font-bold text-[var(--color-primary)]">{formatCurrency(schedule.reduce((s: number, r: any) => s + Number(r.amount_due || 0), 0))}</p>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto max-h-96 overflow-y-auto border border-[var(--color-border)] rounded-lg">
+                    <table className="min-w-full text-xs">
+                      <thead className="bg-[var(--color-bg)] sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-[var(--color-text-muted)]">#</th>
+                          <th className="px-3 py-2 text-left text-[var(--color-text-muted)]">Due Date</th>
+                          <th className="px-3 py-2 text-right text-[var(--color-text-muted)]">Principal</th>
+                          <th className="px-3 py-2 text-right text-[var(--color-text-muted)]">Interest</th>
+                          <th className="px-3 py-2 text-right text-[var(--color-text-muted)]">Amount Due</th>
+                          <th className="px-3 py-2 text-right text-[var(--color-text-muted)]">Paid</th>
+                          <th className="px-3 py-2 text-center text-[var(--color-text-muted)]">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--color-border)]">
+                        {schedule.map((row: any) => (
+                          <tr key={row.id} className="hover:bg-[var(--color-bg)]/50">
+                            <td className="px-3 py-2 text-[var(--color-text)]">{row.installment_number}</td>
+                            <td className="px-3 py-2 text-[var(--color-text)]">{row.due_date ? new Date(row.due_date).toLocaleDateString() : '-'}</td>
+                            <td className="px-3 py-2 text-right text-[var(--color-text)]">{formatCurrency(row.principal)}</td>
+                            <td className="px-3 py-2 text-right text-[var(--color-text)]">{formatCurrency(row.interest)}</td>
+                            <td className="px-3 py-2 text-right font-medium text-[var(--color-text)]">{formatCurrency(row.amount_due)}</td>
+                            <td className="px-3 py-2 text-right text-[var(--color-text)]">{formatCurrency(row.amount_paid)}</td>
+                            <td className="px-3 py-2 text-center">
+                              <Badge variant={row.status === 'paid' ? 'success' : row.status === 'overdue' ? 'danger' : 'warning'}>
+                                {row.status}
+                              </Badge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-[var(--color-text-muted)]">No payment schedule available.</p>
+              )}
+            </Card>
+          )}
+
+          {/* Tab: Transactions (disbursed) */}
+          {activeTab === 'transactions' && (
+            <div className="space-y-4">
+              <Card>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-[var(--color-text)] flex items-center">
+                    <DollarSign size={18} className="mr-2 text-[var(--color-primary)]" />
+                    Payment Transactions
+                  </h3>
+                  <Button size="sm" variant={showRepaymentForm ? 'ghost' : 'primary'} onClick={() => setShowRepaymentForm(!showRepaymentForm)}>
+                    {showRepaymentForm ? <><X size={14} className="mr-1" /> Cancel</> : <><Plus size={14} className="mr-1" /> Register Repayment</>}
+                  </Button>
+                </div>
+
+                {/* Register Repayment Form */}
+                {showRepaymentForm && (
+                  <div className="mb-4 p-4 rounded-lg border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5">
+                    <h4 className="text-sm font-semibold text-[var(--color-text)] mb-3">Register Manual Repayment</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Amount *</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/40"
+                          placeholder="0.00"
+                          value={repaymentData.amount}
+                          onChange={(e) => setRepaymentData(prev => ({ ...prev, amount: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Payment Type</label>
+                        <select
+                          className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/40"
+                          value={repaymentData.payment_type}
+                          onChange={(e) => setRepaymentData(prev => ({ ...prev, payment_type: e.target.value }))}
+                        >
+                          <option value="manual">Manual / Cash</option>
+                          <option value="bank_transfer">Bank Transfer</option>
+                          <option value="online">Online Payment</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Payment Date *</label>
+                        <input
+                          type="date"
+                          className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/40"
+                          value={repaymentData.payment_date}
+                          onChange={(e) => setRepaymentData(prev => ({ ...prev, payment_date: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Reference Number</label>
+                        <input
+                          type="text"
+                          className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/40"
+                          placeholder="e.g. receipt or transfer ref"
+                          value={repaymentData.reference_number}
+                          onChange={(e) => setRepaymentData(prev => ({ ...prev, reference_number: e.target.value }))}
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Notes</label>
+                        <input
+                          type="text"
+                          className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/40"
+                          placeholder="Optional notes about this payment"
+                          value={repaymentData.notes}
+                          onChange={(e) => setRepaymentData(prev => ({ ...prev, notes: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end mt-3 gap-2">
+                      <Button size="sm" variant="ghost" onClick={() => setShowRepaymentForm(false)}>Cancel</Button>
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        disabled={recordingPayment || !repaymentData.amount || Number(repaymentData.amount) <= 0 || !repaymentData.payment_date}
+                        onClick={async () => {
+                          setRecordingPayment(true);
+                          try {
+                            await paymentsApi.recordPayment(parseInt(id!), {
+                              amount: Number(repaymentData.amount),
+                              payment_type: repaymentData.payment_type,
+                              payment_date: repaymentData.payment_date,
+                              reference_number: repaymentData.reference_number || undefined,
+                              notes: repaymentData.notes || undefined,
+                            });
+                            // Refresh transactions and schedule
+                            const [tRes, sRes] = await Promise.all([
+                              paymentsApi.getHistory(parseInt(id!)).catch(() => ({ data: [] })),
+                              paymentsApi.getSchedule(parseInt(id!)).catch(() => ({ data: [] })),
+                            ]);
+                            setTransactions(tRes.data || []);
+                            setSchedule(sRes.data || []);
+                            setRepaymentData({ amount: '', payment_type: 'manual', payment_date: new Date().toISOString().split('T')[0], reference_number: '', notes: '' });
+                            setShowRepaymentForm(false);
+                          } catch { /* ignore */ }
+                          setRecordingPayment(false);
+                        }}
+                      >
+                        {recordingPayment ? 'Recording...' : <><Banknote size={14} className="mr-1" /> Record Payment</>}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Transactions Table */}
+                {transactions.length > 0 ? (
+                  <div className="overflow-x-auto max-h-96 overflow-y-auto border border-[var(--color-border)] rounded-lg">
+                    <table className="min-w-full text-xs">
+                      <thead className="bg-[var(--color-bg)] sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-[var(--color-text-muted)]">Date</th>
+                          <th className="px-3 py-2 text-right text-[var(--color-text-muted)]">Amount</th>
+                          <th className="px-3 py-2 text-left text-[var(--color-text-muted)]">Type</th>
+                          <th className="px-3 py-2 text-left text-[var(--color-text-muted)]">Reference</th>
+                          <th className="px-3 py-2 text-center text-[var(--color-text-muted)]">Status</th>
+                          <th className="px-3 py-2 text-left text-[var(--color-text-muted)]">Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--color-border)]">
+                        {transactions.map((t: any) => (
+                          <tr key={t.id} className="hover:bg-[var(--color-bg)]/50">
+                            <td className="px-3 py-2 text-[var(--color-text)]">{t.payment_date ? new Date(t.payment_date).toLocaleDateString() : '-'}</td>
+                            <td className="px-3 py-2 text-right font-medium text-[var(--color-text)]">{formatCurrency(t.amount)}</td>
+                            <td className="px-3 py-2 text-[var(--color-text)] capitalize">{(t.payment_type || '').replace(/_/g, ' ')}</td>
+                            <td className="px-3 py-2 font-mono text-[var(--color-text-muted)]">{t.reference_number || '—'}</td>
+                            <td className="px-3 py-2 text-center">
+                              <Badge variant={t.status === 'completed' ? 'success' : t.status === 'failed' ? 'danger' : 'warning'}>
+                                {t.status}
+                              </Badge>
+                            </td>
+                            <td className="px-3 py-2 text-[var(--color-text-muted)] max-w-[150px] truncate">{t.notes || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-[var(--color-text-muted)]">No payment transactions recorded yet.</p>
                 )}
               </Card>
             </div>
@@ -685,6 +1272,7 @@ export default function ApplicationReview() {
                       counterproposal_accepted: 'var(--color-success)',
                       counterproposal_rejected: 'var(--color-danger)',
                       contract_signed: 'var(--color-success)',
+                      document_uploaded: 'var(--color-primary)',
                       offer_accepted: 'var(--color-success)',
                       offer_declined: 'var(--color-danger)',
                       decision_engine_run: 'var(--color-cyan,#22d3ee)',
@@ -734,8 +1322,12 @@ export default function ApplicationReview() {
           {/* Tab: Credit Bureau */}
           {activeTab === 'credit_bureau' && <CreditBureauTab applicationId={parseInt(id!)} />}
 
-          {/* Tab: Payments */}
-          {activeTab === 'payments' && <PaymentsTab applicationId={parseInt(id!)} />}
+          {activeTab === 'bank_analysis' && (
+            <BankStatementAnalysisTab
+              applicationId={parseInt(id!)}
+              documents={data.documents}
+            />
+          )}
         </div>
 
         {/* Right Sidebar - Decision Panel */}
@@ -745,6 +1337,45 @@ export default function ApplicationReview() {
 
             {error && <div className="mb-3 p-2 rounded-lg bg-[var(--color-danger)]/15 text-[var(--color-danger)] text-xs">{error}</div>}
 
+            {['approved', 'accepted', 'offer_sent', 'disbursed'].includes(app.status) ? (
+              <div className="space-y-3">
+                <div className={`p-3 rounded-lg border text-sm ${
+                  app.status === 'disbursed'
+                    ? 'bg-blue-500/10 border-blue-500/20'
+                    : 'bg-[var(--color-success)]/10 border-[var(--color-success)]/20'
+                }`}>
+                  <div className="flex items-center space-x-2 mb-1">
+                    <span className={`w-2 h-2 rounded-full ${
+                      app.status === 'disbursed' ? 'bg-blue-500' : 'bg-[var(--color-success)]'
+                    }`} />
+                    <span className={`text-xs font-semibold ${
+                      app.status === 'disbursed' ? 'text-blue-400' : 'text-[var(--color-success)]'
+                    }`}>
+                      {app.status === 'disbursed' ? 'Loan Disbursed' : 'Decision Final'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[var(--color-text-muted)]">
+                    {app.status === 'disbursed'
+                      ? 'This loan has been disbursed. The decision and status can no longer be changed.'
+                      : 'This application has been approved. The decision can no longer be changed.'}
+                  </p>
+                  {app.amount_approved && (
+                    <div className="mt-2 pt-2 border-t border-[var(--color-border)] flex gap-4 text-xs">
+                      <div>
+                        <span className="text-[var(--color-text-muted)]">Amount:</span>{' '}
+                        <span className="font-semibold text-[var(--color-text)]">{formatCurrency(app.amount_approved)}</span>
+                      </div>
+                      {app.interest_rate && (
+                        <div>
+                          <span className="text-[var(--color-text-muted)]">Rate:</span>{' '}
+                          <span className="font-semibold text-[var(--color-text)]">{app.interest_rate}%</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-2">Action</label>
@@ -771,22 +1402,22 @@ export default function ApplicationReview() {
               </div>
 
               {action === 'approve' && (
-                <div className="space-y-2">
-                  <input
-                    type="number"
-                    placeholder="Approved Amount (TTD)"
-                    value={approvedAmount}
-                    onChange={(e) => setApprovedAmount(e.target.value)}
-                    className="w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Interest Rate (%)"
-                    value={approvedRate}
-                    onChange={(e) => setApprovedRate(e.target.value)}
-                    className="w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
-                    step="0.1"
-                  />
+                <div className="space-y-2 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] p-3 text-sm">
+                  <p className="text-[var(--color-text-muted)]">Approved Amount & Rate (from decision engine — not editable)</p>
+                  <div className="flex gap-4">
+                    <div>
+                      <span className="text-[var(--color-text-muted)]">Amount:</span>{' '}
+                      <span className="font-semibold text-[var(--color-text)]">
+                        {approvedAmount ? `TTD ${parseFloat(approvedAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[var(--color-text-muted)]">Rate:</span>{' '}
+                      <span className="font-semibold text-[var(--color-text)]">
+                        {approvedRate ? `${approvedRate}%` : '—'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -811,9 +1442,11 @@ export default function ApplicationReview() {
                 Confirm Decision
               </Button>
             </div>
+            )}
           </Card>
 
-          {/* Counterproposal */}
+          {/* Counterproposal — only when decision hasn't been finalized */}
+          {!['approved', 'accepted', 'offer_sent', 'disbursed'].includes(app.status) && (
           <Card>
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-[var(--color-text)] text-sm">Counterproposal</h3>
@@ -869,23 +1502,274 @@ export default function ApplicationReview() {
               </div>
             )}
           </Card>
+          )}
 
-          {/* Engine Suggestions Quick View */}
-          {decision?.suggested_rate && (
-            <Card padding="sm">
-              <h3 className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-2">Engine Suggestions</h3>
-              <div className="space-y-2 text-sm">
+          {/* Disbursement Panel */}
+          {['approved', 'accepted', 'offer_sent'].includes(app.status) && (
+            <Card>
+              <div className="flex items-center space-x-2 mb-3">
+                <div className="p-1.5 rounded-lg bg-[var(--color-success)]/15">
+                  <Banknote size={18} className="text-[var(--color-success)]" />
+                </div>
+                <h3 className="font-semibold text-[var(--color-text)]">Disburse Loan</h3>
+              </div>
+              <p className="text-xs text-[var(--color-text-muted)] mb-3">
+                Release funds to the applicant. This will transition the loan to
+                "Disbursed" and generate the payment schedule.
+              </p>
+              <div className="mb-3 p-2 rounded-lg bg-[var(--color-primary)]/10 text-xs space-y-1">
                 <div className="flex justify-between">
-                  <span className="text-[var(--color-text-muted)]">Suggested Rate</span>
-                  <span className="font-bold text-[var(--color-primary)]">{decision.suggested_rate}%</span>
+                  <span className="text-[var(--color-text-muted)]">Approved Amount</span>
+                  <span className="font-bold text-[var(--color-text)]">{formatCurrency(app.amount_approved)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[var(--color-text-muted)]">Max Eligible</span>
-                  <span className="font-bold text-[var(--color-primary)]">{formatCurrency(decision.suggested_amount)}</span>
+                  <span className="text-[var(--color-text-muted)]">Interest Rate</span>
+                  <span className="font-bold text-[var(--color-text)]">{app.interest_rate ? `${app.interest_rate}%` : '-'}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--color-text-muted)]">Term</span>
+                  <span className="font-bold text-[var(--color-text)]">{app.term_months} months</span>
+                </div>
+              </div>
+
+              {!showDisburse ? (
+                <Button className="w-full" variant="success" onClick={() => setShowDisburse(true)} disabled={!app.amount_approved}>
+                  <Banknote size={14} className="mr-1" /> Disburse Funds
+                </Button>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Disbursement Method</label>
+                    <select
+                      value={disbursementMethod}
+                      onChange={(e) => setDisbursementMethod(e.target.value)}
+                      className="w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+                    >
+                      <option value="manual">Manual (Cash / Cheque)</option>
+                      <option value="bank_transfer">Bank Transfer</option>
+                      <option value="cheque">Cheque</option>
+                    </select>
+                  </div>
+
+                  {disbursementMethod === 'bank_transfer' && (
+                    <div className="space-y-2 p-2 rounded-lg border border-[var(--color-border)]">
+                      <p className="text-xs font-medium text-[var(--color-text-muted)]">Recipient Bank Details</p>
+                      <input
+                        type="text" placeholder="Account Name"
+                        value={bankAccountName} onChange={(e) => setBankAccountName(e.target.value)}
+                        className="w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+                      />
+                      <input
+                        type="text" placeholder="Account Number"
+                        value={bankAccountNumber} onChange={(e) => setBankAccountNumber(e.target.value)}
+                        className="w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+                      />
+                      <input
+                        type="text" placeholder="Bank Name"
+                        value={bankName} onChange={(e) => setBankName(e.target.value)}
+                        className="w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+                      />
+                      <input
+                        type="text" placeholder="Branch (optional)"
+                        value={bankBranch} onChange={(e) => setBankBranch(e.target.value)}
+                        className="w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Notes (optional)</label>
+                    <textarea
+                      value={disbursementNotes}
+                      onChange={(e) => setDisbursementNotes(e.target.value)}
+                      rows={2}
+                      className="w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+                      placeholder="Disbursement notes..."
+                    />
+                  </div>
+
+                  <div className="flex space-x-2">
+                    <Button className="flex-1" variant="success" onClick={handleDisburse} isLoading={disbursing}>
+                      <CheckCircle size={14} className="mr-1" /> Confirm Disbursement
+                    </Button>
+                    <Button variant="ghost" onClick={() => setShowDisburse(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* Disbursement Details (when already disbursed) */}
+          {app.status === 'disbursed' && disbursementInfo && (
+            <Card>
+              <div className="flex items-center space-x-2 mb-3">
+                <div className="p-1.5 rounded-lg bg-[var(--color-success)]/15">
+                  <CheckCircle size={18} className="text-[var(--color-success)]" />
+                </div>
+                <h3 className="font-semibold text-[var(--color-text)]">Disbursement Details</h3>
+              </div>
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-[var(--color-text-muted)]">Reference</span>
+                  <span className="font-mono font-medium text-[var(--color-text)]">{disbursementInfo.reference_number}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--color-text-muted)]">Amount</span>
+                  <span className="font-bold text-[var(--color-success)]">{formatCurrency(disbursementInfo.amount)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--color-text-muted)]">Method</span>
+                  <span className="text-[var(--color-text)] capitalize">{disbursementInfo.method?.replace('_', ' ')}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--color-text-muted)]">Status</span>
+                  <span className={`font-medium capitalize ${
+                    disbursementInfo.status === 'completed' ? 'text-[var(--color-success)]' :
+                    disbursementInfo.status === 'failed' ? 'text-[var(--color-danger)]' :
+                    'text-[var(--color-warning)]'
+                  }`}>{disbursementInfo.status}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--color-text-muted)]">Disbursed By</span>
+                  <span className="text-[var(--color-text)]">{disbursementInfo.disbursed_by_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--color-text-muted)]">Disbursed At</span>
+                  <span className="text-[var(--color-text)]">{new Date(disbursementInfo.disbursed_at).toLocaleString()}</span>
+                </div>
+                {disbursementInfo.recipient_bank && (
+                  <div className="mt-2 p-2 rounded-lg bg-[var(--color-surface-hover)] space-y-1">
+                    <p className="font-medium text-[var(--color-text-muted)]">Bank Details</p>
+                    <p className="text-[var(--color-text)]">{disbursementInfo.recipient_account_name}</p>
+                    <p className="text-[var(--color-text)]">{disbursementInfo.recipient_bank} — {disbursementInfo.recipient_account_number}</p>
+                    {disbursementInfo.recipient_bank_branch && <p className="text-[var(--color-text-muted)]">{disbursementInfo.recipient_bank_branch}</p>}
+                  </div>
+                )}
+                {disbursementInfo.notes && (
+                  <div className="mt-1 p-2 rounded-lg bg-[var(--color-bg)] text-[var(--color-text-muted)] italic">
+                    {disbursementInfo.notes}
+                  </div>
+                )}
               </div>
             </Card>
           )}
+
+          {/* Notes */}
+          <Card>
+            <h3 className="font-semibold text-[var(--color-text)] mb-3 flex items-center">
+              <MessageSquare size={16} className="mr-2 text-[var(--color-primary)]" />
+              Notes
+              {notes.length > 0 && <span className="ml-auto text-xs text-[var(--color-text-muted)]">{notes.length}</span>}
+            </h3>
+            <div className="space-y-2 mb-3">
+              <textarea
+                value={newNote}
+                onChange={(e) => setNewNote(e.target.value)}
+                rows={2}
+                className="w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] resize-none"
+                placeholder="Add a note..."
+              />
+              <Button
+                size="sm"
+                className="w-full"
+                disabled={!newNote.trim() || addingNote}
+                isLoading={addingNote}
+                onClick={async () => {
+                  if (!newNote.trim()) return;
+                  setAddingNote(true);
+                  try {
+                    const res = await underwriterApi.addNote(parseInt(id!), newNote.trim());
+                    setNotes((prev) => [res.data, ...prev]);
+                    setNewNote('');
+                  } catch { /* ignore */ }
+                  setAddingNote(false);
+                }}
+              >
+                <Plus size={14} className="mr-1" /> Add Note
+              </Button>
+            </div>
+            {notes.length > 0 && (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {notes.map((n: any) => (
+                  <div key={n.id} className="p-2 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)]">
+                    <p className="text-sm text-[var(--color-text)] whitespace-pre-wrap">{n.content}</p>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-[10px] text-[var(--color-text-muted)]">{n.user_name}</span>
+                      <span className="text-[10px] text-[var(--color-text-muted)]">{n.created_at ? new Date(n.created_at).toLocaleString() : ''}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* Applicant Messages */}
+          <Card>
+            <h3 className="font-semibold text-[var(--color-text)] mb-3 flex items-center">
+              <MessageSquare size={16} className="mr-2 text-[var(--color-info,var(--color-primary))]" />
+              Applicant Messages
+              {appComments.length > 0 && <span className="ml-auto text-xs bg-[var(--color-primary)] text-white rounded-full px-1.5 py-0.5">{appComments.filter((c: any) => c.is_from_applicant).length}</span>}
+            </h3>
+
+            {/* Messages thread */}
+            <div className="space-y-2 max-h-64 overflow-y-auto mb-3 border border-[var(--color-border)] rounded-lg p-2 bg-[var(--color-bg)]">
+              {appComments.length === 0 ? (
+                <p className="text-xs text-[var(--color-text-muted)] text-center py-3">No messages from applicant</p>
+              ) : (
+                appComments.map((c: any) => (
+                  <div
+                    key={c.id}
+                    className={`flex ${c.is_from_applicant ? 'justify-start' : 'justify-end'}`}
+                  >
+                    <div className={`max-w-[85%] rounded-lg px-2.5 py-1.5 text-xs ${
+                      c.is_from_applicant
+                        ? 'bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)] rounded-bl-none'
+                        : 'bg-[var(--color-primary)] text-white rounded-br-none'
+                    }`}>
+                      <p className={`text-[10px] font-semibold mb-0.5 ${c.is_from_applicant ? 'text-[var(--color-text-muted)]' : 'text-white/70'}`}>
+                        {c.is_from_applicant ? `${c.author_name} (Applicant)` : `${c.author_name} (Staff)`}
+                      </p>
+                      <p className="whitespace-pre-wrap">{c.content}</p>
+                      <p className={`text-[9px] mt-0.5 ${c.is_from_applicant ? 'text-[var(--color-text-muted)]' : 'text-white/60'}`}>
+                        {c.created_at ? new Date(c.created_at).toLocaleString() : ''}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Reply input */}
+            <div className="space-y-2">
+              <textarea
+                value={newReply}
+                onChange={(e) => setNewReply(e.target.value)}
+                rows={2}
+                className="w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] resize-none"
+                placeholder="Reply to applicant..."
+              />
+              <Button
+                size="sm"
+                className="w-full"
+                disabled={!newReply.trim() || addingReply}
+                isLoading={addingReply}
+                onClick={async () => {
+                  if (!newReply.trim()) return;
+                  setAddingReply(true);
+                  try {
+                    const res = await loanApi.addComment(parseInt(id!), newReply.trim());
+                    setAppComments((prev) => [...prev, res.data]);
+                    setNewReply('');
+                  } catch { /* ignore */ }
+                  setAddingReply(false);
+                }}
+              >
+                <Send size={14} className="mr-1" /> Send Reply
+              </Button>
+            </div>
+          </Card>
         </div>
       </div>
     </div>
@@ -1335,185 +2219,417 @@ function CreditBureauTab({ applicationId }: { applicationId: number }) {
 }
 
 
-// ── Payments Tab ────────────────────────────────────
-function PaymentsTab({ applicationId }: { applicationId: number }) {
-  const [payments, setPayments] = useState<any[]>([]);
-  const [schedule, setSchedule] = useState<any[]>([]);
+// ── Bank Statement Analysis Tab ───────────────────────
+
+interface BankAnalysisData {
+  id: number;
+  loan_application_id: number;
+  document_id: number;
+  status: string;
+  summary: string | null;
+  cashflow_data: { inflows?: Record<string, number>; outflows?: Record<string, number> } | null;
+  flags: { type: string; severity: string; detail: string; amount_involved?: number | null; occurrences?: number | null }[];
+  volatility_score: number | null;
+  monthly_stats: { month: string; total_inflow: number; total_outflow: number; net: number; min_balance?: number | null }[];
+  risk_assessment: string | null;
+  income_stability: string | null;
+  avg_monthly_inflow: number | null;
+  avg_monthly_outflow: number | null;
+  avg_monthly_net: number | null;
+  error_message: string | null;
+  created_at: string;
+}
+
+function BankStatementAnalysisTab({
+  applicationId,
+  documents,
+}: {
+  applicationId: number;
+  documents: DocumentInfo[];
+}) {
+  const [analysis, setAnalysis] = useState<BankAnalysisData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ amount: '', payment_type: 'manual', payment_date: new Date().toISOString().split('T')[0], reference_number: '', notes: '' });
-  const [saving, setSaving] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [error, setError] = useState('');
+  const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
+
+  const hasBankStatement = documents.some(d => d.document_type === 'bank_statement');
 
   useEffect(() => {
-    loadData();
+    underwriterApi.getBankAnalysis(applicationId)
+      .then(res => setAnalysis(res.data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [applicationId]);
 
-  const loadData = async () => {
+  const handleAnalyze = async () => {
+    setAnalyzing(true);
+    setError('');
     try {
-      const [payRes, schedRes] = await Promise.all([
-        paymentsApi.getHistory(applicationId),
-        paymentsApi.getSchedule(applicationId),
-      ]);
-      setPayments(payRes.data);
-      setSchedule(schedRes.data);
-    } catch { /* ignore */ }
-    setLoading(false);
+      const res = await underwriterApi.analyzeBankStatement(applicationId);
+      setAnalysis(res.data);
+    } catch (err: any) {
+      setError(parseApiError(err, 'Analysis failed. Please try again.'));
+    } finally {
+      setAnalyzing(false);
+    }
   };
 
-  const handleRecord = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await paymentsApi.recordPayment(applicationId, {
-        amount: parseFloat(form.amount),
-        payment_type: form.payment_type,
-        payment_date: form.payment_date,
-        reference_number: form.reference_number || undefined,
-        notes: form.notes || undefined,
-      });
-      setShowForm(false);
-      setForm({ amount: '', payment_type: 'manual', payment_date: new Date().toISOString().split('T')[0], reference_number: '', notes: '' });
-      loadData();
-    } catch { /* ignore */ }
-    setSaving(false);
+  if (loading) return <div className="text-[var(--color-text-muted)] py-8 text-center">Loading bank analysis...</div>;
+
+  // No analysis yet — show trigger
+  if (!analysis) {
+    return (
+      <Card>
+        <div className="text-center py-8">
+          <Banknote size={48} className="mx-auto text-[var(--color-text-muted)] mb-4" />
+          <h3 className="text-lg font-semibold text-[var(--color-text)] mb-2">Bank Statement Analysis</h3>
+          <p className="text-sm text-[var(--color-text-muted)] mb-6 max-w-md mx-auto">
+            Use AI to analyze uploaded bank statements. The system will categorize transactions,
+            detect income volatility, and flag concerning patterns such as gambling or cash-squeeze behaviour.
+          </p>
+          {!hasBankStatement ? (
+            <p className="text-sm text-[var(--color-warning)]">
+              No bank statement uploaded yet. Please upload one in the Documents tab first.
+            </p>
+          ) : (
+            <Button onClick={handleAnalyze} isLoading={analyzing}>
+              <Banknote size={16} className="mr-2" />
+              Analyze Bank Statement
+            </Button>
+          )}
+          {error && <p className="text-sm text-[var(--color-danger)] mt-4">{error}</p>}
+        </div>
+      </Card>
+    );
+  }
+
+  // Analysis failed
+  if (analysis.status === 'failed') {
+    return (
+      <Card>
+        <div className="text-center py-8">
+          <AlertTriangle size={48} className="mx-auto text-[var(--color-danger)] mb-4" />
+          <h3 className="text-lg font-semibold text-[var(--color-danger)] mb-2">Analysis Failed</h3>
+          <p className="text-sm text-[var(--color-text-muted)] mb-4">{analysis.error_message || 'An unknown error occurred.'}</p>
+          {hasBankStatement && (
+            <Button onClick={handleAnalyze} isLoading={analyzing} variant="secondary">
+              Retry Analysis
+            </Button>
+          )}
+        </div>
+      </Card>
+    );
+  }
+
+  // Helpers
+  const fmt = (v: number | null | undefined) => {
+    if (v == null) return '-';
+    return `TTD ${Number(v).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   };
 
-  const inputClass = "w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)]";
-  const totalPaid = payments.reduce((s, p) => s + (p.amount || 0), 0);
+  const riskColors: Record<string, string> = {
+    low: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+    moderate: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+    high: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+    very_high: 'bg-red-200 text-red-900 dark:bg-red-900/50 dark:text-red-300',
+  };
 
-  if (loading) return <div className="text-[var(--color-text-muted)] py-8 text-center">Loading payments...</div>;
+  const severityColors: Record<string, string> = {
+    low: 'border-yellow-300 bg-yellow-50 dark:bg-yellow-950/20 dark:border-yellow-800',
+    medium: 'border-orange-300 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800',
+    high: 'border-red-400 bg-red-50 dark:bg-red-950/20 dark:border-red-800',
+  };
+
+  const severityIcons: Record<string, string> = {
+    low: 'text-yellow-500',
+    medium: 'text-orange-500',
+    high: 'text-red-500',
+  };
+
+  const flagLabels: Record<string, string> = {
+    gambling: 'Gambling / Betting',
+    cash_squeeze: 'Cash Squeeze',
+    high_cash_withdrawals: 'High Cash Withdrawals',
+    irregular_income: 'Irregular Income',
+    bounce_nsf: 'Bounced Payments / NSF',
+    high_debt_service: 'High Debt Service',
+    declining_balance: 'Declining Balance',
+    unexplained_large_transactions: 'Large Unexplained Transactions',
+  };
+
+  const volatilityColor = (score: number) => {
+    if (score <= 25) return 'bg-green-500';
+    if (score <= 50) return 'bg-yellow-500';
+    if (score <= 75) return 'bg-orange-500';
+    return 'bg-red-500';
+  };
 
   return (
     <div className="space-y-4">
-      {/* Summary */}
-      <div className="grid grid-cols-3 gap-4">
-        <Card padding="sm">
-          <p className="text-xs text-[var(--color-text-muted)]">Total Paid</p>
-          <p className="text-lg font-bold text-[var(--color-success)]">TTD {totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-        </Card>
-        <Card padding="sm">
-          <p className="text-xs text-[var(--color-text-muted)]">Payments</p>
-          <p className="text-lg font-bold text-[var(--color-text)]">{payments.length}</p>
-        </Card>
-        <Card padding="sm">
-          <p className="text-xs text-[var(--color-text-muted)]">Schedule Items</p>
-          <p className="text-lg font-bold text-[var(--color-text)]">{schedule.length}</p>
-        </Card>
-      </div>
+      {/* Summary Card */}
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center">
+              <Banknote size={20} className="text-[var(--color-primary)]" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-[var(--color-text)]">Bank Statement Analysis</h3>
+              <p className="text-xs text-[var(--color-text-muted)]">
+                Analyzed on {new Date(analysis.created_at).toLocaleDateString()} at {new Date(analysis.created_at).toLocaleTimeString()}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            {analysis.risk_assessment && (
+              <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${riskColors[analysis.risk_assessment] || riskColors.moderate}`}>
+                {analysis.risk_assessment.replace('_', ' ')} Risk
+              </span>
+            )}
+            {hasBankStatement && (
+              <button
+                onClick={handleAnalyze}
+                disabled={analyzing}
+                className="text-xs text-[var(--color-primary)] hover:underline disabled:opacity-50"
+              >
+                {analyzing ? 'Re-analyzing...' : 'Re-analyze'}
+              </button>
+            )}
+          </div>
+        </div>
 
-      {/* Record Payment Button */}
-      <div className="flex justify-end">
-        <Button size="sm" onClick={() => setShowForm(!showForm)}>Record Payment</Button>
-      </div>
+        {/* Narrative Summary */}
+        {analysis.summary && (
+          <div className="p-4 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] mb-4">
+            <p className="text-sm text-[var(--color-text)] leading-relaxed">{analysis.summary}</p>
+          </div>
+        )}
 
-      {showForm && (
+        {/* Key Metrics Row */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div className="text-center p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
+            <p className="text-[10px] uppercase font-bold text-green-600 dark:text-green-400 tracking-wider">Avg Monthly In</p>
+            <p className="text-lg font-bold text-green-600 dark:text-green-400">{fmt(analysis.avg_monthly_inflow)}</p>
+          </div>
+          <div className="text-center p-3 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800">
+            <p className="text-[10px] uppercase font-bold text-red-600 dark:text-red-400 tracking-wider">Avg Monthly Out</p>
+            <p className="text-lg font-bold text-red-600 dark:text-red-400">{fmt(analysis.avg_monthly_outflow)}</p>
+          </div>
+          <div className={`text-center p-3 rounded-lg border ${(analysis.avg_monthly_net ?? 0) >= 0 ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'}`}>
+            <p className="text-[10px] uppercase font-bold text-[var(--color-text-muted)] tracking-wider">Avg Net</p>
+            <p className={`text-lg font-bold ${(analysis.avg_monthly_net ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{fmt(analysis.avg_monthly_net)}</p>
+          </div>
+          <div className="text-center p-3 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)]">
+            <p className="text-[10px] uppercase font-bold text-[var(--color-text-muted)] tracking-wider">Income Stability</p>
+            <p className="text-sm font-bold text-[var(--color-text)] capitalize mt-1">{analysis.income_stability || '-'}</p>
+          </div>
+          <div className="text-center p-3 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)]">
+            <p className="text-[10px] uppercase font-bold text-[var(--color-text-muted)] tracking-wider mb-1">Volatility</p>
+            <div className="flex items-center justify-center space-x-2">
+              <div className="flex-1 h-2 rounded-full bg-[var(--color-border)] overflow-hidden max-w-[80px]">
+                <div
+                  className={`h-full rounded-full ${volatilityColor(analysis.volatility_score ?? 0)}`}
+                  style={{ width: `${analysis.volatility_score ?? 0}%` }}
+                />
+              </div>
+              <span className="text-sm font-bold text-[var(--color-text)]">{Math.round(analysis.volatility_score ?? 0)}</span>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Flags */}
+      {analysis.flags && analysis.flags.length > 0 && (
         <Card>
-          <h3 className="font-semibold mb-3">Record Payment</h3>
-          <form onSubmit={handleRecord} className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs text-[var(--color-text-muted)] mb-1">Amount (TTD)</label>
-              <input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} className={inputClass} required step="0.01" />
-            </div>
-            <div>
-              <label className="block text-xs text-[var(--color-text-muted)] mb-1">Date</label>
-              <input type="date" value={form.payment_date} onChange={e => setForm(f => ({ ...f, payment_date: e.target.value }))} className={inputClass} required />
-            </div>
-            <div>
-              <label className="block text-xs text-[var(--color-text-muted)] mb-1">Type</label>
-              <select value={form.payment_type} onChange={e => setForm(f => ({ ...f, payment_type: e.target.value }))} className={inputClass}>
-                <option value="manual">Manual</option>
-                <option value="bank_transfer">Bank Transfer</option>
-                <option value="online">Online</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs text-[var(--color-text-muted)] mb-1">Reference #</label>
-              <input type="text" value={form.reference_number} onChange={e => setForm(f => ({ ...f, reference_number: e.target.value }))} className={inputClass} />
-            </div>
-            <div className="col-span-2">
-              <label className="block text-xs text-[var(--color-text-muted)] mb-1">Notes</label>
-              <input type="text" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className={inputClass} />
-            </div>
-            <div className="col-span-2 flex justify-end space-x-2">
-              <Button variant="secondary" size="sm" type="button" onClick={() => setShowForm(false)}>Cancel</Button>
-              <Button size="sm" type="submit" isLoading={saving}>Save</Button>
-            </div>
-          </form>
+          <h3 className="font-semibold text-[var(--color-text)] mb-3 flex items-center">
+            <AlertTriangle size={18} className="mr-2 text-[var(--color-warning)]" />
+            Flagged Concerns ({analysis.flags.length})
+          </h3>
+          <div className="space-y-2">
+            {analysis.flags
+              .sort((a, b) => {
+                const order: Record<string, number> = { high: 0, medium: 1, low: 2 };
+                return (order[a.severity] ?? 2) - (order[b.severity] ?? 2);
+              })
+              .map((flag, i) => (
+              <div
+                key={i}
+                className={`p-3 rounded-lg border ${severityColors[flag.severity] || severityColors.low}`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center space-x-2">
+                    <AlertTriangle size={16} className={severityIcons[flag.severity] || 'text-yellow-500'} />
+                    <span className="font-medium text-sm text-[var(--color-text)]">
+                      {flagLabels[flag.type] || flag.type.replace(/_/g, ' ')}
+                    </span>
+                    <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${
+                      flag.severity === 'high' ? 'bg-red-200 text-red-800 dark:bg-red-800 dark:text-red-200'
+                      : flag.severity === 'medium' ? 'bg-orange-200 text-orange-800 dark:bg-orange-800 dark:text-orange-200'
+                      : 'bg-yellow-200 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200'
+                    }`}>
+                      {flag.severity}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-3 text-xs text-[var(--color-text-muted)]">
+                    {flag.amount_involved != null && <span>{fmt(flag.amount_involved)}</span>}
+                    {flag.occurrences != null && <span>{flag.occurrences}x</span>}
+                  </div>
+                </div>
+                <p className="text-sm text-[var(--color-text-muted)] mt-1 ml-6">{flag.detail}</p>
+              </div>
+            ))}
+          </div>
         </Card>
       )}
 
-      {/* Payment History */}
-      {payments.length > 0 && (
-        <Card padding="none">
-          <div className="p-4 border-b border-[var(--color-border)]">
-            <h3 className="font-semibold text-[var(--color-text)]">Payment History</h3>
-          </div>
+      {/* Monthly Cashflow Table */}
+      {analysis.monthly_stats && analysis.monthly_stats.length > 0 && (
+        <Card>
+          <h3 className="font-semibold text-[var(--color-text)] mb-3">Monthly Cashflow</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)]">
-                  <th className="px-4 py-2 text-left">Date</th>
-                  <th className="px-4 py-2 text-left">Amount</th>
-                  <th className="px-4 py-2 text-left">Type</th>
-                  <th className="px-4 py-2 text-left">Reference</th>
-                  <th className="px-4 py-2 text-left">Status</th>
+                <tr className="border-b border-[var(--color-border)]">
+                  <th className="text-left py-2 px-3 text-xs uppercase text-[var(--color-text-muted)] font-semibold">Month</th>
+                  <th className="text-right py-2 px-3 text-xs uppercase text-[var(--color-text-muted)] font-semibold">Inflow</th>
+                  <th className="text-right py-2 px-3 text-xs uppercase text-[var(--color-text-muted)] font-semibold">Outflow</th>
+                  <th className="text-right py-2 px-3 text-xs uppercase text-[var(--color-text-muted)] font-semibold">Net</th>
+                  <th className="text-right py-2 px-3 text-xs uppercase text-[var(--color-text-muted)] font-semibold">Min Balance</th>
+                  <th className="text-center py-2 px-3 text-xs uppercase text-[var(--color-text-muted)] font-semibold"></th>
                 </tr>
               </thead>
               <tbody>
-                {payments.map((p: any) => (
-                  <tr key={p.id} className="border-b border-[var(--color-border)]">
-                    <td className="px-4 py-2">{p.payment_date}</td>
-                    <td className="px-4 py-2 font-medium text-[var(--color-success)]">TTD {p.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                    <td className="px-4 py-2 capitalize text-[var(--color-text-muted)]">{p.payment_type}</td>
-                    <td className="px-4 py-2 font-mono text-xs">{p.reference_number || '—'}</td>
-                    <td className="px-4 py-2"><Badge variant={p.status === 'completed' ? 'success' : 'warning'}>{p.status}</Badge></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
+                {analysis.monthly_stats.map((row) => {
+                  const isNegativeNet = row.net < 0;
+                  const isLowBalance = row.min_balance != null && row.min_balance < 100;
+                  const rowClass = isNegativeNet || isLowBalance
+                    ? 'bg-red-50/50 dark:bg-red-950/10'
+                    : '';
 
-      {/* Payment Schedule */}
-      {schedule.length > 0 && (
-        <Card padding="none">
-          <div className="p-4 border-b border-[var(--color-border)]">
-            <h3 className="font-semibold text-[var(--color-text)]">Payment Schedule</h3>
-          </div>
-          <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-[var(--color-surface)]">
-                <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)]">
-                  <th className="px-4 py-2 text-left">#</th>
-                  <th className="px-4 py-2 text-left">Due Date</th>
-                  <th className="px-4 py-2 text-right">Principal</th>
-                  <th className="px-4 py-2 text-right">Interest</th>
-                  <th className="px-4 py-2 text-right">Due</th>
-                  <th className="px-4 py-2 text-right">Paid</th>
-                  <th className="px-4 py-2 text-left">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {schedule.map((s: any) => {
-                  const statusVariant = s.status === 'paid' ? 'success' : s.status === 'overdue' ? 'danger' : s.status === 'partial' ? 'warning' : 'info';
                   return (
-                    <tr key={s.id} className="border-b border-[var(--color-border)]">
-                      <td className="px-4 py-2 text-[var(--color-text-muted)]">{s.installment_number}</td>
-                      <td className="px-4 py-2">{s.due_date}</td>
-                      <td className="px-4 py-2 text-right">{Number(s.principal).toFixed(2)}</td>
-                      <td className="px-4 py-2 text-right text-[var(--color-text-muted)]">{Number(s.interest).toFixed(2)}</td>
-                      <td className="px-4 py-2 text-right font-medium">{Number(s.amount_due).toFixed(2)}</td>
-                      <td className="px-4 py-2 text-right text-[var(--color-success)]">{Number(s.amount_paid).toFixed(2)}</td>
-                      <td className="px-4 py-2"><Badge variant={statusVariant}>{s.status}</Badge></td>
-                    </tr>
+                    <React.Fragment key={row.month}>
+                      <tr
+                        className={`border-b border-[var(--color-border)]/50 hover:bg-[var(--color-bg)] cursor-pointer ${rowClass}`}
+                        onClick={() => setExpandedMonth(expandedMonth === row.month ? null : row.month)}
+                      >
+                        <td className="py-2 px-3 font-medium text-[var(--color-text)]">{row.month}</td>
+                        <td className="py-2 px-3 text-right text-green-600 dark:text-green-400">{fmt(row.total_inflow)}</td>
+                        <td className="py-2 px-3 text-right text-red-600 dark:text-red-400">{fmt(row.total_outflow)}</td>
+                        <td className={`py-2 px-3 text-right font-semibold ${row.net >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {row.net >= 0 ? '+' : ''}{fmt(row.net)}
+                        </td>
+                        <td className={`py-2 px-3 text-right ${isLowBalance ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-[var(--color-text-muted)]'}`}>
+                          {row.min_balance != null ? fmt(row.min_balance) : '-'}
+                        </td>
+                        <td className="py-2 px-3 text-center text-[var(--color-text-muted)]">
+                          {expandedMonth === row.month ? '\u25B2' : '\u25BC'}
+                        </td>
+                      </tr>
+                      {expandedMonth === row.month && analysis.cashflow_data && (
+                        <tr>
+                          <td colSpan={6} className="px-3 py-2 bg-[var(--color-bg)]">
+                            <div className="grid grid-cols-2 gap-4 py-2">
+                              <div>
+                                <p className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase mb-1">Inflows</p>
+                                {Object.entries(analysis.cashflow_data.inflows || {}).filter(([, v]) => v > 0).map(([k, v]) => (
+                                  <div key={k} className="flex justify-between text-xs py-0.5">
+                                    <span className="text-[var(--color-text-muted)] capitalize">{k.replace(/_/g, ' ')}</span>
+                                    <span className="text-green-600 dark:text-green-400">{fmt(v)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              <div>
+                                <p className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase mb-1">Outflows</p>
+                                {Object.entries(analysis.cashflow_data.outflows || {}).filter(([, v]) => v > 0).map(([k, v]) => (
+                                  <div key={k} className="flex justify-between text-xs py-0.5">
+                                    <span className={`capitalize ${k === 'gambling_betting' ? 'text-red-500 font-semibold' : 'text-[var(--color-text-muted)]'}`}>
+                                      {k.replace(/_/g, ' ')}
+                                    </span>
+                                    <span className={k === 'gambling_betting' ? 'text-red-500 font-semibold' : 'text-red-600 dark:text-red-400'}>{fmt(v)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
             </table>
           </div>
+          {/* Legend */}
+          <div className="flex items-center space-x-4 mt-3 text-[10px] text-[var(--color-text-muted)]">
+            <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-red-400 mr-1" /> Negative net or low balance month</span>
+            <span>Click a row to see category breakdown</span>
+          </div>
         </Card>
       )}
+
+      {/* Category Breakdown (always visible) */}
+      {analysis.cashflow_data && (
+        <Card>
+          <h3 className="font-semibold text-[var(--color-text)] mb-3">Overall Category Breakdown</h3>
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <p className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase mb-2">Inflows</p>
+              <div className="space-y-1">
+                {Object.entries(analysis.cashflow_data.inflows || {})
+                  .sort(([, a], [, b]) => b - a)
+                  .map(([k, v]) => {
+                    const total = Object.values(analysis.cashflow_data!.inflows || {}).reduce((s, x) => s + x, 0);
+                    const pct = total > 0 ? (v / total) * 100 : 0;
+                    return (
+                      <div key={k}>
+                        <div className="flex justify-between text-xs mb-0.5">
+                          <span className="text-[var(--color-text-muted)] capitalize">{k.replace(/_/g, ' ')}</span>
+                          <span className="text-[var(--color-text)]">{fmt(v)} <span className="text-[var(--color-text-muted)]">({pct.toFixed(0)}%)</span></span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-[var(--color-border)] overflow-hidden">
+                          <div className="h-full rounded-full bg-green-400" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase mb-2">Outflows</p>
+              <div className="space-y-1">
+                {Object.entries(analysis.cashflow_data.outflows || {})
+                  .sort(([, a], [, b]) => b - a)
+                  .filter(([, v]) => v > 0)
+                  .map(([k, v]) => {
+                    const total = Object.values(analysis.cashflow_data!.outflows || {}).reduce((s, x) => s + x, 0);
+                    const pct = total > 0 ? (v / total) * 100 : 0;
+                    const isGambling = k === 'gambling_betting';
+                    return (
+                      <div key={k}>
+                        <div className="flex justify-between text-xs mb-0.5">
+                          <span className={`capitalize ${isGambling ? 'text-red-500 font-semibold' : 'text-[var(--color-text-muted)]'}`}>
+                            {k.replace(/_/g, ' ')}
+                          </span>
+                          <span className={isGambling ? 'text-red-500 font-semibold' : 'text-[var(--color-text)]'}>
+                            {fmt(v)} <span className="text-[var(--color-text-muted)]">({pct.toFixed(0)}%)</span>
+                          </span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-[var(--color-border)] overflow-hidden">
+                          <div className={`h-full rounded-full ${isGambling ? 'bg-red-500' : 'bg-red-400'}`} style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {error && <p className="text-sm text-[var(--color-danger)]">{error}</p>}
     </div>
   );
 }
+
+

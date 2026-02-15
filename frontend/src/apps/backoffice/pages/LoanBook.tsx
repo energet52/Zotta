@@ -1,12 +1,14 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { BookOpen, Search, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { BookOpen, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronRight, Calendar, DollarSign, AlertTriangle, X } from 'lucide-react';
 import Card from '../../../components/ui/Card';
-import { underwriterApi } from '../../../api/endpoints';
+import Badge from '../../../components/ui/Badge';
+import { underwriterApi, paymentsApi } from '../../../api/endpoints';
 
 interface LoanEntry {
   id: number;
   reference_number: string;
+  applicant_id: number;
   applicant_name: string;
   amount_requested: number;
   amount_approved: number | null;
@@ -24,6 +26,26 @@ interface LoanEntry {
   created_at: string;
 }
 
+interface ScheduleEntry {
+  id: number;
+  installment_number: number;
+  due_date: string;
+  amount_due: number;
+  amount_paid: number;
+  status: string;
+}
+
+interface Transaction {
+  id: number;
+  amount: number;
+  payment_type: string;
+  payment_date: string;
+  reference_number: string | null;
+  status: string;
+  notes: string | null;
+  created_at: string;
+}
+
 const RISK_OPTIONS = ['all', 'A', 'B', 'C', 'D', 'E'];
 
 type SortKey = keyof LoanEntry;
@@ -35,7 +57,18 @@ export default function LoanBook() {
   const [riskFilter, setRiskFilter] = useState('all');
   const [sortField, setSortField] = useState<SortKey>('created_at');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const arrearsOnly = searchParams.get('arrears') === '1';
+
+  const clearArrearsFilter = () => {
+    searchParams.delete('arrears');
+    setSearchParams(searchParams);
+  };
 
   useEffect(() => {
     loadLoans();
@@ -43,22 +76,40 @@ export default function LoanBook() {
 
   const loadLoans = async () => {
     try {
-      // Backend already filters to disbursed only
       const res = await underwriterApi.getLoanBook();
       setLoans(res.data);
     } catch { /* ignore */ }
     setLoading(false);
   };
 
+  const toggleExpand = async (loanId: number) => {
+    if (expandedId === loanId) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(loanId);
+    setDetailLoading(true);
+    setSchedule([]);
+    setTransactions([]);
+    try {
+      const [schedRes, histRes] = await Promise.all([
+        paymentsApi.getSchedule(loanId),
+        paymentsApi.getHistory(loanId),
+      ]);
+      setSchedule(schedRes.data || []);
+      setTransactions(histRes.data || []);
+    } catch { /* ignore */ }
+    setDetailLoading(false);
+  };
+
   const displayed = useMemo(() => {
     let result = [...loans];
-
-    // Risk band filter
+    if (arrearsOnly) {
+      result = result.filter(l => l.days_past_due > 0);
+    }
     if (riskFilter !== 'all') {
       result = result.filter(l => l.risk_band === riskFilter);
     }
-
-    // Search
     if (search) {
       const s = search.toLowerCase();
       result = result.filter(l =>
@@ -66,8 +117,6 @@ export default function LoanBook() {
         l.applicant_name.toLowerCase().includes(s)
       );
     }
-
-    // Sort
     result.sort((a, b) => {
       const aVal = a[sortField];
       const bVal = b[sortField];
@@ -76,9 +125,8 @@ export default function LoanBook() {
       const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
       return sortDir === 'asc' ? cmp : -cmp;
     });
-
     return result;
-  }, [loans, search, riskFilter, sortField, sortDir]);
+  }, [loans, search, riskFilter, sortField, sortDir, arrearsOnly]);
 
   const handleSort = (field: SortKey) => {
     if (sortField === field) {
@@ -139,6 +187,25 @@ export default function LoanBook() {
         </div>
       </div>
 
+      {/* Arrears filter banner */}
+      {arrearsOnly && (
+        <div className="flex items-center justify-between rounded-lg border-2 border-red-400/50 bg-red-50 dark:bg-red-950/30 px-4 py-2.5">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle size={16} className="text-red-500" />
+            <span className="text-sm font-semibold text-red-700 dark:text-red-400">
+              Showing only loans in arrears ({displayed.length} loan{displayed.length !== 1 ? 's' : ''})
+            </span>
+          </div>
+          <button
+            onClick={clearArrearsFilter}
+            className="flex items-center space-x-1 text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+          >
+            <X size={14} />
+            <span>Clear filter</span>
+          </button>
+        </div>
+      )}
+
       {/* Filters */}
       <Card>
         <div className="flex flex-wrap gap-4 items-center">
@@ -170,6 +237,7 @@ export default function LoanBook() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)]">
+                <th className="px-2 py-3 w-8"></th>
                 {columns.map(col => (
                   <th
                     key={col.key}
@@ -186,35 +254,139 @@ export default function LoanBook() {
             </thead>
             <tbody>
               {displayed.map(loan => (
-                <tr
-                  key={loan.id}
-                  className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface-hover)] cursor-pointer transition-colors"
-                  onClick={() => navigate(`/backoffice/review/${loan.id}`)}
-                >
-                  <td className="px-4 py-3 font-mono text-xs text-[var(--color-primary)]">{loan.reference_number}</td>
-                  <td className="px-4 py-3">{loan.applicant_name}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">{fmt(loan.amount_approved)}</td>
-                  <td className="px-4 py-3">{loan.term_months}mo</td>
-                  <td className="px-4 py-3">{loan.interest_rate ? `${loan.interest_rate}%` : '—'}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">{fmt(loan.monthly_payment)}</td>
-                  <td className={`px-4 py-3 font-bold ${riskColor(loan.risk_band)}`}>{loan.risk_band || '—'}</td>
-                  <td className="px-4 py-3">{loan.credit_score || '—'}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">{fmt(loan.outstanding_balance)}</td>
-                  <td className="px-4 py-3">
-                    {loan.days_past_due > 0 ? (
-                      <span className={`font-bold ${loan.days_past_due > 90 ? 'text-red-400' : loan.days_past_due > 30 ? 'text-amber-400' : 'text-yellow-400'}`}>
-                        {loan.days_past_due}
-                      </span>
-                    ) : '—'}
-                  </td>
-                  <td className="px-4 py-3 text-[var(--color-text-muted)] whitespace-nowrap">
-                    {loan.disbursed_date || '—'}
-                  </td>
-                </tr>
+                <>
+                  <tr
+                    key={loan.id}
+                    className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface-hover)] cursor-pointer transition-colors"
+                  >
+                    <td className="px-2 py-3 text-center">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleExpand(loan.id); }}
+                        className="p-1 rounded hover:bg-[var(--color-bg)] text-[var(--color-text-muted)]"
+                      >
+                        {expandedId === loan.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-[var(--color-primary)] cursor-pointer" onClick={() => navigate(`/backoffice/review/${loan.id}`)}>{loan.reference_number}</td>
+                    <td className="px-4 py-3">
+                      <Link to={`/backoffice/customers/${loan.applicant_id}`} className="hover:text-[var(--color-primary)] transition-colors">
+                        {loan.applicant_name}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">{fmt(loan.amount_approved)}</td>
+                    <td className="px-4 py-3">{loan.term_months}mo</td>
+                    <td className="px-4 py-3">{loan.interest_rate ? `${loan.interest_rate}%` : '—'}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">{fmt(loan.monthly_payment)}</td>
+                    <td className={`px-4 py-3 font-bold ${riskColor(loan.risk_band)}`}>{loan.risk_band || '—'}</td>
+                    <td className="px-4 py-3">{loan.credit_score || '—'}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">{fmt(loan.outstanding_balance)}</td>
+                    <td className="px-4 py-3">
+                      {loan.days_past_due > 0 ? (
+                        <span className={`font-bold ${loan.days_past_due > 90 ? 'text-red-400' : loan.days_past_due > 30 ? 'text-amber-400' : 'text-yellow-400'}`}>
+                          {loan.days_past_due}
+                        </span>
+                      ) : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-[var(--color-text-muted)] whitespace-nowrap">
+                      {loan.disbursed_date || '—'}
+                    </td>
+                  </tr>
+                  {expandedId === loan.id && (
+                    <tr key={`${loan.id}-detail`} className="bg-[var(--color-bg)]/50">
+                      <td colSpan={columns.length + 1} className="px-4 py-4">
+                        {detailLoading ? (
+                          <p className="text-sm text-[var(--color-text-muted)] text-center py-4">Loading...</p>
+                        ) : (
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Payment Calendar */}
+                            <div>
+                              <h4 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-3 flex items-center gap-2">
+                                <Calendar size={14} /> Payment Calendar
+                              </h4>
+                              {schedule.length > 0 ? (
+                                <div className="border border-[var(--color-border)] rounded-lg overflow-auto max-h-64">
+                                  <table className="w-full text-xs">
+                                    <thead>
+                                      <tr className="bg-[var(--color-surface-hover)] text-[var(--color-text-muted)]">
+                                        <th className="px-3 py-2 text-left">#</th>
+                                        <th className="px-3 py-2 text-left">Due Date</th>
+                                        <th className="px-3 py-2 text-right">Amount Due</th>
+                                        <th className="px-3 py-2 text-right">Paid</th>
+                                        <th className="px-3 py-2 text-left">Status</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {schedule.map(s => (
+                                        <tr key={s.id} className="border-t border-[var(--color-border)]/50">
+                                          <td className="px-3 py-1.5">{s.installment_number}</td>
+                                          <td className="px-3 py-1.5">{new Date(s.due_date).toLocaleDateString()}</td>
+                                          <td className="px-3 py-1.5 text-right">{fmt(s.amount_due)}</td>
+                                          <td className="px-3 py-1.5 text-right">{fmt(s.amount_paid)}</td>
+                                          <td className="px-3 py-1.5">
+                                            <Badge variant={s.status === 'paid' ? 'success' : s.status === 'overdue' ? 'danger' : 'warning'}>
+                                              {s.status}
+                                            </Badge>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              ) : (
+                                <p className="text-sm text-[var(--color-text-muted)]">No payment schedule</p>
+                              )}
+                            </div>
+
+                            {/* Transactions */}
+                            <div>
+                              <h4 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-3 flex items-center gap-2">
+                                <DollarSign size={14} /> Transactions
+                              </h4>
+                              {transactions.length > 0 ? (
+                                <div className="border border-[var(--color-border)] rounded-lg overflow-auto max-h-64">
+                                  <table className="w-full text-xs">
+                                    <thead>
+                                      <tr className="bg-[var(--color-surface-hover)] text-[var(--color-text-muted)]">
+                                        <th className="px-3 py-2 text-left">Date</th>
+                                        <th className="px-3 py-2 text-right">Amount</th>
+                                        <th className="px-3 py-2 text-left">Type</th>
+                                        <th className="px-3 py-2 text-left">Ref</th>
+                                        <th className="px-3 py-2 text-left">Status</th>
+                                        <th className="px-3 py-2 text-left">Notes</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {transactions.map(t => (
+                                        <tr key={t.id} className="border-t border-[var(--color-border)]/50">
+                                          <td className="px-3 py-1.5">{new Date(t.payment_date).toLocaleDateString()}</td>
+                                          <td className="px-3 py-1.5 text-right font-medium">{fmt(t.amount)}</td>
+                                          <td className="px-3 py-1.5 capitalize">{t.payment_type.replace(/_/g, ' ')}</td>
+                                          <td className="px-3 py-1.5 font-mono text-[var(--color-text-muted)]">{t.reference_number || '—'}</td>
+                                          <td className="px-3 py-1.5">
+                                            <Badge variant={t.status === 'completed' ? 'success' : t.status === 'failed' ? 'danger' : 'warning'}>
+                                              {t.status}
+                                            </Badge>
+                                          </td>
+                                          <td className="px-3 py-1.5 text-[var(--color-text-muted)] max-w-[120px] truncate">{t.notes || '—'}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              ) : (
+                                <p className="text-sm text-[var(--color-text-muted)]">No transactions recorded</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </>
               ))}
               {displayed.length === 0 && (
                 <tr>
-                  <td colSpan={columns.length} className="px-4 py-8 text-center text-[var(--color-text-muted)]">
+                  <td colSpan={columns.length + 1} className="px-4 py-8 text-center text-[var(--color-text-muted)]">
                     No disbursed loans found
                   </td>
                 </tr>

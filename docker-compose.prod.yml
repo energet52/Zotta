@@ -2,6 +2,7 @@ version: "3.9"
 
 # Production Docker Compose for EC2 single-server deployment.
 # Runs everything on one machine: nginx (port 80) -> backend + frontend.
+# All configuration is loaded from .env.production (single source of truth).
 # Usage: docker compose -f docker-compose.prod.yml up -d --build
 
 services:
@@ -39,6 +40,7 @@ services:
     env_file:
       - .env.production
     environment:
+      # Override DB/Redis hosts to use Docker service names
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-zotta}
       DATABASE_URL_SYNC: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-zotta}
       REDIS_URL: redis://redis:6379/0

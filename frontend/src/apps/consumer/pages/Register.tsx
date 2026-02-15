@@ -54,20 +54,20 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-dark)] flex items-center justify-center px-4 py-8">
+    <div className="theme-consumer min-h-screen bg-[var(--color-bg)] flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-[var(--color-accent)] rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 bg-[var(--color-primary)] rounded-2xl flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl font-bold text-white">Z</span>
           </div>
-          <h1 className="text-3xl font-bold text-white">Zotta</h1>
-          <p className="text-white/70 mt-1">Create your account</p>
+          <h1 className="text-3xl font-bold text-[var(--color-text)]">Zotta</h1>
+          <p className="text-[var(--color-text-muted)] mt-1">Create your account</p>
         </div>
 
         <Card padding="lg">
-          <h2 className="text-xl font-semibold mb-6">Register</h2>
+          <h2 className="text-xl font-semibold mb-6 text-[var(--color-text)]">Register</h2>
           {error && (
-            <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">{error}</div>
+            <div className="mb-4 p-3 bg-red-500/20 text-red-400 rounded-lg text-sm border border-red-500/30">{error}</div>
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -82,7 +82,7 @@ export default function Register() {
               Create Account
             </Button>
           </form>
-          <p className="text-center text-sm text-gray-500 mt-6">
+          <p className="text-center text-sm text-[var(--color-text-muted)] mt-6">
             Already have an account?{' '}
             <Link to="/login" className="text-[var(--color-primary)] font-medium hover:underline">
               Sign in

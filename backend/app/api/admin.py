@@ -1,13 +1,18 @@
-"""Administration endpoints for hire-purchase catalog management."""
+"""Administration endpoints for hire-purchase catalog management and rules."""
+
+import logging
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select, func
+from pydantic import BaseModel, Field
+from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.auth_utils import require_roles
 from app.database import get_db
 from app.models.user import User, UserRole
+from app.models.decision import DecisionRulesConfig
 from app.models.catalog import (
     Merchant,
     Branch,
@@ -36,8 +41,231 @@ from app.schemas import (
     ProductFeeUpdate,
     ProductFeeResponse,
 )
+from app.services.decision_engine.rules import RULES_REGISTRY, DEFAULT_RULES
+from app.services.rule_generator import generate_rule, ALLOWED_FIELDS
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+# ── Pydantic schemas for rules endpoints ─────────────────────────────────
+
+class RuleEntry(BaseModel):
+    rule_id: str
+    name: str
+    description: str
+    field: str
+    operator: str
+    threshold: Any = None
+    outcome: str
+    severity: str
+    type: str = "threshold"
+    is_custom: bool = False
+    enabled: bool = True
+
+
+class RulesConfigResponse(BaseModel):
+    version: int
+    name: str
+    rules: list[RuleEntry]
+    allowed_fields: dict[str, Any]
+
+
+class RulesUpdateRequest(BaseModel):
+    rules: list[RuleEntry]
+
+
+class RuleGenerateRequest(BaseModel):
+    prompt: str = Field(min_length=5)
+    conversation_history: Optional[list[dict]] = None
+
+
+class RuleGenerateResponse(BaseModel):
+    status: str
+    questions: Optional[list[str]] = None
+    refusal_reason: Optional[str] = None
+    rule: Optional[dict] = None
+    explanation: Optional[str] = None
+
+
+# ── Rules management endpoints (admin-only) ──────────────────────────────
+
+@router.get("/rules", response_model=RulesConfigResponse)
+async def get_rules(
+    current_user: User = Depends(require_roles(UserRole.ADMIN)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the current active rules config."""
+    # Load latest active config from DB
+    result = await db.execute(
+        select(DecisionRulesConfig)
+        .where(DecisionRulesConfig.is_active == True)
+        .order_by(desc(DecisionRulesConfig.version))
+        .limit(1)
+    )
+    db_config = result.scalar_one_or_none()
+
+    # Start from defaults
+    registry = {k: dict(v) for k, v in RULES_REGISTRY.items()}
+
+    # Overlay DB overrides
+    if db_config and db_config.rules:
+        saved_registry = db_config.rules.get("rules_registry")
+        if saved_registry and isinstance(saved_registry, dict):
+            for rid, overrides in saved_registry.items():
+                if rid in registry:
+                    registry[rid].update(overrides)
+                else:
+                    registry[rid] = overrides
+
+    version = db_config.version if db_config else DEFAULT_RULES["version"]
+    name = db_config.name if db_config else DEFAULT_RULES["name"]
+
+    rules_list = []
+    for rule_id in sorted(registry.keys()):
+        r = registry[rule_id]
+        rules_list.append(RuleEntry(
+            rule_id=rule_id,
+            name=r.get("name", rule_id),
+            description=r.get("description", ""),
+            field=r.get("field", ""),
+            operator=r.get("operator", ""),
+            threshold=r.get("threshold"),
+            outcome=r.get("outcome", "decline"),
+            severity=r.get("severity", "hard"),
+            type=r.get("type", "threshold"),
+            is_custom=r.get("is_custom", False),
+            enabled=r.get("enabled", True),
+        ))
+
+    return RulesConfigResponse(
+        version=version,
+        name=name,
+        rules=rules_list,
+        allowed_fields=ALLOWED_FIELDS,
+    )
+
+
+@router.put("/rules")
+async def update_rules(
+    body: RulesUpdateRequest,
+    current_user: User = Depends(require_roles(UserRole.ADMIN)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Save updated rules config. Creates a new version."""
+    # Get current latest version
+    result = await db.execute(
+        select(DecisionRulesConfig)
+        .where(DecisionRulesConfig.is_active == True)
+        .order_by(desc(DecisionRulesConfig.version))
+        .limit(1)
+    )
+    existing = result.scalar_one_or_none()
+    new_version = (existing.version + 1) if existing else (DEFAULT_RULES["version"] + 1)
+
+    # Build registry dict from the rules list
+    registry: dict[str, dict] = {}
+    for rule in body.rules:
+        registry[rule.rule_id] = {
+            "name": rule.name,
+            "description": rule.description,
+            "field": rule.field,
+            "operator": rule.operator,
+            "threshold": rule.threshold,
+            "outcome": rule.outcome,
+            "severity": rule.severity,
+            "type": rule.type,
+            "is_custom": rule.is_custom,
+            "enabled": rule.enabled,
+        }
+
+    # Build full config (keep legacy structure + new registry)
+    full_config = dict(DEFAULT_RULES)
+    full_config["rules_registry"] = registry
+
+    # Mark old configs as inactive
+    if existing:
+        existing.is_active = False
+
+    # Create new version
+    new_config = DecisionRulesConfig(
+        version=new_version,
+        name=f"Rules v{new_version}",
+        rules=full_config,
+        is_active=True,
+        created_by=current_user.id,
+    )
+    db.add(new_config)
+    await db.flush()
+
+    return {"message": "Rules saved", "version": new_version}
+
+
+@router.delete("/rules/{rule_id}")
+async def delete_rule(
+    rule_id: str,
+    current_user: User = Depends(require_roles(UserRole.ADMIN)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a custom rule from the config."""
+    # Only allow deleting custom rules
+    if rule_id in RULES_REGISTRY and not RULES_REGISTRY[rule_id].get("is_custom", False):
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete built-in rules. Disable them instead.",
+        )
+
+    # Load current config
+    result = await db.execute(
+        select(DecisionRulesConfig)
+        .where(DecisionRulesConfig.is_active == True)
+        .order_by(desc(DecisionRulesConfig.version))
+        .limit(1)
+    )
+    existing = result.scalar_one_or_none()
+
+    if not existing or not existing.rules:
+        raise HTTPException(status_code=404, detail="No active rules config found")
+
+    saved_registry = existing.rules.get("rules_registry", {})
+    if not saved_registry or rule_id not in saved_registry:
+        raise HTTPException(status_code=404, detail=f"Rule {rule_id} not found in config")
+
+    # Remove the rule
+    del saved_registry[rule_id]
+
+    # Create new version
+    new_version = existing.version + 1
+    full_config = dict(existing.rules)
+    full_config["rules_registry"] = saved_registry
+
+    existing.is_active = False
+
+    new_config = DecisionRulesConfig(
+        version=new_version,
+        name=f"Rules v{new_version}",
+        rules=full_config,
+        is_active=True,
+        created_by=current_user.id,
+    )
+    db.add(new_config)
+    await db.flush()
+
+    return {"message": f"Rule {rule_id} deleted", "version": new_version}
+
+
+@router.post("/rules/generate", response_model=RuleGenerateResponse)
+async def generate_rule_endpoint(
+    body: RuleGenerateRequest,
+    current_user: User = Depends(require_roles(UserRole.ADMIN)),
+):
+    """Use AI to generate a rule from a natural-language prompt."""
+    result = generate_rule(
+        prompt=body.prompt,
+        conversation_history=body.conversation_history,
+    )
+    return RuleGenerateResponse(**result)
 
 
 def _product_to_response(product: CreditProduct) -> CreditProductResponse:
@@ -206,22 +434,40 @@ async def delete_branch(
     return None
 
 
-@router.get("/categories", response_model=list[ProductCategoryResponse])
+@router.get("/merchants/{merchant_id}/categories", response_model=list[ProductCategoryResponse])
 async def list_categories(
+    merchant_id: int,
     current_user: User = Depends(require_roles(UserRole.ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(ProductCategory).order_by(ProductCategory.name))
+    m = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
+    if not m.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Merchant not found")
+    result = await db.execute(
+        select(ProductCategory).where(ProductCategory.merchant_id == merchant_id).order_by(ProductCategory.name)
+    )
     return result.scalars().all()
 
 
-@router.post("/categories", response_model=ProductCategoryResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/merchants/{merchant_id}/categories", response_model=ProductCategoryResponse, status_code=status.HTTP_201_CREATED)
 async def create_category(
+    merchant_id: int,
     data: ProductCategoryCreate,
     current_user: User = Depends(require_roles(UserRole.ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
-    category = ProductCategory(name=data.name.strip())
+    m = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
+    if not m.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Merchant not found")
+    exists = await db.execute(
+        select(ProductCategory).where(
+            ProductCategory.merchant_id == merchant_id,
+            func.lower(ProductCategory.name) == data.name.strip().lower(),
+        )
+    )
+    if exists.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Category with this name already exists for merchant")
+    category = ProductCategory(merchant_id=merchant_id, name=data.name.strip())
     db.add(category)
     await db.flush()
     await db.refresh(category)

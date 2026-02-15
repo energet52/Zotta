@@ -31,6 +31,7 @@ class Merchant(Base):
     )
 
     branches = relationship("Branch", back_populates="merchant", cascade="all, delete-orphan")
+    categories = relationship("ProductCategory", back_populates="merchant", cascade="all, delete-orphan")
     credit_products = relationship("CreditProduct", back_populates="merchant")
     loan_applications = relationship("LoanApplication", back_populates="merchant")
 
@@ -56,14 +57,17 @@ class Branch(Base):
 
 class ProductCategory(Base):
     __tablename__ = "product_categories"
+    __table_args__ = (UniqueConstraint("merchant_id", "name", name="uq_category_name_per_merchant"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(120), unique=True, index=True, nullable=False)
+    merchant_id: Mapped[int] = mapped_column(ForeignKey("merchants.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
+    merchant = relationship("Merchant", back_populates="categories")
     application_items = relationship("ApplicationItem", back_populates="category")
 
 

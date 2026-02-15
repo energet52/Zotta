@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Phone, Calendar, DollarSign } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { AlertTriangle } from 'lucide-react';
 import Card from '../../../components/ui/Card';
 import Badge from '../../../components/ui/Badge';
 import { collectionsApi } from '../../../api/endpoints';
@@ -8,6 +8,7 @@ import { collectionsApi } from '../../../api/endpoints';
 interface CollectionEntry {
   id: number;
   reference_number: string;
+  applicant_id: number;
   applicant_name: string;
   amount_approved: number | null;
   amount_due: number;
@@ -38,13 +39,6 @@ export default function Collections() {
 
   const fmt = (val: number | null) =>
     val != null ? `TTD ${val.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—';
-
-  const severityColor = (dpd: number) => {
-    if (dpd >= 90) return 'bg-red-500/15 border-red-500/30 text-red-400';
-    if (dpd >= 60) return 'bg-orange-500/15 border-orange-500/30 text-orange-400';
-    if (dpd >= 30) return 'bg-amber-500/15 border-amber-500/30 text-amber-400';
-    return 'bg-yellow-500/15 border-yellow-500/30 text-yellow-400';
-  };
 
   const severityBadge = (dpd: number) => {
     if (dpd >= 90) return { variant: 'danger' as const, label: '90+ Days' };
@@ -123,7 +117,11 @@ export default function Collections() {
                     onClick={() => navigate(`/backoffice/collections/${item.id}`)}
                   >
                     <td className="px-4 py-3 font-mono text-xs text-[var(--color-primary)]">{item.reference_number}</td>
-                    <td className="px-4 py-3">{item.applicant_name}</td>
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <Link to={`/backoffice/customers/${item.applicant_id}`} className="hover:text-[var(--color-primary)] transition-colors">
+                        {item.applicant_name}
+                      </Link>
+                    </td>
                     <td className="px-4 py-3 whitespace-nowrap">{fmt(item.amount_approved)}</td>
                     <td className="px-4 py-3 whitespace-nowrap font-bold text-[var(--color-danger)]">{fmt(item.amount_due)}</td>
                     <td className="px-4 py-3"><Badge variant={badge.variant}>{badge.label}</Badge></td>

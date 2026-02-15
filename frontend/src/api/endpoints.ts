@@ -7,6 +7,8 @@ export const authApi = {
   login: (data: { email: string; password: string }) =>
     api.post('/auth/login', data),
   getMe: () => api.get('/auth/me'),
+  updateMe: (data: { first_name?: string; last_name?: string; phone?: string }) =>
+    api.patch('/auth/me', data),
 };
 
 // ── Loans ──────────────────────────────────────
@@ -35,6 +37,9 @@ export const loanApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
   listDocuments: (id: number) => api.get(`/loans/${id}/documents`),
+  downloadDocument: (appId: number, docId: number) =>
+    api.get(`/loans/${appId}/documents/${docId}/download`, { responseType: 'blob' }),
+  deleteDocument: (appId: number, docId: number) => api.delete(`/loans/${appId}/documents/${docId}`),
   // Counterproposal
   acceptCounterproposal: (id: number) => api.post(`/loans/${id}/accept-counterproposal`),
   rejectCounterproposal: (id: number) => api.post(`/loans/${id}/reject-counterproposal`),
@@ -44,6 +49,34 @@ export const loanApi = {
   // Contract
   signContract: (id: number, data: { signature_data: string; typed_name: string; agreed: boolean }) =>
     api.post(`/loans/${id}/sign-contract`, data),
+  submitWithConsent: (id: number, data: { signature_data: string; typed_name: string; agreed: boolean }) =>
+    api.post(`/loans/${id}/submit-with-consent`, data),
+  getConsentPdf: (id: number) =>
+    api.get(`/loans/${id}/consent-pdf`, { responseType: 'blob' }),
+  // ID parsing (OCR)
+  parseId: (formData: FormData) =>
+    api.post('/loans/parse-id', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+  // Comments (consumer ↔ underwriter)
+  listComments: (id: number) => api.get(`/loans/${id}/comments`),
+  addComment: (id: number, content: string) =>
+    api.post(`/loans/${id}/comments`, { content }),
+  markCommentsRead: (id: number) => api.post(`/loans/${id}/comments/mark-read`),
+  // References
+  listReferences: (id: number) => api.get(`/loans/${id}/references`),
+  addReference: (id: number, data: { name: string; relationship_type: string; phone: string; address: string; directions?: string }) =>
+    api.post(`/loans/${id}/references`, data),
+  updateReference: (appId: number, refId: number, data: { name: string; relationship_type: string; phone: string; address: string; directions?: string }) =>
+    api.put(`/loans/${appId}/references/${refId}`, data),
+  deleteReference: (appId: number, refId: number) =>
+    api.delete(`/loans/${appId}/references/${refId}`),
+  // Notifications
+  getNotifications: () => api.get('/loans/notifications/messages'),
+  markAllNotificationsRead: () => api.post('/loans/notifications/mark-read'),
+  // Collection messages (consumer-facing)
+  getCollectionMessages: () => api.get('/loans/notifications/collection-messages'),
+  getAppCollectionMessages: (id: number) => api.get(`/loans/${id}/collection-messages`),
 };
 
 // ── Underwriter ────────────────────────────────
@@ -52,6 +85,14 @@ export const underwriterApi = {
     api.get('/underwriter/queue', { params: status ? { status_filter: status } : {} }),
   getApplication: (id: number) => api.get(`/underwriter/applications/${id}`),
   getFullApplication: (id: number) => api.get(`/underwriter/applications/${id}/full`),
+  uploadDocument: (id: number, formData: FormData) =>
+    api.post(`/underwriter/applications/${id}/documents`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+  downloadDocument: (appId: number, docId: number) =>
+    api.get(`/underwriter/applications/${appId}/documents/${docId}/download`, { responseType: 'blob' }),
+  deleteDocument: (appId: number, docId: number) =>
+    api.delete(`/underwriter/applications/${appId}/documents/${docId}`),
   getDecision: (id: number) => api.get(`/underwriter/applications/${id}/decision`),
   getAuditLog: (id: number) => api.get(`/underwriter/applications/${id}/audit`),
   assign: (id: number) => api.post(`/underwriter/applications/${id}/assign`),
@@ -62,6 +103,11 @@ export const underwriterApi = {
     api.patch(`/underwriter/applications/${id}/edit`, data),
   counterpropose: (id: number, data: { proposed_amount: number; proposed_rate: number; proposed_term: number; reason: string }) =>
     api.post(`/underwriter/applications/${id}/counterpropose`, data),
+  // Disbursement
+  disburse: (id: number, data: { method?: string; notes?: string; recipient_account_name?: string; recipient_account_number?: string; recipient_bank?: string; recipient_bank_branch?: string }) =>
+    api.post(`/underwriter/applications/${id}/disburse`, data),
+  getDisbursement: (id: number) =>
+    api.get(`/underwriter/applications/${id}/disbursement`),
   // Loan Book
   getLoanBook: (status?: string) =>
     api.get('/underwriter/loans', { params: status ? { status } : {} }),
@@ -69,9 +115,32 @@ export const underwriterApi = {
   getCreditReport: (id: number) => api.get(`/underwriter/applications/${id}/credit-report`),
   downloadCreditReport: (id: number) =>
     api.get(`/underwriter/applications/${id}/credit-report/download`, { responseType: 'blob' }),
+  // Generate contract PDF
+  generateContract: (id: number) =>
+    api.get(`/underwriter/applications/${id}/generate-contract`, { responseType: 'blob' }),
+  // Customer search
+  searchCustomers: (q: string) =>
+    api.get('/underwriter/customers/search', { params: { q } }),
+  // Application notes
+  listNotes: (id: number) =>
+    api.get(`/underwriter/applications/${id}/notes`),
+  addNote: (id: number, content: string) =>
+    api.post(`/underwriter/applications/${id}/notes`, { content }),
   // Staff create
   createOnBehalf: (data: Record<string, unknown>) =>
     api.post('/underwriter/applications/create-on-behalf', data),
+  // ID parsing (OCR)
+  parseId: (formData: FormData) =>
+    api.post('/underwriter/parse-id', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+  // Bank statement analysis
+  analyzeBankStatement: (appId: number, documentId?: number) =>
+    api.post(`/underwriter/applications/${appId}/analyze-bank-statement`, null, {
+      params: documentId ? { document_id: documentId } : {},
+    }),
+  getBankAnalysis: (appId: number) =>
+    api.get(`/underwriter/applications/${appId}/bank-analysis`),
 };
 
 // ── Verification ───────────────────────────────
@@ -101,6 +170,7 @@ export const paymentsApi = {
   getSchedule: (appId: number) => api.get(`/payments/${appId}/schedule`),
   payOnline: (appId: number, data: { amount: number }) =>
     api.post(`/payments/${appId}/pay-online`, data),
+  getMyLoansSummary: () => api.get('/payments/summary/my-loans'),
 };
 
 // ── Collections ────────────────────────────────
@@ -135,9 +205,10 @@ export const adminApi = {
   ) => api.put(`/admin/branches/${id}`, data),
   deleteBranch: (id: number) => api.delete(`/admin/branches/${id}`),
 
-  // Categories
-  getCategories: () => api.get('/admin/categories'),
-  createCategory: (data: { name: string }) => api.post('/admin/categories', data),
+  // Categories (per merchant)
+  getCategories: (merchantId: number) => api.get(`/admin/merchants/${merchantId}/categories`),
+  createCategory: (merchantId: number, data: { name: string }) =>
+    api.post(`/admin/merchants/${merchantId}/categories`, data),
   updateCategory: (id: number, data: { name: string }) => api.put(`/admin/categories/${id}`, data),
   deleteCategory: (id: number) => api.delete(`/admin/categories/${id}`),
 
@@ -165,13 +236,86 @@ export const adminApi = {
     data: { fee_type?: string; fee_base?: string; fee_amount?: number; is_available?: boolean },
   ) => api.put(`/admin/fees/${id}`, data),
   deleteFee: (id: number) => api.delete(`/admin/fees/${id}`),
+
+  // Rules management
+  getRules: () => api.get('/admin/rules'),
+  updateRules: (data: { rules: Array<Record<string, unknown>> }) => api.put('/admin/rules', data),
+  deleteRule: (ruleId: string) => api.delete(`/admin/rules/${ruleId}`),
+  generateRule: (data: { prompt: string; conversation_history?: Array<Record<string, string>> }) =>
+    api.post('/admin/rules/generate', data),
+};
+
+// ── Conversations (Customer Support) ─────────────
+export const conversationsApi = {
+  create: (data?: { channel?: string; entry_point?: string; entry_context?: Record<string, unknown> }) =>
+    api.post('/conversations/', data ?? {}),
+  get: (id: number) => api.get(`/conversations/${id}`),
+  sendMessage: (id: number, content: string) =>
+    api.post(`/conversations/${id}/messages`, { content }),
+  startApplication: (id: number, data: { amount_requested: number; term_months: number; purpose?: string }) =>
+    api.post(`/conversations/${id}/start-application`, data),
+  list: (statusFilter?: string) =>
+    api.get('/conversations/', { params: statusFilter ? { status_filter: statusFilter } : {} }),
+};
+
+// ── Customer 360 ────────────────────────────────
+export const customerApi = {
+  get360: (userId: number) => api.get(`/customers/${userId}/360`),
+  getTimeline: (userId: number, params?: { categories?: string; search?: string; offset?: number; limit?: number }) =>
+    api.get(`/customers/${userId}/timeline`, { params }),
+  getAiSummary: (userId: number) => api.post(`/customers/${userId}/ai-summary`),
+  askAi: (userId: number, data: { question: string; history?: Array<{ role: string; content: string }> }) =>
+    api.post(`/customers/${userId}/ask-ai`, data),
+  getAlerts: (userId: number, statusFilter?: string) =>
+    api.get(`/customers/${userId}/alerts`, { params: statusFilter ? { status_filter: statusFilter } : {} }),
+  updateAlert: (userId: number, alertId: number, data: { status?: string; action_taken?: string; action_notes?: string }) =>
+    api.patch(`/customers/${userId}/alerts/${alertId}`, data),
+};
+
+// ── Sector Analysis ─────────────────────────────
+export const sectorApi = {
+  getTaxonomy: () => api.get('/sector-analysis/taxonomy'),
+  getDashboard: () => api.get('/sector-analysis/dashboard'),
+  getSectorDetail: (sector: string) => api.get(`/sector-analysis/sectors/${encodeURIComponent(sector)}`),
+  getHeatmap: () => api.get('/sector-analysis/heatmap'),
+  // Policies
+  getPolicies: () => api.get('/sector-analysis/policies'),
+  createPolicy: (data: Record<string, unknown>) => api.post('/sector-analysis/policies', data),
+  updatePolicy: (id: number, data: Record<string, unknown>) => api.patch(`/sector-analysis/policies/${id}`, data),
+  approvePolicy: (id: number) => api.post(`/sector-analysis/policies/${id}/approve`),
+  archivePolicy: (id: number) => api.delete(`/sector-analysis/policies/${id}`),
+  // Alert rules
+  getAlertRules: () => api.get('/sector-analysis/alert-rules'),
+  createAlertRule: (data: Record<string, unknown>) => api.post('/sector-analysis/alert-rules', data),
+  deleteAlertRule: (id: number) => api.delete(`/sector-analysis/alert-rules/${id}`),
+  // Alerts
+  getAlerts: (params?: { status_filter?: string; sector?: string; severity?: string }) =>
+    api.get('/sector-analysis/alerts', { params }),
+  updateAlert: (id: number, data: { status?: string; action_notes?: string }) =>
+    api.patch(`/sector-analysis/alerts/${id}`, data),
+  evaluateAlerts: () => api.post('/sector-analysis/alerts/evaluate'),
+  // Macro indicators
+  getMacroIndicators: (sector?: string) =>
+    api.get('/sector-analysis/macro-indicators', { params: sector ? { sector } : {} }),
+  createMacroIndicator: (data: Record<string, unknown>) =>
+    api.post('/sector-analysis/macro-indicators', data),
+  // Stress testing
+  runStressTest: (data: { name: string; shocks: Record<string, unknown> }) =>
+    api.post('/sector-analysis/stress-test', data),
+  // Snapshots
+  getSnapshots: (params?: { sector?: string; months?: number }) =>
+    api.get('/sector-analysis/snapshots', { params }),
+  generateSnapshot: () => api.post('/sector-analysis/snapshots/generate'),
+  // Origination check
+  checkOrigination: (data: { sector: string; loan_amount: number }) =>
+    api.post('/sector-analysis/check-origination', data),
 };
 
 // ── Consumer Catalog ────────────────────────────
 export const catalogApi = {
   getMerchants: () => api.get('/catalog/merchants'),
   getBranches: (merchantId: number) => api.get(`/catalog/merchants/${merchantId}/branches`),
-  getCategories: () => api.get('/catalog/categories'),
+  getCategories: (merchantId: number) => api.get(`/catalog/merchants/${merchantId}/categories`),
   getProducts: (merchantId: number, amount: number) =>
     api.get('/catalog/products', { params: { merchant_id: merchantId, amount } }),
   calculate: (data: { product_id: number; total_amount: number; term_months: number }) =>

@@ -13,20 +13,66 @@ from app.models.catalog import (
 )
 
 
-DEFAULT_CATEGORIES = [
-    "Stove",
-    "Refrigerator",
-    "Washing Machine",
-    "Bedroom Furniture",
-    "Living Room Furniture",
-    "Dining Furniture",
-    "Television",
-    "Air Conditioner",
-    "Mattress",
-    "Small Appliances",
-    "Electronics",
-    "Other",
-]
+# Merchant-specific categories based on actual product offerings
+# Ramlagans: furniture, appliances, electronics (ramlagansholdings.com)
+MERCHANT_CATEGORIES = {
+    "Ramlagans Super Store": [
+        "Stove",
+        "Refrigerator",
+        "Washing Machine",
+        "Microwave",
+        "Air Conditioner",
+        "Bedroom Furniture",
+        "Living Room Furniture",
+        "Dining Room Furniture",
+        "Office Furniture",
+        "TV Stands & Entertainment",
+        "Mattress & Bed Base",
+        "Small Kitchen Appliances",
+        "Fans & Cooling",
+        "Vacuum & Floor Care",
+        "Electronics",
+        "Other",
+    ],
+    # SAI Appliances & Furniture: home furnishings, appliances (Sangre Grande)
+    "SAI": [
+        "Refrigerator",
+        "Stove",
+        "Washing Machine",
+        "Sofa & Living Room",
+        "Dining Set",
+        "Bedroom Set",
+        "Kitchen Appliances",
+        "Home Technology",
+        "Home Decor",
+        "Air Conditioner",
+        "Mattress",
+        "Other",
+    ],
+    # ZWSSL: security systems, surveillance (security retail)
+    "Zone Watch Security Services (ZWSSL)": [
+        "CCTV Cameras",
+        "Alarm Systems",
+        "Access Control",
+        "Surveillance Systems",
+        "Security Sensors",
+        "Monitoring Equipment",
+        "Auto Security",
+        "Security Installation",
+        "Other",
+    ],
+    # Value Optical: eyeglasses, contact lenses (valueoptical.com)
+    "Value Optical": [
+        "Eyeglasses",
+        "Contact Lenses",
+        "Sunglasses",
+        "Designer Frames",
+        "Reading Glasses",
+        "Prescription Lenses",
+        "Eye Care Accessories",
+        "Other",
+    ],
+}
 
 MERCHANT_BRANCHES = {
     "Ramlagans Super Store": ["Chaguanas", "San Fernando", "Balmain", "Online"],
@@ -77,11 +123,16 @@ async def _ensure_branch(db: AsyncSession, merchant_id: int, name: str) -> None:
     await db.flush()
 
 
-async def _ensure_category(db: AsyncSession, name: str) -> None:
-    res = await db.execute(select(ProductCategory).where(ProductCategory.name == name))
+async def _ensure_category(db: AsyncSession, merchant_id: int, name: str) -> None:
+    res = await db.execute(
+        select(ProductCategory).where(
+            ProductCategory.merchant_id == merchant_id,
+            ProductCategory.name == name,
+        )
+    )
     if res.scalar_one_or_none():
         return
-    db.add(ProductCategory(name=name))
+    db.add(ProductCategory(merchant_id=merchant_id, name=name))
     await db.flush()
 
 
@@ -150,8 +201,11 @@ async def seed_catalog_data(db: AsyncSession) -> None:
         for branch_name in branch_names:
             await _ensure_branch(db, merchant.id, branch_name)
 
-    for category_name in DEFAULT_CATEGORIES:
-        await _ensure_category(db, category_name)
+    for merchant_name, category_names in MERCHANT_CATEGORIES.items():
+        merchant = merchant_map.get(merchant_name)
+        if merchant:
+            for category_name in category_names:
+                await _ensure_category(db, merchant.id, category_name)
 
     for product in PRODUCTS:
         name, description, merchant_name, min_term, max_term, min_amount, max_amount = product

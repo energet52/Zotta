@@ -50,6 +50,15 @@ htmlcov/
 .coverage
 coverage/
 
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Real ID documents (keep only sample_id_* test fixtures)
+e2e/fixtures/Back Natalie Driver License.jpeg
+e2e/fixtures/Front Natalie Driver License.jpeg
+
 # Alembic
 *.db
 

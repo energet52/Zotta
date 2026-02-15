@@ -6,23 +6,30 @@ import string
 from datetime import datetime, date, timezone, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import StreamingResponse
+import os
+
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
+from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from passlib.context import CryptContext
 
+import asyncio
 from app.database import get_db
 from app.models.user import User, UserRole
-from app.models.loan import LoanApplication, LoanStatus, LoanPurpose, ApplicantProfile
+from app.models.loan import LoanApplication, LoanStatus, LoanPurpose, ApplicantProfile, ApplicationItem
 from app.models.decision import Decision, UnderwriterAction
-from app.models.document import Document
+from app.models.document import Document, DocumentType, DocumentStatus
 from app.models.audit import AuditLog
+from app.models.note import ApplicationNote
 from app.models.credit_report import CreditReport
-from app.models.payment import PaymentSchedule
+from app.models.bank_analysis import BankStatementAnalysis, AnalysisStatus
+from app.models.payment import Payment, PaymentType, PaymentStatus, PaymentSchedule, ScheduleStatus
+from app.models.disbursement import Disbursement, DisbursementMethod, DisbursementStatus
 from app.schemas import (
     LoanApplicationResponse,
+    ApplicationItemResponse,
     DecisionResponse,
     UnderwriterDecision,
     FullApplicationResponse,
@@ -34,9 +41,15 @@ from app.schemas import (
     CounterproposalRequest,
     LoanBookEntry,
     StaffCreateApplicationRequest,
+    DisbursementRequest,
+    DisbursementResponse,
+    ParsedIdResponse,
+    BankAnalysisResponse,
 )
 from app.auth_utils import get_current_user, require_roles
+from app.config import settings
 from app.services.decision_engine.engine import run_decision_engine
+from app.services.id_parser import parse_id_images
 
 import logging
 
@@ -121,9 +134,16 @@ async def get_full_application(
     db: AsyncSession = Depends(get_db),
 ):
     """Get full application details including profile, documents, decisions, and audit log."""
-    # Application
+    # Application with Shopping + Plan Selection relations (merchant, branch, credit_product, items)
     result = await db.execute(
-        select(LoanApplication).where(LoanApplication.id == application_id)
+        select(LoanApplication)
+        .where(LoanApplication.id == application_id)
+        .options(
+            selectinload(LoanApplication.merchant),
+            selectinload(LoanApplication.branch),
+            selectinload(LoanApplication.credit_product),
+            selectinload(LoanApplication.items).selectinload(ApplicationItem.category),
+        )
     )
     application = result.scalar_one_or_none()
     if not application:
@@ -187,14 +207,190 @@ async def get_full_application(
             signed_at=application.contract_signed_at,
         )
 
+    # Build application response with Shopping + Plan Selection data
+    app_items = [
+        ApplicationItemResponse(
+            id=it.id,
+            loan_application_id=it.loan_application_id,
+            category_id=it.category_id,
+            category_name=it.category.name if it.category else None,
+            description=it.description,
+            price=float(it.price),
+            quantity=it.quantity,
+            created_at=it.created_at,
+        )
+        for it in (application.items or [])
+    ]
+    app_response = LoanApplicationResponse(
+        id=application.id,
+        reference_number=application.reference_number,
+        applicant_id=application.applicant_id,
+        applicant_name=None,
+        amount_requested=float(application.amount_requested),
+        term_months=application.term_months,
+        purpose=application.purpose.value if hasattr(application.purpose, "value") else str(application.purpose),
+        purpose_description=application.purpose_description,
+        interest_rate=float(application.interest_rate) if application.interest_rate else None,
+        amount_approved=float(application.amount_approved) if application.amount_approved else None,
+        monthly_payment=float(application.monthly_payment) if application.monthly_payment else None,
+        merchant_id=application.merchant_id,
+        branch_id=application.branch_id,
+        credit_product_id=application.credit_product_id,
+        merchant_name=application.merchant.name if application.merchant else None,
+        branch_name=application.branch.name if application.branch else None,
+        credit_product_name=application.credit_product.name if application.credit_product else None,
+        downpayment=float(application.downpayment) if application.downpayment else None,
+        total_financed=float(application.total_financed) if application.total_financed else None,
+        items=app_items,
+        status=application.status.value if hasattr(application.status, "value") else str(application.status),
+        assigned_underwriter_id=application.assigned_underwriter_id,
+        proposed_amount=float(application.proposed_amount) if application.proposed_amount else None,
+        proposed_rate=float(application.proposed_rate) if application.proposed_rate else None,
+        proposed_term=application.proposed_term,
+        counterproposal_reason=application.counterproposal_reason,
+        contract_signed_at=application.contract_signed_at,
+        contract_typed_name=application.contract_typed_name,
+        submitted_at=application.submitted_at,
+        decided_at=application.decided_at,
+        created_at=application.created_at,
+        updated_at=application.updated_at,
+    )
+
     return FullApplicationResponse(
-        application=application,
+        application=app_response,
         profile=profile,
         documents=documents,
         decisions=decisions,
         audit_log=audit_entries,
         contract=contract,
     )
+
+
+@router.post("/applications/{application_id}/documents", response_model=DocumentResponse, status_code=201)
+async def upload_document(
+    application_id: int,
+    document_type: str = Form(...),
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_roles(*UNDERWRITER_ROLES)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Upload a document to an application (back-office staff). Accepts any document type including 'other'."""
+    result = await db.execute(
+        select(LoanApplication).where(LoanApplication.id == application_id)
+    )
+    application = result.scalar_one_or_none()
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    try:
+        doc_type = DocumentType(document_type)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid document type '{document_type}'. "
+                   f"Allowed: {', '.join(t.value for t in DocumentType)}",
+        )
+
+    content = await file.read()
+    if len(content) > settings.max_upload_size_mb * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large")
+
+    upload_dir = os.path.join(settings.upload_dir, str(application_id))
+    os.makedirs(upload_dir, exist_ok=True)
+    file_path = os.path.join(upload_dir, file.filename)
+    with open(file_path, "wb") as f:
+        f.write(content)
+
+    doc = Document(
+        loan_application_id=application_id,
+        uploaded_by=current_user.id,
+        document_type=doc_type,
+        file_name=file.filename,
+        file_path=file_path,
+        file_size=len(content),
+        mime_type=file.content_type or "application/octet-stream",
+        status=DocumentStatus.UPLOADED,
+    )
+    db.add(doc)
+    await db.flush()
+    await db.refresh(doc)
+
+    audit = AuditLog(
+        entity_type="loan_application",
+        entity_id=application_id,
+        action="document_uploaded",
+        user_id=current_user.id,
+        new_values={
+            "document_id": doc.id,
+            "document_type": doc_type.value,
+            "file_name": file.filename,
+        },
+    )
+    db.add(audit)
+    await db.flush()
+    return doc
+
+
+@router.get("/applications/{application_id}/documents/{document_id}/download")
+async def download_document(
+    application_id: int,
+    document_id: int,
+    current_user: User = Depends(require_roles(*UNDERWRITER_ROLES)),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(LoanApplication, Document).join(
+            Document, Document.loan_application_id == LoanApplication.id
+        ).where(
+            LoanApplication.id == application_id,
+            Document.id == document_id,
+        )
+    )
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Document not found")
+    _, doc = row
+    if not os.path.isfile(doc.file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(doc.file_path, filename=doc.file_name, media_type=doc.mime_type or "application/octet-stream")
+
+
+@router.delete("/applications/{application_id}/documents/{document_id}")
+async def delete_document(
+    application_id: int,
+    document_id: int,
+    current_user: User = Depends(require_roles(*UNDERWRITER_ROLES)),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(LoanApplication, Document).join(
+            Document, Document.loan_application_id == LoanApplication.id
+        ).where(
+            LoanApplication.id == application_id,
+            Document.id == document_id,
+        )
+    )
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Document not found")
+    _, doc = row
+    if os.path.isfile(doc.file_path):
+        try:
+            os.remove(doc.file_path)
+        except OSError:
+            pass
+    await db.delete(doc)
+    await db.flush()
+    audit = AuditLog(
+        entity_type="loan_application",
+        entity_id=application_id,
+        action="document_deleted",
+        user_id=current_user.id,
+        new_values={"document_id": document_id, "file_name": doc.file_name},
+    )
+    db.add(audit)
+    await db.flush()
+    return {"message": "Document deleted"}
 
 
 @router.get("/applications/{application_id}/decision", response_model=DecisionResponse)
@@ -327,7 +523,8 @@ async def edit_application(
     if profile:
         profile_fields = {
             "monthly_income", "monthly_expenses", "existing_debt",
-            "employer_name", "job_title", "employment_type", "years_employed",
+            "employer_name", "employer_sector", "job_title", "employment_type", "years_employed",
+            "whatsapp_number", "contact_email", "mobile_phone", "home_phone", "employer_phone",
         }
         for field_name in profile_fields:
             new_val = getattr(data, field_name, None)
@@ -372,6 +569,20 @@ async def counterpropose(
     application = result.scalar_one_or_none()
     if not application:
         raise HTTPException(status_code=404, detail="Application not found")
+
+    # ── Prevent counterproposal after approval or disbursement ──
+    _LOCKED = (
+        LoanStatus.APPROVED,
+        LoanStatus.ACCEPTED,
+        LoanStatus.OFFER_SENT,
+        LoanStatus.DISBURSED,
+    )
+    if application.status in _LOCKED:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot counterpropose — loan is already '{application.status.value}'. "
+                   f"Changes are not allowed once approved or disbursed.",
+        )
 
     old_status = application.status.value
 
@@ -418,6 +629,20 @@ async def make_decision(
     if not application:
         raise HTTPException(status_code=404, detail="Application not found")
 
+    # ── Prevent changing decision after approval or disbursement ──
+    LOCKED_STATUSES = (
+        LoanStatus.APPROVED,
+        LoanStatus.ACCEPTED,
+        LoanStatus.OFFER_SENT,
+        LoanStatus.DISBURSED,
+    )
+    if application.status in LOCKED_STATUSES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot change decision — loan is already '{application.status.value}'. "
+                   f"Decisions are final once approved or disbursed.",
+        )
+
     # Get latest engine decision if exists
     dec_result = await db.execute(
         select(Decision)
@@ -427,6 +652,29 @@ async def make_decision(
     decision = dec_result.scalars().first()
 
     action = UnderwriterAction(data.action)
+
+    # ── Sector concentration enforcement (FR-5) ──
+    if action == UnderwriterAction.APPROVE:
+        from app.services.sector_analysis import check_sector_origination
+        profile_q = await db.execute(
+            select(ApplicantProfile).where(ApplicantProfile.user_id == application.applicant_id)
+        )
+        profile = profile_q.scalar_one_or_none()
+        sector = profile.employer_sector if profile else "MISSING"
+        if not sector:
+            sector = "MISSING"
+        conc_check = await check_sector_origination(
+            db, sector, float(application.amount_requested)
+        )
+        if not conc_check["allowed"]:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Sector concentration policy blocks this approval",
+                    "reasons": conc_check["reasons"],
+                    "sector": sector,
+                },
+            )
 
     if decision:
         # Update existing decision with underwriter override
@@ -450,10 +698,25 @@ async def make_decision(
     if action == UnderwriterAction.APPROVE:
         application.status = LoanStatus.APPROVED
         application.decided_at = now
-        if data.approved_amount:
-            application.amount_approved = data.approved_amount
-        if data.approved_rate:
-            application.interest_rate = data.approved_rate
+        # Use decision engine values only; underwriter cannot override
+        requested = float(application.amount_requested)
+        cap = float(decision.suggested_amount) if decision and decision.suggested_amount is not None else requested
+        application.amount_approved = min(requested, cap)
+        rate = decision.suggested_rate if decision else None
+        if rate is not None:
+            application.interest_rate = float(rate)
+        elif application.interest_rate is None:
+            application.interest_rate = 12.0  # Default when no decision engine suggestion
+        # Calculate monthly payment if not already set
+        if not application.monthly_payment and application.interest_rate and application.term_months:
+            r = float(application.interest_rate) / 100 / 12
+            n = application.term_months
+            principal = float(application.amount_approved or application.amount_requested)
+            if r > 0:
+                pmt = principal * (r * (1 + r) ** n) / ((1 + r) ** n - 1)
+            else:
+                pmt = principal / n
+            application.monthly_payment = round(pmt, 2)
     elif action == UnderwriterAction.DECLINE:
         application.status = LoanStatus.DECLINED
         application.decided_at = now
@@ -471,7 +734,357 @@ async def make_decision(
     db.add(audit)
     await db.flush()
     await db.refresh(decision)
+
+    # ── Send WhatsApp notification for status change ──
+    try:
+        from app.services.whatsapp_notifier import (
+            notify_application_approved,
+            notify_application_declined,
+            notify_documents_requested,
+        )
+
+        # Look up applicant for phone + name
+        applicant_result = await db.execute(
+            select(User).where(User.id == application.applicant_id)
+        )
+        applicant = applicant_result.scalar_one_or_none()
+        if applicant and applicant.phone:
+            first = applicant.first_name or "Customer"
+            ref = application.reference_number or f"#{application.id}"
+
+            if action == UnderwriterAction.APPROVE:
+                asyncio.ensure_future(notify_application_approved(
+                    to_phone=applicant.phone,
+                    first_name=first,
+                    reference=ref,
+                    amount_approved=float(application.amount_approved or application.amount_requested),
+                    monthly_payment=float(application.monthly_payment) if application.monthly_payment else None,
+                ))
+            elif action == UnderwriterAction.DECLINE:
+                asyncio.ensure_future(notify_application_declined(
+                    to_phone=applicant.phone,
+                    first_name=first,
+                    reference=ref,
+                ))
+            elif action == UnderwriterAction.REQUEST_INFO:
+                asyncio.ensure_future(notify_documents_requested(
+                    to_phone=applicant.phone,
+                    first_name=first,
+                    reference=ref,
+                ))
+    except Exception:
+        logger.exception("Non-blocking WhatsApp send failed on status change")
+
     return decision
+
+
+# ── Disbursement ──────────────────────────────────────
+
+DISBURSABLE_STATUSES = (
+    LoanStatus.APPROVED,
+    LoanStatus.ACCEPTED,
+    LoanStatus.OFFER_SENT,
+)
+
+
+def _generate_disbursement_ref() -> str:
+    """Generate a unique disbursement reference like DIS-AB1234."""
+    chars = string.ascii_uppercase + string.digits
+    return "DIS-" + "".join(random.choices(chars, k=6))
+
+
+def _generate_payment_schedule(
+    writer_fn,
+    loan_application_id: int,
+    principal: float,
+    annual_rate: float,
+    term_months: int,
+    start_date: date,
+) -> list[PaymentSchedule]:
+    """Amortisation schedule generation (principal + interest).
+
+    Returns a list of PaymentSchedule ORM objects (not yet added to session).
+    ``writer_fn`` is ignored — kept for signature compat.
+    """
+    monthly_rate = annual_rate / 100 / 12
+    if monthly_rate > 0:
+        pmt = principal * (monthly_rate * (1 + monthly_rate) ** term_months) / (
+            (1 + monthly_rate) ** term_months - 1
+        )
+    else:
+        pmt = principal / term_months
+
+    balance = principal
+    schedules = []
+    for i in range(1, term_months + 1):
+        interest = round(balance * monthly_rate, 2)
+        principal_part = round(pmt - interest, 2)
+        if i == term_months:
+            principal_part = round(balance, 2)
+        balance = max(0, round(balance - principal_part, 2))
+        due = start_date + timedelta(days=30 * i)
+        amount_due = round(principal_part + interest, 2)
+
+        schedules.append(
+            PaymentSchedule(
+                loan_application_id=loan_application_id,
+                installment_number=i,
+                due_date=due,
+                principal=principal_part,
+                interest=interest,
+                amount_due=amount_due,
+                amount_paid=0,
+                status=ScheduleStatus.UPCOMING,
+            )
+        )
+    return schedules
+
+
+@router.post("/applications/{application_id}/disburse", response_model=DisbursementResponse)
+async def disburse_loan(
+    application_id: int,
+    data: DisbursementRequest,
+    current_user: User = Depends(require_roles(UserRole.SENIOR_UNDERWRITER, UserRole.ADMIN)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Disburse a loan — release funds and generate payment schedule.
+
+    Status transitions: APPROVED/ACCEPTED/OFFER_SENT → DISBURSED
+
+    Creates:
+    * A ``Disbursement`` record with method, amount, reference, bank details.
+    * A full amortisation ``PaymentSchedule`` for the loan.
+    * An ``AuditLog`` entry.
+
+    The endpoint is designed so that a payment-provider adapter can be
+    plugged in later (check ``data.method`` → call provider → store
+    ``provider_reference`` / ``provider_response``).
+    """
+    # ── 1. Load and validate application ──────────────
+    result = await db.execute(
+        select(LoanApplication).where(LoanApplication.id == application_id)
+    )
+    application = result.scalar_one_or_none()
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    if application.status not in DISBURSABLE_STATUSES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot disburse — current status is '{application.status.value}'. "
+                   f"Loan must be approved or accepted first.",
+        )
+
+    if not application.amount_approved:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot disburse — no approved amount on this application.",
+        )
+
+    # Prevent double-disbursement
+    existing = await db.execute(
+        select(Disbursement).where(
+            Disbursement.loan_application_id == application_id,
+            Disbursement.status.in_(["completed", "processing"]),
+        )
+    )
+    if existing.scalars().first():
+        raise HTTPException(status_code=409, detail="This loan has already been disbursed.")
+
+    # ── 2. Validate method ────────────────────────────
+    try:
+        method = DisbursementMethod(data.method)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid disbursement method '{data.method}'. "
+                   f"Allowed: {', '.join(m.value for m in DisbursementMethod)}",
+        )
+
+    # ── 3. Future: call payment provider here ─────────
+    # if method == DisbursementMethod.BANK_TRANSFER:
+    #     provider_result = await payment_gateway.initiate_transfer(...)
+    #     provider_ref = provider_result.reference
+    #     provider_resp = provider_result.raw
+    # For now, manual disbursements are completed immediately.
+
+    now = datetime.now(timezone.utc)
+    amount = float(application.amount_approved)
+
+    # ── 4. Create disbursement record ─────────────────
+    disbursement = Disbursement(
+        loan_application_id=application_id,
+        amount=amount,
+        method=method,
+        status=DisbursementStatus.COMPLETED,
+        reference_number=_generate_disbursement_ref(),
+        disbursed_by=current_user.id,
+        notes=data.notes,
+        recipient_account_name=data.recipient_account_name,
+        recipient_account_number=data.recipient_account_number,
+        recipient_bank=data.recipient_bank,
+        recipient_bank_branch=data.recipient_bank_branch,
+        disbursed_at=now,
+    )
+    db.add(disbursement)
+
+    # ── 5. Record disbursement as a transaction ────────
+    disbursement_payment = Payment(
+        loan_application_id=application_id,
+        amount=amount,
+        payment_type=PaymentType.DISBURSEMENT,
+        payment_date=now.date(),
+        reference_number=disbursement.reference_number,
+        recorded_by=current_user.id,
+        status=PaymentStatus.COMPLETED,
+        notes=f"Loan disbursement — {method.value.replace('_', ' ')}",
+    )
+    db.add(disbursement_payment)
+
+    # ── 6. Update loan status ─────────────────────────
+    application.status = LoanStatus.DISBURSED
+    application.disbursed_at = now
+
+    # ── 7. Generate payment schedule ──────────────────
+    schedules = _generate_payment_schedule(
+        writer_fn=None,
+        loan_application_id=application_id,
+        principal=amount,
+        annual_rate=float(application.interest_rate or 0),
+        term_months=application.term_months,
+        start_date=now.date(),
+    )
+    for s in schedules:
+        db.add(s)
+
+    # Update monthly payment on the application if not set
+    if schedules and not application.monthly_payment:
+        application.monthly_payment = schedules[0].amount_due
+
+    # ── 8. Audit log ──────────────────────────────────
+    audit = AuditLog(
+        entity_type="loan_application",
+        entity_id=application_id,
+        action="disbursed",
+        user_id=current_user.id,
+        new_values={
+            "disbursement_id": None,  # filled after flush
+            "amount": amount,
+            "method": method.value,
+            "reference": disbursement.reference_number,
+        },
+    )
+    db.add(audit)
+
+    await db.flush()
+    await db.refresh(disbursement)
+
+    # Fix audit with disbursement id
+    audit.new_values = {**audit.new_values, "disbursement_id": disbursement.id}
+
+    # ── 9. Post to General Ledger ────────────────────
+    try:
+        from app.services.gl.mapping_engine import generate_journal_entry, MappingError
+        from app.models.gl import JournalSourceType
+        from decimal import Decimal as _Decimal
+
+        await generate_journal_entry(
+            db,
+            event_type=JournalSourceType.LOAN_DISBURSEMENT,
+            source_reference=f"LOAN-{application_id}",
+            amount_breakdown={
+                "principal": _Decimal(str(amount)),
+                "full_amount": _Decimal(str(amount)),
+            },
+            product_id=getattr(application, "credit_product_id", None),
+            description=f"Disbursement for loan #{application_id}",
+            created_by=current_user.id,
+            loan_reference=f"LOAN-{application_id}",
+            auto_post=True,
+        )
+    except Exception:
+        # GL posting is non-blocking — log but don't fail disbursement
+        logger.warning("GL posting for disbursement of loan %d failed (no mapping template?)", application_id, exc_info=True)
+
+    # ── 10. Send WhatsApp disbursement notification ────
+    try:
+        from app.services.whatsapp_notifier import notify_loan_disbursed
+
+        applicant_result = await db.execute(
+            select(User).where(User.id == application.applicant_id)
+        )
+        applicant = applicant_result.scalar_one_or_none()
+        if applicant and applicant.phone:
+            asyncio.ensure_future(notify_loan_disbursed(
+                to_phone=applicant.phone,
+                first_name=applicant.first_name or "Customer",
+                reference=application.reference_number or f"#{application.id}",
+                amount=amount,
+                disbursement_ref=disbursement.reference_number,
+            ))
+    except Exception:
+        logger.exception("Non-blocking WhatsApp send failed on disbursement")
+
+    # ── 11. Build response ────────────────────────────
+    return DisbursementResponse(
+        id=disbursement.id,
+        loan_application_id=disbursement.loan_application_id,
+        amount=float(disbursement.amount),
+        method=disbursement.method.value,
+        status=disbursement.status.value,
+        reference_number=disbursement.reference_number,
+        provider=disbursement.provider,
+        provider_reference=disbursement.provider_reference,
+        recipient_account_name=disbursement.recipient_account_name,
+        recipient_account_number=disbursement.recipient_account_number,
+        recipient_bank=disbursement.recipient_bank,
+        recipient_bank_branch=disbursement.recipient_bank_branch,
+        disbursed_by=disbursement.disbursed_by,
+        disbursed_by_name=f"{current_user.first_name} {current_user.last_name}",
+        notes=disbursement.notes,
+        disbursed_at=disbursement.disbursed_at,
+        created_at=disbursement.created_at,
+    )
+
+
+@router.get("/applications/{application_id}/disbursement", response_model=DisbursementResponse)
+async def get_disbursement(
+    application_id: int,
+    current_user: User = Depends(require_roles(*UNDERWRITER_ROLES)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get the disbursement record for an application (if disbursed)."""
+    result = await db.execute(
+        select(Disbursement, User.first_name, User.last_name)
+        .join(User, Disbursement.disbursed_by == User.id)
+        .where(Disbursement.loan_application_id == application_id)
+        .order_by(Disbursement.created_at.desc())
+        .limit(1)
+    )
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="No disbursement found for this application")
+
+    d, first, last = row
+    return DisbursementResponse(
+        id=d.id,
+        loan_application_id=d.loan_application_id,
+        amount=float(d.amount),
+        method=d.method.value,
+        status=d.status.value,
+        reference_number=d.reference_number,
+        provider=d.provider,
+        provider_reference=d.provider_reference,
+        recipient_account_name=d.recipient_account_name,
+        recipient_account_number=d.recipient_account_number,
+        recipient_bank=d.recipient_bank,
+        recipient_bank_branch=d.recipient_bank_branch,
+        disbursed_by=d.disbursed_by,
+        disbursed_by_name=f"{first} {last}",
+        notes=d.notes,
+        disbursed_at=d.disbursed_at,
+        created_at=d.created_at,
+    )
 
 
 # ── Loan Book ─────────────────────────────────────────
@@ -535,6 +1148,7 @@ async def get_loan_book(
         entries.append(LoanBookEntry(
             id=app.id,
             reference_number=app.reference_number,
+            applicant_id=app.applicant_id,
             applicant_name=f"{first_name} {last_name}",
             amount_requested=float(app.amount_requested),
             amount_approved=float(app.amount_approved) if app.amount_approved else None,
@@ -544,7 +1158,7 @@ async def get_loan_book(
             status=app.status.value,
             risk_band=decision.risk_band if decision else None,
             credit_score=decision.credit_score if decision else None,
-            disbursed_date=app.decided_at if app.status == LoanStatus.DISBURSED else None,
+            disbursed_date=app.disbursed_at or app.decided_at if app.status == LoanStatus.DISBURSED else None,
             outstanding_balance=max(outstanding, 0) if outstanding is not None else None,
             days_past_due=days_past_due,
             next_payment_date=next_payment,
@@ -661,6 +1275,182 @@ async def download_credit_report(
     )
 
 
+# ── ID Parsing (OCR) ─────────────────────────────────
+
+@router.post("/parse-id", response_model=ParsedIdResponse)
+async def parse_id(
+    front_image: UploadFile = File(...),
+    back_image: UploadFile = File(...),
+    current_user: User = Depends(require_roles(*UNDERWRITER_ROLES)),
+):
+    """Accept front and back photos of an ID card and return parsed fields via OpenAI Vision."""
+    front_bytes = await front_image.read()
+    back_bytes = await back_image.read()
+
+    if len(front_bytes) > settings.max_upload_size_mb * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Front image too large")
+    if len(back_bytes) > settings.max_upload_size_mb * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Back image too large")
+
+    front_mime = front_image.content_type or "image/jpeg"
+    back_mime = back_image.content_type or "image/jpeg"
+
+    parsed = await parse_id_images(front_bytes, back_bytes, front_mime, back_mime)
+
+    return ParsedIdResponse(**{
+        k: v for k, v in parsed.items()
+        if k in ParsedIdResponse.model_fields
+    })
+
+
+# ── Application Notes ────────────────────────────────
+
+
+from pydantic import BaseModel, Field
+
+
+class AddNoteRequest(BaseModel):
+    content: str = Field(..., min_length=1, max_length=5000)
+
+
+@router.get("/applications/{application_id}/notes")
+async def list_notes(
+    application_id: int,
+    current_user: User = Depends(require_roles(*UNDERWRITER_ROLES)),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all notes for an application, newest first."""
+    result = await db.execute(
+        select(ApplicationNote)
+        .where(ApplicationNote.application_id == application_id)
+        .order_by(ApplicationNote.created_at.desc())
+    )
+    notes = result.scalars().all()
+    return [
+        {
+            "id": n.id,
+            "content": n.content,
+            "created_at": n.created_at.isoformat() if n.created_at else None,
+            "user_id": n.user_id,
+            "user_name": f"{n.user.first_name} {n.user.last_name}" if n.user else "Unknown",
+            "user_email": n.user.email if n.user else None,
+        }
+        for n in notes
+    ]
+
+
+@router.post("/applications/{application_id}/notes", status_code=201)
+async def add_note(
+    application_id: int,
+    data: AddNoteRequest,
+    current_user: User = Depends(require_roles(*UNDERWRITER_ROLES)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Add a note to an application."""
+    # Verify application exists
+    result = await db.execute(
+        select(LoanApplication).where(LoanApplication.id == application_id)
+    )
+    application = result.scalar_one_or_none()
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    note = ApplicationNote(
+        application_id=application_id,
+        user_id=current_user.id,
+        content=data.content,
+    )
+    db.add(note)
+    await db.flush()
+    await db.refresh(note, ["user"])
+
+    return {
+        "id": note.id,
+        "content": note.content,
+        "created_at": note.created_at.isoformat() if note.created_at else None,
+        "user_id": note.user_id,
+        "user_name": f"{current_user.first_name} {current_user.last_name}",
+        "user_email": current_user.email,
+    }
+
+
+# ── Customer Search ──────────────────────────────────
+
+
+@router.get("/customers/search")
+async def search_customers(
+    q: str = Query(..., min_length=2, description="Search term (email, name, or phone)"),
+    current_user: User = Depends(require_roles(*UNDERWRITER_ROLES)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Search existing applicant customers by email, name, or phone."""
+    from sqlalchemy import or_
+
+    search = f"%{q.lower()}%"
+
+    result = await db.execute(
+        select(User)
+        .outerjoin(ApplicantProfile, ApplicantProfile.user_id == User.id)
+        .where(
+            User.role == UserRole.APPLICANT,
+            or_(
+                func.lower(User.email).like(search),
+                func.lower(User.first_name).like(search),
+                func.lower(User.last_name).like(search),
+                func.lower(User.phone).like(search),
+                func.lower(ApplicantProfile.national_id).like(search),
+                func.lower(ApplicantProfile.mobile_phone).like(search),
+            ),
+        )
+        .limit(10)
+    )
+    users = result.scalars().all()
+
+    # Load profiles for matched users
+    results = []
+    for u in users:
+        prof_result = await db.execute(
+            select(ApplicantProfile).where(ApplicantProfile.user_id == u.id)
+        )
+        profile = prof_result.scalar_one_or_none()
+
+        results.append({
+            "id": u.id,
+            "email": u.email,
+            "first_name": u.first_name,
+            "last_name": u.last_name,
+            "phone": u.phone,
+            "profile": {
+                "date_of_birth": str(profile.date_of_birth) if profile and profile.date_of_birth else None,
+                "id_type": profile.id_type if profile else None,
+                "national_id": profile.national_id if profile else None,
+                "gender": profile.gender if profile else None,
+                "marital_status": profile.marital_status if profile else None,
+                "address_line1": profile.address_line1 if profile else None,
+                "address_line2": profile.address_line2 if profile else None,
+                "city": profile.city if profile else None,
+                "parish": profile.parish if profile else None,
+                "whatsapp_number": profile.whatsapp_number if profile else None,
+                "contact_email": profile.contact_email if profile else None,
+                "mobile_phone": profile.mobile_phone if profile else None,
+                "home_phone": profile.home_phone if profile else None,
+                "employer_phone": profile.employer_phone if profile else None,
+                "employer_name": profile.employer_name if profile else None,
+                "employer_sector": profile.employer_sector if profile else None,
+                "job_title": profile.job_title if profile else None,
+                "employment_type": profile.employment_type if profile else None,
+                "years_employed": profile.years_employed if profile else None,
+                "monthly_income": float(profile.monthly_income) if profile and profile.monthly_income else None,
+                "other_income": float(profile.other_income) if profile and profile.other_income else None,
+                "monthly_expenses": float(profile.monthly_expenses) if profile and profile.monthly_expenses else None,
+                "existing_debt": float(profile.existing_debt) if profile and profile.existing_debt else None,
+                "dependents": profile.dependents if profile else None,
+            } if profile else None,
+        })
+
+    return results
+
+
 # ── Staff Create Application ─────────────────────────
 
 def _generate_reference() -> str:
@@ -670,7 +1460,141 @@ def _generate_reference() -> str:
     return f"ZOT-{year}-{suffix}"
 
 
-@router.post("/applications/create-on-behalf", response_model=LoanApplicationResponse)
+@router.get("/applications/{application_id}/generate-contract")
+async def generate_contract_docx(
+    application_id: int,
+    current_user: User = Depends(require_roles(*UNDERWRITER_ROLES)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate a contract DOCX from the template, pre-populated with application details."""
+    from fastapi.responses import StreamingResponse
+    from app.services.contract_generator import generate_contract_docx as gen_docx
+    from app.models.catalog import CreditProduct, ProductCategory
+
+    # Load application with items
+    result = await db.execute(
+        select(LoanApplication)
+        .options(selectinload(LoanApplication.items))
+        .where(LoanApplication.id == application_id)
+    )
+    application = result.scalar_one_or_none()
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    # Load applicant profile
+    prof_result = await db.execute(
+        select(ApplicantProfile).where(ApplicantProfile.user_id == application.applicant_id)
+    )
+    profile = prof_result.scalar_one_or_none()
+
+    # Load applicant user for name
+    user_result = await db.execute(
+        select(User).where(User.id == application.applicant_id)
+    )
+    applicant_user = user_result.scalar_one_or_none()
+    applicant_name = ""
+    if application.contract_typed_name:
+        applicant_name = application.contract_typed_name
+    elif applicant_user:
+        applicant_name = f"{applicant_user.first_name} {applicant_user.last_name}"
+
+    # Build address from profile
+    address_parts = []
+    if profile:
+        if profile.address_line1:
+            address_parts.append(profile.address_line1)
+        if profile.address_line2:
+            address_parts.append(profile.address_line2)
+        if profile.city:
+            address_parts.append(profile.city)
+        if profile.parish:
+            address_parts.append(profile.parish)
+    applicant_address = ", ".join(address_parts) or "Address not provided"
+
+    # Product name
+    product_name = "Hire Purchase"
+    if application.credit_product_id:
+        prod_result = await db.execute(
+            select(CreditProduct).where(CreditProduct.id == application.credit_product_id)
+        )
+        prod = prod_result.scalar_one_or_none()
+        if prod:
+            product_name = prod.name
+
+    # Build items list with category names
+    items_list = []
+    if application.items:
+        cat_ids = [item.category_id for item in application.items]
+        if cat_ids:
+            cats_result = await db.execute(
+                select(ProductCategory).where(ProductCategory.id.in_(cat_ids))
+            )
+            cat_map = {c.id: c.name for c in cats_result.scalars().all()}
+        else:
+            cat_map = {}
+
+        for item in application.items:
+            items_list.append({
+                "category_name": cat_map.get(item.category_id, ""),
+                "description": item.description or cat_map.get(item.category_id, ""),
+                "price": float(item.price),
+                "quantity": item.quantity,
+            })
+
+    # Contact details
+    contact_parts = []
+    if profile:
+        if profile.mobile_phone:
+            contact_parts.append(profile.mobile_phone)
+        elif profile.home_phone:
+            contact_parts.append(profile.home_phone)
+        if profile.contact_email:
+            contact_parts.append(profile.contact_email)
+    if applicant_user and not contact_parts:
+        if applicant_user.phone:
+            contact_parts.append(applicant_user.phone)
+        if applicant_user.email:
+            contact_parts.append(applicant_user.email)
+    contact_details = " and ".join(contact_parts) if contact_parts else ""
+
+    # Compute interest + fees
+    total_financed = float(application.total_financed or application.amount_requested)
+    amount = float(application.amount_requested)
+    monthly_payment = float(application.monthly_payment or 0)
+    downpayment = float(application.downpayment or 0)
+    term_months = application.term_months
+    total_repayment = monthly_payment * term_months
+    interest_and_fees = total_repayment - (amount - downpayment) if total_repayment > (amount - downpayment) else 0
+
+    docx_buffer = gen_docx(
+        applicant_name=applicant_name,
+        applicant_address=applicant_address,
+        national_id=profile.national_id if profile else "",
+        reference_number=application.reference_number,
+        product_name=product_name,
+        items=items_list if items_list else None,
+        amount=amount,
+        term_months=term_months,
+        monthly_payment=monthly_payment,
+        total_financed=total_financed,
+        downpayment=downpayment,
+        interest_and_fees=interest_and_fees,
+        interest_rate=float(application.interest_rate) if application.interest_rate else None,
+        signed_at=application.contract_signed_at,
+        signature_name=applicant_name,
+        signature_data_url=application.contract_signature_data or "",
+        contact_details=contact_details,
+    )
+
+    filename = f"contract-{application.reference_number}.docx"
+    return StreamingResponse(
+        docx_buffer,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/applications/create-on-behalf", response_model=LoanApplicationResponse, status_code=201)
 async def create_on_behalf(
     data: StaffCreateApplicationRequest,
     current_user: User = Depends(require_roles(*UNDERWRITER_ROLES)),
@@ -707,9 +1631,13 @@ async def create_on_behalf(
         db.add(profile)
 
     for field_name in [
-        "date_of_birth", "national_id", "gender", "address_line1",
-        "city", "parish", "employer_name", "job_title", "employment_type",
-        "years_employed", "monthly_income", "monthly_expenses", "existing_debt",
+        "date_of_birth", "id_type", "national_id", "gender", "marital_status",
+        "address_line1", "address_line2", "city", "parish",
+        "whatsapp_number", "contact_email", "mobile_phone",
+        "home_phone", "employer_phone", "employer_name", "employer_sector",
+        "job_title", "employment_type",
+        "years_employed", "monthly_income", "other_income", "monthly_expenses",
+        "existing_debt", "dependents",
     ]:
         val = getattr(data, field_name, None)
         if val is not None:
@@ -727,8 +1655,26 @@ async def create_on_behalf(
         purpose_description=data.purpose_description,
         status=LoanStatus.SUBMITTED,
         submitted_at=datetime.now(timezone.utc),
+        merchant_id=data.merchant_id,
+        branch_id=data.branch_id,
+        credit_product_id=data.credit_product_id,
+        downpayment=data.downpayment,
+        total_financed=data.total_financed,
     )
     db.add(application)
+    await db.flush()
+
+    # Create application items if provided (hire-purchase)
+    if data.items:
+        for item_data in data.items:
+            item = ApplicationItem(
+                loan_application_id=application.id,
+                category_id=item_data.get("category_id"),
+                description=item_data.get("description"),
+                price=item_data.get("price", 0),
+                quantity=item_data.get("quantity", 1),
+            )
+            db.add(item)
 
     # Audit
     audit = AuditLog(
@@ -758,3 +1704,150 @@ async def create_on_behalf(
 
     await db.refresh(application)
     return application
+
+
+# ── Bank Statement Analysis ───────────────────────────────────────────────
+
+@router.post("/applications/{application_id}/analyze-bank-statement", response_model=BankAnalysisResponse)
+async def analyze_bank_statement_endpoint(
+    application_id: int,
+    document_id: Optional[int] = Query(None, description="Specific bank statement document ID. If omitted, uses the latest bank_statement."),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(*UNDERWRITER_ROLES)),
+):
+    """Trigger AI analysis of a bank statement document."""
+    import asyncio
+    import json as _json
+    from app.services.bank_statement_analyzer import analyze_bank_statement as run_analysis
+
+    # Verify application exists
+    app_q = await db.execute(
+        select(LoanApplication).where(LoanApplication.id == application_id)
+    )
+    app = app_q.scalar_one_or_none()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    # Find the bank statement document
+    if document_id:
+        doc_q = await db.execute(
+            select(Document).where(
+                Document.id == document_id,
+                Document.loan_application_id == application_id,
+                Document.document_type == DocumentType.BANK_STATEMENT,
+            )
+        )
+    else:
+        doc_q = await db.execute(
+            select(Document).where(
+                Document.loan_application_id == application_id,
+                Document.document_type == DocumentType.BANK_STATEMENT,
+            ).order_by(Document.created_at.desc()).limit(1)
+        )
+    doc = doc_q.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(
+            status_code=404,
+            detail="No bank statement document found for this application. Please upload one first.",
+        )
+
+    # Create the analysis record
+    analysis = BankStatementAnalysis(
+        loan_application_id=application_id,
+        document_id=doc.id,
+        analyzed_by=current_user.id,
+        status=AnalysisStatus.PENDING,
+    )
+    db.add(analysis)
+    await db.flush()
+
+    # Run AI analysis (synchronous OpenAI call, offloaded to thread)
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(
+        None, run_analysis, doc.file_path, doc.mime_type
+    )
+
+    if result.get("status") == "error":
+        analysis.status = AnalysisStatus.FAILED
+        analysis.error_message = result.get("error", "Unknown error")
+    else:
+        analysis.status = AnalysisStatus.COMPLETED
+        analysis.summary = result.get("summary")
+        analysis.cashflow_data = result.get("categories")
+        analysis.flags = result.get("flags", [])
+        analysis.monthly_stats = result.get("monthly_stats", [])
+        analysis.risk_assessment = result.get("risk_assessment")
+        try:
+            analysis.volatility_score = float(result.get("volatility_score", 0))
+        except (TypeError, ValueError):
+            analysis.volatility_score = 0
+
+    await db.flush()
+    await db.refresh(analysis)
+
+    summary_str = analysis.summary if isinstance(analysis.summary, str) else (
+        _json.dumps(analysis.summary) if analysis.summary else None
+    )
+
+    return BankAnalysisResponse(
+        id=analysis.id,
+        loan_application_id=analysis.loan_application_id,
+        document_id=analysis.document_id,
+        status=analysis.status.value if hasattr(analysis.status, "value") else str(analysis.status),
+        summary=summary_str,
+        cashflow_data=analysis.cashflow_data,
+        flags=[
+            {"type": f.get("type", ""), "severity": f.get("severity", "low"), "detail": f.get("detail", ""), "amount_involved": f.get("amount_involved"), "occurrences": f.get("occurrences")}
+            for f in (analysis.flags or [])
+        ],
+        volatility_score=float(analysis.volatility_score) if analysis.volatility_score else None,
+        monthly_stats=analysis.monthly_stats,
+        risk_assessment=analysis.risk_assessment,
+        income_stability=result.get("income_stability") if result.get("status") != "error" else None,
+        avg_monthly_inflow=result.get("avg_monthly_inflow") if result.get("status") != "error" else None,
+        avg_monthly_outflow=result.get("avg_monthly_outflow") if result.get("status") != "error" else None,
+        avg_monthly_net=result.get("avg_monthly_net") if result.get("status") != "error" else None,
+        error_message=analysis.error_message,
+        created_at=analysis.created_at,
+    )
+
+
+@router.get("/applications/{application_id}/bank-analysis", response_model=BankAnalysisResponse)
+async def get_bank_analysis(
+    application_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(*UNDERWRITER_ROLES)),
+):
+    """Get the latest bank statement analysis for an application."""
+    import json as _json
+
+    result = await db.execute(
+        select(BankStatementAnalysis).where(
+            BankStatementAnalysis.loan_application_id == application_id,
+        ).order_by(BankStatementAnalysis.created_at.desc()).limit(1)
+    )
+    analysis = result.scalar_one_or_none()
+    if not analysis:
+        raise HTTPException(status_code=404, detail="No bank statement analysis found for this application.")
+
+    summary_str = analysis.summary if isinstance(analysis.summary, str) else (
+        _json.dumps(analysis.summary) if analysis.summary else None
+    )
+
+    return BankAnalysisResponse(
+        id=analysis.id,
+        loan_application_id=analysis.loan_application_id,
+        document_id=analysis.document_id,
+        status=analysis.status.value if hasattr(analysis.status, "value") else str(analysis.status),
+        summary=summary_str,
+        cashflow_data=analysis.cashflow_data,
+        flags=[
+            {"type": f.get("type", ""), "severity": f.get("severity", "low"), "detail": f.get("detail", ""), "amount_involved": f.get("amount_involved"), "occurrences": f.get("occurrences")}
+            for f in (analysis.flags or [])
+        ],
+        volatility_score=float(analysis.volatility_score) if analysis.volatility_score else None,
+        monthly_stats=analysis.monthly_stats,
+        risk_assessment=analysis.risk_assessment,
+        error_message=analysis.error_message,
+        created_at=analysis.created_at,
+    )
