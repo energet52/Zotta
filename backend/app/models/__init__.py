@@ -1,6 +1,12 @@
 """SQLAlchemy models for Zotta lending application."""
 
-from app.models.user import User
+from app.models.user import User, UserStatus
+from app.models.rbac import (
+    Role, Permission, RolePermission, UserRoleAssignment, PendingAction,
+    PendingActionStatus,
+)
+from app.models.mfa import MFADevice, MFADeviceType
+from app.models.session import UserSession, LoginAttempt
 from app.models.loan import LoanApplication, ApplicantProfile, ApplicationItem
 from app.models.decision import Decision, DecisionRulesConfig
 from app.models.document import Document
@@ -79,6 +85,20 @@ from app.models.gl import (
 
 __all__ = [
     "User",
+    "UserStatus",
+    # RBAC
+    "Role",
+    "Permission",
+    "RolePermission",
+    "UserRoleAssignment",
+    "PendingAction",
+    "PendingActionStatus",
+    # MFA
+    "MFADevice",
+    "MFADeviceType",
+    # Sessions
+    "UserSession",
+    "LoginAttempt",
     "LoanApplication",
     "ApplicantProfile",
     "ApplicationItem",

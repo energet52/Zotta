@@ -439,6 +439,50 @@ export const errorLogApi = {
     api.delete('/error-logs/cleanup', { params: days ? { days } : {} }),
 };
 
+// ── User Management ─────────────────────────────
+export const userApi = {
+  list: (params?: Record<string, unknown>) =>
+    api.get('/users/', { params }),
+  count: () => api.get('/users/count'),
+  get: (id: number) => api.get(`/users/${id}`),
+  create: (data: Record<string, unknown>) => api.post('/users/', data),
+  update: (id: number, data: Record<string, unknown>) => api.patch(`/users/${id}`, data),
+  suspend: (id: number) => api.post(`/users/${id}/suspend`),
+  reactivate: (id: number) => api.post(`/users/${id}/reactivate`),
+  deactivate: (id: number) => api.post(`/users/${id}/deactivate`),
+  unlock: (id: number) => api.post(`/users/${id}/unlock`),
+  resetPassword: (id: number, data: { new_password: string }) =>
+    api.post(`/users/${id}/reset-password`, data),
+  // Roles
+  getUserRoles: (userId: number) => api.get(`/users/${userId}/roles`),
+  assignRoles: (userId: number, data: { role_ids: number[] }) =>
+    api.put(`/users/${userId}/roles`, data),
+  listRoles: () => api.get('/users/roles/all'),
+  getRole: (id: number) => api.get(`/users/roles/${id}`),
+  createRole: (data: Record<string, unknown>) => api.post('/users/roles', data),
+  updateRole: (id: number, data: Record<string, unknown>) => api.patch(`/users/roles/${id}`, data),
+  listPermissions: () => api.get('/users/permissions/all'),
+  // Sessions
+  getUserSessions: (userId: number) => api.get(`/users/${userId}/sessions`),
+  revokeAllSessions: (userId: number) => api.post(`/users/${userId}/sessions/revoke-all`),
+  // Login history
+  getLoginHistory: (userId: number, limit?: number) =>
+    api.get(`/users/${userId}/login-history`, { params: limit ? { limit } : {} }),
+  // Pending actions
+  listPendingActions: () => api.get('/users/pending-actions'),
+  decidePendingAction: (id: number, data: { approved: boolean; rejection_reason?: string }) =>
+    api.post(`/users/pending-actions/${id}/decide`, data),
+  // Auth extensions
+  mySessions: () => api.get('/auth/sessions'),
+  revokeSession: (sessionId: number) => api.delete(`/auth/sessions/${sessionId}`),
+  setupMFA: () => api.post('/auth/mfa/setup'),
+  confirmMFA: (data: { code: string; mfa_token?: string }) => api.post('/auth/mfa/confirm', data),
+  verifyMFA: (data: { code: string; mfa_token: string }) => api.post('/auth/mfa/verify', data),
+  disableMFA: () => api.delete('/auth/mfa/disable'),
+  changePassword: (data: { old_password: string; new_password: string }) =>
+    api.post('/auth/change-password', data),
+};
+
 // ── Consumer Catalog ────────────────────────────
 export const catalogApi = {
   getMerchants: () => api.get('/catalog/merchants'),

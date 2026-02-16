@@ -278,7 +278,7 @@ export default function RulesManagement() {
     if (!aiResult?.rule) return;
     const r = aiResult.rule;
     const newRule: RuleEntry = {
-      rule_id: (r.rule_id as string) || `R_CUSTOM_${Date.now()}`,
+      rule_id: (r.rule_id as string) || `RC_${Date.now().toString(36).toUpperCase()}`,
       name: (r.name as string) || 'Custom Rule',
       description: (r.description as string) || '',
       field: (r.field as string) || '',
@@ -367,10 +367,10 @@ export default function RulesManagement() {
               {/* Main row */}
               <div className="flex items-center gap-3 px-4 py-3">
                 {/* ID + badge */}
-                <div className="w-16 shrink-0">
-                  <span className="font-mono text-xs text-[var(--color-text-muted)]">{rule.rule_id}</span>
+                <div className="w-24 shrink-0 overflow-hidden">
+                  <span className="font-mono text-xs text-[var(--color-text-muted)] block truncate">{rule.rule_id}</span>
                   {rule.is_custom && (
-                    <span className="ml-1 text-[10px] text-sky-400 bg-sky-500/10 px-1 rounded">AI</span>
+                    <span className="text-[10px] text-sky-400 bg-sky-500/10 px-1 rounded">AI</span>
                   )}
                 </div>
 

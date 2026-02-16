@@ -1084,13 +1084,16 @@ export default function LoanApplication() {
               }))}
               cashPrice={totalAmount}
               downpayment={calculation?.downpayment || 0}
-              totalFinanced={calculation?.total_financed || totalAmount}
+              totalFinanced={(() => {
+                const mp = calculation?.monthly_payment || 0;
+                return mp > 0 ? mp * (selectedTerm || 0) : totalAmount;
+              })()}
               interestAndFees={(() => {
                 const mp = calculation?.monthly_payment || 0;
-                const tf = calculation?.total_financed || totalAmount;
                 const dp = calculation?.downpayment || 0;
+                const amountFinanced = totalAmount - dp;
                 const total = mp * (selectedTerm || 0);
-                return total > (tf - dp) ? total - (tf - dp) : 0;
+                return total > amountFinanced ? total - amountFinanced : 0;
               })()}
               termMonths={selectedTerm || 0}
               monthlyPayment={calculation?.monthly_payment || 0}

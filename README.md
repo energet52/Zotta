@@ -20,11 +20,12 @@ Zotta is a full-stack consumer lending management system built for the Caribbean
           │  Collections AI    │──────► Twilio (WhatsApp)
           │  General Ledger    │
           │  Sector Analysis   │
+          │  User Management   │
           └─────────┬──────────┘
                     │
           ┌─────────▼───┐  ┌─────────┐
           │ PostgreSQL   │  │  Redis   │
-          │ (40+ tables) │  │ + Celery │
+          │ (50+ tables) │  │ + Celery │
           └─────────────┘  └─────────┘
 ```
 
@@ -160,7 +161,23 @@ Conversational AI for customer self-service and support.
 - **Escalation** — Automatic escalation to human agents for complex cases.
 - **Staff Conversations** — Back-office initiated conversations with customers.
 
-### 13. Consumer Self-Service
+### 13. User Management
+
+Enterprise-grade identity, authentication, and access control.
+
+- **User Administration** — Full CRUD for users with status management (active, suspended, locked, deactivated, pending activation). Search, filter, and bulk operations.
+- **Role-Based Access Control (RBAC)** — 10 system roles (System Administrator, Senior Underwriter, Junior Underwriter, Loan Officer, Collections Agent, Collections Manager, Credit Risk Manager, Finance Manager, Compliance Officer, Applicant) with 54 granular permissions across 13 modules.
+- **Permission Management** — Assign/revoke permissions per role with scope levels (all, own, team). Role hierarchy with parent-child inheritance.
+- **Multi-Factor Authentication (MFA)** — TOTP-based MFA via authenticator apps (Google Authenticator, Authy). Setup wizard with QR code provisioning, verification flow, and disable option.
+- **Session Management** — JWT-based sessions with unique JTI tracking, device/IP recording, active session listing, and individual/bulk session revocation.
+- **Account Security** — Automatic account lockout after 5 failed login attempts (30-minute cooldown), forced password change, login attempt recording with IP and user agent tracking.
+- **Maker-Checker Workflow** — Sensitive operations (role changes, user deactivation) can require approval from a second administrator.
+- **AI Role Recommendations** — Intelligent role suggestions based on department and job title using keyword matching with OpenAI fallback.
+- **AI Admin Queries** — Natural language questions about user data (e.g., "How many active users?", "Users without MFA") with pattern matching and OpenAI fallback.
+- **Login Anomaly Detection** — Rule-based heuristics detecting new IP/device, brute force attempts, unusual login times, rapid IP switching, and impossible travel.
+- **Audit Logging** — All user management actions (create, update, role assignment, status change, login) logged with actor, timestamp, and change details.
+
+### 14. Consumer Self-Service
 
 Customer-facing portal for loan management.
 
@@ -176,11 +193,12 @@ Customer-facing portal for loan management.
 |-------|-----------|
 | Backend | Python 3.12, FastAPI, SQLAlchemy 2.0, Alembic, Pydantic v2 |
 | Frontend | TypeScript, React 19, Vite, Tailwind CSS 4, React Router v6 |
-| Database | PostgreSQL 16 (40+ tables, 17 migrations) |
+| Database | PostgreSQL 16 (50+ tables, 18 migrations) |
 | Cache / Queue | Redis 7, Celery |
 | AI | OpenAI GPT-4o-mini (scoring, NLP, analysis, rule generation) |
+| Auth | JWT (access + refresh), TOTP MFA (pyotp), bcrypt |
 | WhatsApp | Twilio WhatsApp Business API |
-| Testing | Pytest (16 test suites), Playwright (294 E2E tests) |
+| Testing | Pytest (17 test suites), Playwright (352 E2E tests) |
 | Infrastructure | Docker Compose, AWS CDK (ECS Fargate, RDS, CloudFront), EC2 |
 
 ## Quick Start
@@ -245,26 +263,27 @@ npm run dev
 Zotta/
 ├── backend/                    # Python FastAPI backend
 │   ├── app/
-│   │   ├── api/                # 16 API route modules
-│   │   ├── models/             # 24 SQLAlchemy model files (40+ entities)
-│   │   ├── services/           # 25+ service modules
+│   │   ├── api/                # 18 API route modules
+│   │   ├── models/             # 27 SQLAlchemy model files (50+ entities)
+│   │   ├── services/           # 45 service modules
 │   │   │   ├── decision_engine/    # Scoring + rules engine
 │   │   │   └── gl/                 # General ledger services
-│   │   ├── middleware/         # Error capture middleware
-│   │   ├── migrations/         # 17 Alembic migrations
+│   │   ├── middleware/         # Error capture + session tracking
+│   │   ├── migrations/         # 18 Alembic migrations
 │   │   ├── tasks/              # Celery async tasks
 │   │   └── templates/          # DOCX contract templates
-│   ├── tests/                  # 16 Pytest test suites
+│   ├── tests/                  # 17 Pytest test suites
 │   └── seed.py                 # Test data seeder
 ├── frontend/                   # React TypeScript frontend
 │   └── src/
 │       ├── apps/
 │       │   ├── consumer/       # 9 consumer portal pages
-│       │   └── backoffice/     # 37 back-office pages
-│       ├── components/         # 13 shared UI components
+│       │   └── backoffice/     # 49 back-office pages
+│       ├── components/         # 15 shared UI components
+│       ├── hooks/              # Custom hooks (usePermission)
 │       ├── api/                # API client (endpoints.ts)
 │       └── store/              # Zustand state management
-├── e2e/                        # Playwright E2E tests (294 tests)
+├── e2e/                        # Playwright E2E tests (352 tests)
 ├── infrastructure/             # AWS deployment
 │   ├── aws/                    # CDK stack (ECS Fargate, RDS, CloudFront)
 │   ├── ec2/                    # Single-server deployment scripts

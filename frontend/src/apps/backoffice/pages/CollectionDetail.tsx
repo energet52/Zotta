@@ -1006,9 +1006,28 @@ export default function CollectionDetail() {
                   <div className="text-[10px] uppercase tracking-wider text-emerald-400 font-semibold mb-0.5">
                     Suggested Offer
                   </div>
-                  <p className="text-sm text-[var(--color-text)]">
-                    {ai.nba.suggested_offer}
-                  </p>
+                  {typeof ai.nba.suggested_offer === 'string' ? (
+                    <p className="text-sm text-[var(--color-text)]">{ai.nba.suggested_offer}</p>
+                  ) : (
+                    <div className="text-sm text-[var(--color-text)] space-y-0.5">
+                      <p className="font-medium capitalize">
+                        {(ai.nba.suggested_offer.offer_type || '').replace(/_/g, ' ')}
+                      </p>
+                      {ai.nba.suggested_offer.settlement_amount != null && (
+                        <p>Amount: <span className="font-semibold">${Number(ai.nba.suggested_offer.settlement_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                          {ai.nba.suggested_offer.discount_pct > 0 && (
+                            <span className="text-emerald-400 ml-1">({ai.nba.suggested_offer.discount_pct}% discount)</span>
+                          )}
+                        </p>
+                      )}
+                      {ai.nba.suggested_offer.plan_months > 0 && (
+                        <p>{ai.nba.suggested_offer.plan_months}-month plan at ${Number(ai.nba.suggested_offer.plan_monthly_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}/mo</p>
+                      )}
+                      {ai.nba.suggested_offer.lump_sum > 0 && (
+                        <p>Lump sum: ${Number(ai.nba.suggested_offer.lump_sum).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 

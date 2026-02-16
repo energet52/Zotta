@@ -93,7 +93,7 @@ async def get_customer_360(user_id: int, db: AsyncSession) -> dict:
             "id", "user_id", "date_of_birth", "id_type", "national_id",
             "gender", "marital_status",
             "address_line1", "address_line2", "city", "parish", "country",
-            "employer_name", "job_title", "employment_type",
+            "employer_name", "employer_sector", "job_title", "employment_type",
             "years_employed", "monthly_income", "other_income",
             "monthly_expenses", "existing_debt", "dependents",
             "whatsapp_number", "contact_email", "mobile_phone",

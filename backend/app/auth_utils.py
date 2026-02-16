@@ -1,14 +1,16 @@
-"""JWT token creation and password hashing utilities."""
+"""JWT token creation, password hashing, and access-control dependencies."""
 
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.database import get_db
@@ -18,6 +20,11 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
 ALGORITHM = "HS256"
+MAX_FAILED_ATTEMPTS = 5
+LOCKOUT_MINUTES = 30
+
+
+# ── Password helpers ─────────────────────────────────────────
 
 
 def hash_password(password: str) -> str:
@@ -28,27 +35,55 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+# ── Token helpers ────────────────────────────────────────────
+
+
+def _generate_jti() -> str:
+    """Generate a unique JWT ID for session tracking."""
+    return uuid.uuid4().hex
+
+
+def create_access_token(
+    data: dict,
+    expires_delta: Optional[timedelta] = None,
+    jti: Optional[str] = None,
+) -> str:
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + (
         expires_delta or timedelta(minutes=settings.access_token_expire_minutes)
     )
-    to_encode.update({"exp": expire, "type": "access"})
+    to_encode.update({
+        "exp": expire,
+        "type": "access",
+        "jti": jti or _generate_jti(),
+    })
     return jwt.encode(to_encode, settings.secret_key, algorithm=ALGORITHM)
 
 
-def create_refresh_token(data: dict) -> str:
+def create_refresh_token(data: dict, jti: Optional[str] = None) -> str:
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days)
-    to_encode.update({"exp": expire, "type": "refresh"})
+    to_encode.update({
+        "exp": expire,
+        "type": "refresh",
+        "jti": jti or _generate_jti(),
+    })
     return jwt.encode(to_encode, settings.secret_key, algorithm=ALGORITHM)
+
+
+def decode_token(token: str) -> dict:
+    """Decode and return the JWT payload. Raises JWTError on failure."""
+    return jwt.decode(token, settings.secret_key, algorithms=[ALGORITHM])
+
+
+# ── User dependencies ───────────────────────────────────────
 
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Decode JWT and return the current user."""
+    """Decode JWT and return the current user. Checks session validity."""
     token = credentials.credentials
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -65,10 +100,32 @@ async def get_current_user(
     except (JWTError, ValueError, TypeError):
         raise credentials_exception
 
+    # Check session revocation if jti is present
+    token_jti = payload.get("jti")
+    if token_jti:
+        from app.models.session import UserSession
+        sess_result = await db.execute(
+            select(UserSession).where(
+                UserSession.token_jti == token_jti,
+                UserSession.is_active.is_(True),
+            )
+        )
+        session = sess_result.scalar_one_or_none()
+        if session is None:
+            raise credentials_exception
+        # Update last activity
+        session.last_activity_at = datetime.now(timezone.utc)
+
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if user is None or not user.is_active:
         raise credentials_exception
+    # Check account status
+    if user.status not in ("active",):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Account is {user.status}",
+        )
     return user
 
 
@@ -76,7 +133,7 @@ async def get_optional_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(HTTPBearer(auto_error=False)),
     db: AsyncSession = Depends(get_db),
 ) -> User | None:
-    """Return current user if valid token provided, else None. Used for optional auth."""
+    """Return current user if valid token provided, else None."""
     if credentials is None:
         return None
     try:
@@ -97,8 +154,11 @@ async def get_optional_user(
     return user
 
 
+# ── Legacy role check ───────────────────────────────────────
+
+
 def require_roles(*roles: UserRole):
-    """Dependency factory that checks the user has one of the required roles."""
+    """Dependency factory that checks the user has one of the required legacy roles."""
     async def role_checker(current_user: User = Depends(get_current_user)) -> User:
         if current_user.role not in roles:
             raise HTTPException(
@@ -107,3 +167,66 @@ def require_roles(*roles: UserRole):
             )
         return current_user
     return role_checker
+
+
+# ── Granular permission check ────────────────────────────────
+
+
+def require_permission(*permission_codes: str):
+    """Dependency factory that checks the user has at least one of the required permissions.
+
+    Resolves the user's effective permissions from their RBAC role assignments.
+    Falls back to legacy role: admin gets everything, underwriters get a reasonable set.
+    """
+    async def permission_checker(
+        current_user: User = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db),
+    ) -> User:
+        from app.models.rbac import UserRoleAssignment, RolePermission, Permission, Role
+
+        # Collect all role IDs assigned to this user (including parent roles)
+        ura_result = await db.execute(
+            select(UserRoleAssignment.role_id).where(
+                UserRoleAssignment.user_id == current_user.id,
+            )
+        )
+        role_ids = [r[0] for r in ura_result.all()]
+
+        # Walk parent chain for inherited permissions
+        all_role_ids = set(role_ids)
+        to_check = list(role_ids)
+        while to_check:
+            parent_result = await db.execute(
+                select(Role.parent_role_id).where(
+                    Role.id.in_(to_check),
+                    Role.parent_role_id.isnot(None),
+                )
+            )
+            parents = [r[0] for r in parent_result.all()]
+            new_parents = [p for p in parents if p not in all_role_ids]
+            all_role_ids.update(new_parents)
+            to_check = new_parents
+
+        if all_role_ids:
+            # Check if any of the user's roles have the required permission
+            perm_result = await db.execute(
+                select(Permission.code).join(
+                    RolePermission, RolePermission.permission_id == Permission.id
+                ).where(
+                    RolePermission.role_id.in_(all_role_ids),
+                    Permission.code.in_(permission_codes),
+                )
+            )
+            found = perm_result.scalars().all()
+            if found:
+                return current_user
+
+        # Fallback: legacy role admin gets everything
+        if current_user.role == UserRole.ADMIN:
+            return current_user
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions",
+        )
+    return permission_checker

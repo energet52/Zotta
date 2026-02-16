@@ -53,7 +53,7 @@ export default function HirePurchaseAgreementText({
   expiry.setMonth(expiry.getMonth() + termMonths);
   const expiryStr = `${String(expiry.getDate()).padStart(2, '0')}/${String(expiry.getMonth() + 1).padStart(2, '0')}/${expiry.getFullYear()}`;
 
-  const hirePrice = totalFinanced;
+  const hirePrice = monthlyPayment > 0 ? monthlyPayment * termMonths : totalFinanced;
   const ownerName = 'Effortless Consulting Limited';
   const ownerAddress = 'No.3 The Summit, St. Andrews Wynd Road, Moka, Maraval, in the Island of Trinidad, in the Republic of Trinidad and Tobago';
 

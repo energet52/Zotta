@@ -60,6 +60,11 @@ import ReportBuilder from './apps/backoffice/pages/gl/ReportBuilder';
 import AnomalyDashboard from './apps/backoffice/pages/gl/AnomalyDashboard';
 import GLChat from './apps/backoffice/pages/gl/GLChat';
 
+// User Management pages
+import UserManagement from './apps/backoffice/pages/UserManagement';
+import UserDetail, { CreateUserForm } from './apps/backoffice/pages/UserDetail';
+import RoleEditor, { RoleDetailPage } from './apps/backoffice/pages/RoleEditor';
+
 // Admin pages
 import ErrorMonitor from './apps/backoffice/pages/ErrorMonitor';
 
@@ -139,6 +144,12 @@ export default function App() {
           <Route path="/backoffice/merchants" element={<MerchantManagement />} />
           <Route path="/backoffice/rules" element={<RulesManagement />} />
           <Route path="/backoffice/error-monitor" element={<ErrorMonitor />} />
+          {/* User Management */}
+          <Route path="/backoffice/users" element={<UserManagement />} />
+          <Route path="/backoffice/users/new" element={<CreateUserForm />} />
+          <Route path="/backoffice/users/roles" element={<RoleEditor />} />
+          <Route path="/backoffice/users/roles/:roleId" element={<RoleDetailPage />} />
+          <Route path="/backoffice/users/:userId" element={<UserDetail />} />
           <Route path="/backoffice/customers" element={<CustomerList />} />
           <Route path="/backoffice/customers/:id" element={<Customer360 />} />
           {/* Scorecards */}

@@ -668,7 +668,17 @@ def _evaluate_threshold_rule(
             f"No threshold configured — rule skipped", "soft"))
         return
 
-    passed = _compare(value, operator, threshold)
+    comparison = _compare(value, operator, threshold)
+
+    # Custom (AI-generated) rules express the BLOCKING condition:
+    #   "decline when job_title eq Managerial" → match triggers failure.
+    # Built-in threshold rules express the ACCEPTABLE condition:
+    #   "age gte 18" → match means the applicant passes.
+    if rule.get("is_custom"):
+        passed = not comparison
+    else:
+        passed = comparison
+
     if passed:
         record_fn(RuleResult(rule_id, name, True,
             f"{field_name} ({value}) meets requirement"))

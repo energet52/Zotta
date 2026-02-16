@@ -179,6 +179,15 @@ async def generate_performance_snapshot(
     score_results = (await db.execute(scores_q)).scalars().all()
 
     if not score_results:
+        # Check for existing empty snapshot today
+        existing_empty = (await db.execute(
+            select(ScorecardPerformanceSnapshot).where(
+                ScorecardPerformanceSnapshot.scorecard_id == scorecard_id,
+                ScorecardPerformanceSnapshot.snapshot_date == today,
+            )
+        )).scalar_one_or_none()
+        if existing_empty:
+            return existing_empty
         snap = ScorecardPerformanceSnapshot(
             scorecard_id=scorecard_id, snapshot_date=today,
             total_scored=0, total_approved=0, total_declined=0, total_review=0,

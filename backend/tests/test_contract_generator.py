@@ -178,7 +178,7 @@ class TestGenerateContractDocx:
                 for cell in row.cells:
                     all_text += cell.text + "\n"
 
-        assert "TTD 10,800.00" in all_text  # total_financed
+        assert "TTD 10,806.00" in all_text  # hire purchase price (900.50 × 12)
         assert "TTD 10,000.00" in all_text  # principal/amount
         assert "TTD 500.00" in all_text     # downpayment
         assert "TTD 900.50" in all_text     # monthly_payment

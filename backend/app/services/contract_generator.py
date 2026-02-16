@@ -116,6 +116,9 @@ def generate_contract_docx(
         if interest_and_fees <= 0:
             interest_and_fees = total_repayment - (amount - downpayment) if total_repayment > (amount - downpayment) else 0
 
+        # Hire Purchase Price = total of all payments (principal - downpayment + credit charges)
+        hire_purchase_price = total_repayment if total_repayment > 0 else total_financed
+
         # ── Build replacements dict ───────────────────────
         replacements: dict[str, str] = {
             "{NAME}": applicant_name or "________________________",
@@ -125,11 +128,11 @@ def generate_contract_docx(
             "{YEAR}": year,
             "{DATE}": date_str,
             "{DATE_NAME}": f"{date_str} — {applicant_name}" if applicant_name else date_str,
-            "{TOTAL LOAN AMOUNT}": f"TTD {total_financed:,.2f}",
+            "{TOTAL LOAN AMOUNT}": f"TTD {hire_purchase_price:,.2f}",
             "{PRINCIPAL}": f"TTD {amount:,.2f}",
             "{DOWNPAYMENT}": f"TTD {downpayment:,.2f}",
             "{INTEREST AND FEES}": f"TTD {interest_and_fees:,.2f}",
-            "{TOTAL}": f"TTD {total_financed:,.2f}",
+            "{TOTAL}": f"TTD {hire_purchase_price:,.2f}",
             "{TENURE}": str(term_months),
             "{INSTALMENT AMOUNT}": f"TTD {monthly_payment:,.2f}",
             "{INSTALMENT}": f"TTD {monthly_payment:,.2f}",

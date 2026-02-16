@@ -59,13 +59,14 @@ async def create_conversation(
     try:
         data = data or ConversationCreate()
 
-        # Resume: if user is logged in, look for active conversation
+        # Resume: if user is logged in, look for active non-escalated conversation
         if current_user:
             result = await db.execute(
                 select(Conversation)
                 .where(
                     Conversation.participant_user_id == current_user.id,
                     Conversation.channel == ConversationChannel.WEB,
+                    Conversation.assigned_agent_id.is_(None),
                     Conversation.current_state.not_in([
                         ConversationState.WITHDRAWN,
                         ConversationState.EXPIRED,

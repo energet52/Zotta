@@ -122,6 +122,16 @@ const SECTIONS: NavSection[] = [
     ],
   },
   {
+    id: 'users',
+    label: 'User Management',
+    icon: Users,
+    adminOnly: true,
+    items: [
+      { to: '/backoffice/users', icon: Users, label: 'Users' },
+      { to: '/backoffice/users/roles', icon: Shield, label: 'Roles & Permissions' },
+    ],
+  },
+  {
     id: 'admin',
     label: 'Administration',
     icon: Shield,

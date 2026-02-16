@@ -90,10 +90,10 @@ class CollectionCase(Base):
         ForeignKey("users.id"), nullable=True, index=True,
     )
     status: Mapped[CaseStatus] = mapped_column(
-        Enum(CaseStatus), default=CaseStatus.OPEN, nullable=False,
+        Enum(CaseStatus, name="casestatus", create_type=False), default=CaseStatus.OPEN, nullable=False,
     )
     delinquency_stage: Mapped[DelinquencyStage] = mapped_column(
-        Enum(DelinquencyStage), default=DelinquencyStage.EARLY_1_30, nullable=False,
+        Enum(DelinquencyStage, name="delinquencystage", create_type=False), default=DelinquencyStage.EARLY_1_30, nullable=False,
     )
     priority_score: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     dpd: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -162,7 +162,7 @@ class PromiseToPay(Base):
     promise_date: Mapped[date] = mapped_column(Date, nullable=False)
     payment_method: Mapped[str | None] = mapped_column(String(50), nullable=True)
     status: Mapped[PTPStatus] = mapped_column(
-        Enum(PTPStatus), default=PTPStatus.PENDING, nullable=False,
+        Enum(PTPStatus, name="ptpstatus", create_type=False), default=PTPStatus.PENDING, nullable=False,
     )
     amount_received: Mapped[Decimal] = mapped_column(
         Numeric(12, 2), default=0, nullable=False,
@@ -196,7 +196,7 @@ class SettlementOffer(Base):
     )
 
     offer_type: Mapped[SettlementOfferType] = mapped_column(
-        Enum(SettlementOfferType), nullable=False,
+        Enum(SettlementOfferType, name="settlementoffertype", create_type=False), nullable=False,
     )
     original_balance: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     settlement_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
@@ -208,7 +208,7 @@ class SettlementOffer(Base):
     lump_sum: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
 
     status: Mapped[SettlementOfferStatus] = mapped_column(
-        Enum(SettlementOfferStatus), default=SettlementOfferStatus.DRAFT, nullable=False,
+        Enum(SettlementOfferStatus, name="settlementstatus", create_type=False), default=SettlementOfferStatus.DRAFT, nullable=False,
     )
     offered_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     approved_by: Mapped[int | None] = mapped_column(

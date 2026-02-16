@@ -30,8 +30,10 @@ export const OCCUPATIONS = [
 
 export const OCCUPATION_OTHER = 'Other';
 
-/** All options including "Other" at the end */
-export const OCCUPATION_OPTIONS = [...OCCUPATIONS, OCCUPATION_OTHER];
+/** All options including "Other" at the end.
+ *  NOTE: When used with SearchableSelect's `allowOther` prop, do NOT include
+ *  OCCUPATION_OTHER here — the component appends its own "Other" entry. */
+export const OCCUPATION_OPTIONS = [...OCCUPATIONS] as string[];
 
 /** Check if a value is a predefined occupation (not "Other" and not custom) */
 export function isKnownOccupation(value: string | null | undefined): boolean {

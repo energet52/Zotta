@@ -143,9 +143,9 @@ export default function ContractSignature({
 
   // Compute financial values
   const dp = downpayment || 0;
-  const tf = totalFinanced || loanAmount;
+  const amountFinanced = loanAmount - dp;
   const totalRepayment = monthlyPayment > 0 ? monthlyPayment * termMonths : loanAmount;
-  const interestAndFees = totalRepayment > (tf - dp) ? totalRepayment - (tf - dp) : 0;
+  const interestAndFees = totalRepayment > amountFinanced ? totalRepayment - amountFinanced : 0;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
@@ -163,7 +163,7 @@ export default function ContractSignature({
             items={items}
             cashPrice={loanAmount}
             downpayment={dp}
-            totalFinanced={tf}
+            totalFinanced={totalRepayment}
             interestAndFees={interestAndFees}
             termMonths={termMonths}
             monthlyPayment={monthlyPayment}

@@ -24,6 +24,7 @@ class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+    must_change_password: bool = False
 
 
 class UserResponse(BaseModel):
@@ -31,10 +32,22 @@ class UserResponse(BaseModel):
     email: str
     first_name: str
     last_name: str
+    middle_name: Optional[str] = None
+    display_name: Optional[str] = None
     phone: Optional[str]
     role: str
+    status: str = "active"
+    employee_id: Optional[str] = None
+    department: Optional[str] = None
+    job_title: Optional[str] = None
+    timezone: str = "America/Port_of_Spain"
+    language: str = "en"
+    profile_photo_url: Optional[str] = None
+    mfa_enabled: bool = False
+    last_login_at: Optional[datetime] = None
     is_active: bool
     created_at: datetime
+    updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 
@@ -1165,3 +1178,155 @@ class StartApplicationRequest(BaseModel):
     amount_requested: float = Field(..., gt=0)
     term_months: int = Field(..., ge=3, le=84)
     purpose: str = Field(default="personal")
+
+
+# ── MFA ──────────────────────────────────────────────────────
+
+class MFASetupResponse(BaseModel):
+    secret: str
+    provisioning_uri: str
+    device_id: int
+
+
+class MFAVerifyRequest(BaseModel):
+    code: str = Field(min_length=6, max_length=8)
+    mfa_token: str = ""  # only needed for login flow, empty for confirm
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+# ── Roles & Permissions ─────────────────────────────────────
+
+class PermissionResponse(BaseModel):
+    id: int
+    code: str
+    module: str
+    object: str
+    action: str
+    description: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+class RoleCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    description: Optional[str] = None
+    parent_role_id: Optional[int] = None
+    permission_codes: list[str] = []
+
+
+class RoleUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    description: Optional[str] = None
+    parent_role_id: Optional[int] = None
+    is_active: Optional[bool] = None
+    permission_codes: Optional[list[str]] = None
+
+
+class RoleResponse(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    parent_role_id: Optional[int] = None
+    is_system: bool
+    is_active: bool
+    permissions: list[PermissionResponse] = []
+    user_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class RoleBriefResponse(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    is_system: bool
+    is_active: bool
+
+    model_config = {"from_attributes": True}
+
+
+class UserRoleAssignmentResponse(BaseModel):
+    id: int
+    role_id: int
+    role_name: str
+    granted_by: Optional[int] = None
+    granted_at: datetime
+    expires_at: Optional[datetime] = None
+    is_primary: bool
+
+    model_config = {"from_attributes": True}
+
+
+# ── User Management (admin) ─────────────────────────────────
+
+class AdminUserCreate(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8)
+    first_name: str = Field(min_length=1, max_length=100)
+    last_name: str = Field(min_length=1, max_length=100)
+    middle_name: Optional[str] = None
+    phone: Optional[str] = None
+    role: str = "applicant"
+    employee_id: Optional[str] = None
+    department: Optional[str] = None
+    job_title: Optional[str] = None
+    timezone: str = "America/Port_of_Spain"
+    language: str = "en"
+    role_ids: list[int] = []
+    must_change_password: bool = True
+
+
+class AdminUserUpdate(BaseModel):
+    first_name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    last_name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    middle_name: Optional[str] = None
+    display_name: Optional[str] = None
+    phone: Optional[str] = None
+    employee_id: Optional[str] = None
+    department: Optional[str] = None
+    job_title: Optional[str] = None
+    timezone: Optional[str] = None
+    language: Optional[str] = None
+    status: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class UserDetailResponse(UserResponse):
+    """Extended user response with roles, sessions, and login history."""
+    roles: list[UserRoleAssignmentResponse] = []
+    effective_permissions: list[str] = []
+    active_sessions_count: int = 0
+    recent_login_attempts: list[dict] = []
+
+    model_config = {"from_attributes": True}
+
+
+class AssignRolesRequest(BaseModel):
+    role_ids: list[int]
+
+
+class PendingActionResponse(BaseModel):
+    id: int
+    action_type: str
+    target_user_id: Optional[int] = None
+    payload: dict
+    requested_by: int
+    requester_name: Optional[str] = None
+    approved_by: Optional[int] = None
+    approver_name: Optional[str] = None
+    status: str
+    rejection_reason: Optional[str] = None
+    created_at: datetime
+    resolved_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+class PendingActionDecision(BaseModel):
+    approved: bool
+    rejection_reason: Optional[str] = None
