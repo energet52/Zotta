@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    JSON,
     Numeric,
     String,
     Text,
@@ -90,9 +91,29 @@ class CreditProduct(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
+    # Risk-based pricing tiers
+    interest_rate: Mapped[Decimal | None] = mapped_column(Numeric(6, 4), nullable=True)
+    # Eligibility criteria (JSON)
+    eligibility_criteria: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # Product lifecycle: draft | active | sunset | retired
+    lifecycle_status: Mapped[str] = mapped_column(String(20), nullable=False, default="active", server_default="active")
+    # Version tracking
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    # Channel restrictions (JSON list, e.g. ["online","in-store","whatsapp"])
+    channels: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # Target customer segments (JSON list)
+    target_segments: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # Internal notes/tags
+    internal_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Regulatory product code
+    regulatory_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # AI-generated summary (cached)
+    ai_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     merchant = relationship("Merchant", back_populates="credit_products")
     score_ranges = relationship("ProductScoreRange", back_populates="credit_product", cascade="all, delete-orphan")
     fees = relationship("ProductFee", back_populates="credit_product", cascade="all, delete-orphan")
+    rate_tiers = relationship("ProductRateTier", back_populates="credit_product", cascade="all, delete-orphan")
     loan_applications = relationship("LoanApplication", back_populates="credit_product")
 
 
@@ -126,3 +147,24 @@ class ProductFee(Base):
     )
 
     credit_product = relationship("CreditProduct", back_populates="fees")
+
+
+class ProductRateTier(Base):
+    """Risk-based interest rate tiers within a product."""
+    __tablename__ = "product_rate_tiers"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    credit_product_id: Mapped[int] = mapped_column(ForeignKey("credit_products.id"), nullable=False, index=True)
+    tier_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    min_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    max_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    interest_rate: Mapped[Decimal] = mapped_column(Numeric(6, 4), nullable=False)
+    max_ltv_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    max_dti_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    credit_product = relationship("CreditProduct", back_populates="rate_tiers")

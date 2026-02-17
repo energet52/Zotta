@@ -44,6 +44,7 @@ export function getStatusBadge(status: string) {
     rejected_by_applicant: { variant: 'danger', label: 'Rejected' },
     disbursed: { variant: 'cyan', label: 'Disbursed' },
     cancelled: { variant: 'default', label: 'Cancelled' },
+    voided: { variant: 'danger', label: 'Voided' },
     counter_proposed: { variant: 'purple', label: 'Counter Proposed' },
     uploaded: { variant: 'info', label: 'Uploaded' },
     verified: { variant: 'success', label: 'Verified' },

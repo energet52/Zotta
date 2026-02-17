@@ -323,7 +323,7 @@ export default function UserDetail() {
           <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6">
             <h3 className="text-sm font-semibold text-[var(--color-text)] mb-4">Assigned Roles</h3>
             <div className="space-y-2">
-              {allRoles.filter(r => r.is_active).map(role => (
+              {allRoles.filter(r => r.is_active && r.name !== 'Applicant').map(role => (
                 <label
                   key={role.id}
                   className={clsx(

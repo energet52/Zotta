@@ -93,9 +93,20 @@ async def get_queue(
 ):
     """Get the underwriter queue of applications (newest first)."""
     try:
+        from sqlalchemy.orm import aliased
+        Applicant = aliased(User)
+        Assignee = aliased(User)
+
         query = (
-            select(LoanApplication, User.first_name, User.last_name)
-            .join(User, LoanApplication.applicant_id == User.id)
+            select(
+                LoanApplication,
+                Applicant.first_name.label("app_first"),
+                Applicant.last_name.label("app_last"),
+                Assignee.first_name.label("asgn_first"),
+                Assignee.last_name.label("asgn_last"),
+            )
+            .join(Applicant, LoanApplication.applicant_id == Applicant.id)
+            .outerjoin(Assignee, LoanApplication.assigned_underwriter_id == Assignee.id)
             .order_by(LoanApplication.created_at.desc())
         )
 
@@ -115,11 +126,11 @@ async def get_queue(
 
         result = await db.execute(query)
         entries = []
-        for row in result.all():
-            app = row[0]
-            # Build response dict from ORM model, then inject applicant_name
+        for app, app_first, app_last, asgn_first, asgn_last in result.all():
             resp = LoanApplicationResponse.model_validate(app)
-            resp.applicant_name = f"{row[1]} {row[2]}"
+            resp.applicant_name = f"{app_first} {app_last}"
+            if asgn_first:
+                resp.assigned_underwriter_name = f"{asgn_first} {asgn_last}"
             entries.append(resp)
         return entries
     except HTTPException:
@@ -282,6 +293,7 @@ async def get_full_application(
             merchant_name=application.merchant.name if application.merchant else None,
             branch_name=application.branch.name if application.branch else None,
             credit_product_name=application.credit_product.name if application.credit_product else None,
+            credit_product_rate=float(application.credit_product.interest_rate) if application.credit_product and application.credit_product.interest_rate else None,
             downpayment=float(application.downpayment) if application.downpayment else None,
             total_financed=float(application.total_financed) if application.total_financed else None,
             items=app_items,
@@ -344,9 +356,20 @@ async def upload_document(
         if len(content) > settings.max_upload_size_mb * 1024 * 1024:
             raise HTTPException(status_code=400, detail="File too large")
 
+        # Sanitize filename and validate extension to prevent path traversal
+        import uuid as _uuid
+        original_name = os.path.basename(file.filename or "upload")
+        ext = os.path.splitext(original_name)[1].lower()
+        _ALLOWED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png", ".csv", ".docx", ".xlsx"}
+        if ext not in _ALLOWED_EXTENSIONS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File type '{ext}' not allowed. Accepted: {', '.join(sorted(_ALLOWED_EXTENSIONS))}",
+            )
+        safe_name = f"{_uuid.uuid4().hex}{ext}"
         upload_dir = os.path.join(settings.upload_dir, str(application_id))
         os.makedirs(upload_dir, exist_ok=True)
-        file_path = os.path.join(upload_dir, file.filename)
+        file_path = os.path.join(upload_dir, safe_name)
         with open(file_path, "wb") as f:
             f.write(content)
 
@@ -354,7 +377,7 @@ async def upload_document(
             loan_application_id=application_id,
             uploaded_by=current_user.id,
             document_type=doc_type,
-            file_name=file.filename,
+            file_name=original_name,
             file_path=file_path,
             file_size=len(content),
             mime_type=file.content_type or "application/octet-stream",
@@ -733,7 +756,9 @@ async def make_decision(
     """Underwriter makes a decision on an application."""
     try:
         result = await db.execute(
-            select(LoanApplication).where(LoanApplication.id == application_id)
+            select(LoanApplication)
+            .where(LoanApplication.id == application_id)
+            .options(selectinload(LoanApplication.credit_product))
         )
         application = result.scalar_one_or_none()
         if not application:
@@ -812,11 +837,14 @@ async def make_decision(
             requested = float(application.amount_requested)
             cap = float(decision.suggested_amount) if decision and decision.suggested_amount is not None else requested
             application.amount_approved = min(requested, cap)
-            rate = decision.suggested_rate if decision else None
-            if rate is not None:
-                application.interest_rate = float(rate)
+            # Rate priority: credit product > decision engine > default
+            cp = application.credit_product
+            if cp and cp.interest_rate is not None:
+                application.interest_rate = float(cp.interest_rate)
+            elif decision and decision.suggested_rate is not None:
+                application.interest_rate = float(decision.suggested_rate)
             elif application.interest_rate is None:
-                application.interest_rate = 12.0  # Default when no decision engine suggestion
+                application.interest_rate = 12.0  # Default fallback
             # Calculate monthly payment if not already set
             if not application.monthly_payment and application.interest_rate and application.term_months:
                 r = float(application.interest_rate) / 100 / 12
@@ -1165,6 +1193,98 @@ async def disburse_loan(
         raise
     except Exception as e:
         await log_error(e, db=db, module="api.underwriter", function_name="disburse_loan")
+        raise
+
+
+# ── Void Application ──────────────────────────────────────────────
+
+# All statuses except DISBURSED can be voided by an underwriter
+_VOIDABLE_STATUSES = [
+    LoanStatus.DRAFT,
+    LoanStatus.SUBMITTED,
+    LoanStatus.UNDER_REVIEW,
+    LoanStatus.AWAITING_DOCUMENTS,
+    LoanStatus.CREDIT_CHECK,
+    LoanStatus.DECISION_PENDING,
+    LoanStatus.APPROVED,
+    LoanStatus.DECLINED,
+    LoanStatus.OFFER_SENT,
+    LoanStatus.ACCEPTED,
+    LoanStatus.COUNTER_PROPOSED,
+]
+
+
+@router.post("/applications/{application_id}/void")
+async def void_application(
+    application_id: int,
+    data: dict | None = None,
+    current_user: User = Depends(require_roles(*UNDERWRITER_ROLES)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Void an application — permanently close it with a reason.
+
+    Underwriters can void any application that has not been disbursed.
+    A reason is required.
+    """
+    try:
+        result = await db.execute(
+            select(LoanApplication).where(LoanApplication.id == application_id)
+        )
+        application = result.scalar_one_or_none()
+        if not application:
+            raise HTTPException(status_code=404, detail="Application not found")
+
+        if application.status == LoanStatus.DISBURSED:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot void a disbursed application. The loan has already been released.",
+            )
+        if application.status in (LoanStatus.CANCELLED, LoanStatus.VOIDED):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Application is already {application.status.value}.",
+            )
+
+        body = data or {}
+        reason = body.get("reason", "").strip()
+        if not reason:
+            raise HTTPException(
+                status_code=400,
+                detail="A reason is required when voiding an application.",
+            )
+
+        old_status = application.status.value
+        now = datetime.now(timezone.utc)
+
+        application.status = LoanStatus.VOIDED
+        application.cancellation_reason = reason
+        application.cancelled_at = now
+        application.cancelled_by = current_user.id
+
+        db.add(AuditLog(
+            entity_type="loan_application",
+            entity_id=application_id,
+            action="voided",
+            user_id=current_user.id,
+            old_values={"status": old_status},
+            new_values={"status": "voided", "reason": reason},
+            details=f"Application {application.reference_number} voided by "
+                    f"{current_user.first_name} {current_user.last_name}: {reason}",
+        ))
+
+        await db.flush()
+        await db.refresh(application)
+
+        return {
+            "status": "ok",
+            "message": f"Application {application.reference_number} has been voided",
+            "previous_status": old_status,
+            "reason": reason,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        await log_error(e, db=db, module="api.underwriter", function_name="void_application")
         raise
 
 

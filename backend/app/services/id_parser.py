@@ -92,7 +92,7 @@ async def parse_id_images(
         )
 
         raw = response.choices[0].message.content or ""
-        print(f"[ID-PARSER] OpenAI raw response ({len(raw)} chars): {raw[:800]}")
+        logger.debug("OpenAI Vision response received (%d chars)", len(raw))
 
         # Strip markdown fences if present
         text = raw.strip()
@@ -104,12 +104,12 @@ async def parse_id_images(
         text = text.strip()
 
         parsed = json.loads(text)
-        print(f"[ID-PARSER] Parsed fields: {parsed}")
+        logger.debug("ID parsing completed successfully — %d fields extracted", len(parsed))
         return parsed
 
     except json.JSONDecodeError as exc:
-        print(f"[ID-PARSER] JSON decode error: {exc}  |  raw text: {raw[:500]}")
+        logger.warning("ID parser JSON decode error: %s", exc)
         return {"raw_text": raw or str(exc)}
     except Exception as exc:
-        print(f"[ID-PARSER] OpenAI Vision call failed: {type(exc).__name__}: {exc}")
+        logger.error("OpenAI Vision call failed: %s: %s", type(exc).__name__, exc)
         return {}

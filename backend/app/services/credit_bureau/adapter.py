@@ -31,6 +31,16 @@ class CreditBureauAdapter(ABC):
         """
         ...
 
+    async def pull_soft_report(self, national_id: str) -> Dict[str, Any]:
+        """Pull a soft credit inquiry (does not affect consumer's credit score).
+
+        Returns same structure as pull_credit_report but with
+        inquiry_type='soft'.  Default implementation delegates to pull_credit_report.
+        """
+        data = await self.pull_credit_report(national_id)
+        data["inquiry_type"] = "soft"
+        return data
+
     @abstractmethod
     async def check_health(self) -> bool:
         """Check if the bureau API is reachable."""

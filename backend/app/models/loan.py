@@ -24,6 +24,7 @@ class LoanStatus(str, enum.Enum):
     REJECTED_BY_APPLICANT = "rejected_by_applicant"
     DISBURSED = "disbursed"
     CANCELLED = "cancelled"
+    VOIDED = "voided"
     COUNTER_PROPOSED = "counter_proposed"
 
 
@@ -88,6 +89,11 @@ class LoanApplication(Base):
     contract_signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     contract_signature_data: Mapped[str | None] = mapped_column(Text, nullable=True)
     contract_typed_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    # Cancellation / void
+    cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cancelled_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
 
     # Timestamps
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

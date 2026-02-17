@@ -5,9 +5,14 @@ All environment variables are defined in the root .env file.
 This module loads them via pydantic-settings and exposes a singleton `settings`.
 """
 
+import secrets
+import logging
+import warnings
 from pathlib import Path
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, model_validator
+
+_config_logger = logging.getLogger("zotta.config")
 
 # Resolve paths relative to repo root (two levels up from this file)
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent  # backend/app/config.py → repo root
@@ -17,7 +22,7 @@ _ENV_FILE = _REPO_ROOT / ".env"
 class Settings(BaseSettings):
     # ── General ──────────────────────────────────────────────
     environment: str = Field(default="development")
-    debug: bool = Field(default=True)
+    debug: bool = Field(default=False)
     log_level: str = Field(default="INFO")
 
     # ── Database ─────────────────────────────────────────────
@@ -35,7 +40,7 @@ class Settings(BaseSettings):
     redis_url: str = Field(default="redis://localhost:6379/0")
 
     # ── JWT Authentication ───────────────────────────────────
-    secret_key: str = Field(default="change-me-to-a-random-secret-key-in-production")
+    secret_key: str = Field(default="")
     access_token_expire_minutes: int = Field(default=60)
     refresh_token_expire_days: int = Field(default=7)
 
@@ -82,6 +87,25 @@ class Settings(BaseSettings):
 
     # ── Frontend ─────────────────────────────────────────────
     vite_api_url: str = Field(default="")
+
+    @model_validator(mode="after")
+    def _enforce_secret_key(self) -> "Settings":
+        """In production the SECRET_KEY env var is mandatory.
+        In development a random key is generated and a warning is emitted."""
+        placeholder = "change-me-to-a-random-secret-key-in-production"
+        if not self.secret_key or self.secret_key == placeholder:
+            if self.environment != "development":
+                raise ValueError(
+                    "SECRET_KEY environment variable must be set in non-development environments. "
+                    "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(64))\""
+                )
+            self.secret_key = secrets.token_urlsafe(64)
+            warnings.warn(
+                "SECRET_KEY not set — auto-generated a random key for development. "
+                "Sessions will not persist across restarts.",
+                stacklevel=2,
+            )
+        return self
 
     @property
     def cors_origin_list(self) -> list[str]:

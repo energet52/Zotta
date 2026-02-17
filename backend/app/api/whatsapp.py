@@ -8,10 +8,11 @@ The Customer Support chat is web-only — WhatsApp inbound messages are NOT forw
 
 import logging
 
-from fastapi import APIRouter, Depends, Form, Response
+from fastapi import APIRouter, Depends, Form, Request, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_db
 from app.models.user import User
 from app.models.loan import LoanApplication, LoanStatus
@@ -24,6 +25,22 @@ from fastapi import HTTPException
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _verify_twilio_signature(request: Request, body_params: dict) -> bool:
+    """Verify the X-Twilio-Signature header to ensure the request is authentic.
+    Returns True if verification passes or if Twilio credentials are not configured."""
+    if not settings.twilio_auth_token:
+        return True  # Skip verification when Twilio is not configured (dev/test)
+    try:
+        from twilio.request_validator import RequestValidator
+        validator = RequestValidator(settings.twilio_auth_token)
+        signature = request.headers.get("X-Twilio-Signature", "")
+        url = str(request.url)
+        return validator.validate(url, body_params, signature)
+    except Exception:
+        logger.warning("Twilio signature verification failed")
+        return False
 
 
 async def _route_to_collections(phone: str, body: str, db: AsyncSession) -> bool:
@@ -86,6 +103,7 @@ async def _route_to_collections(phone: str, body: str, db: AsyncSession) -> bool
 
 @router.post("/webhook")
 async def whatsapp_webhook(
+    request: Request,
     Body: str = Form(""),
     From: str = Form(""),
     To: str = Form(""),
@@ -97,6 +115,10 @@ async def whatsapp_webhook(
     Otherwise acknowledges the message silently (no auto-reply).
     """
     try:
+        # Verify Twilio signature to prevent message injection
+        if not _verify_twilio_signature(request, {"Body": Body, "From": From, "To": To}):
+            raise HTTPException(status_code=403, detail="Invalid request signature")
+
         phone_number = From.replace("whatsapp:", "").strip()
         # URL-encoded form data converts '+' to space — restore it
         if phone_number and not phone_number.startswith("+"):

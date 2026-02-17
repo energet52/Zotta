@@ -353,6 +353,10 @@ def get_active_registry(rules_config: Optional[dict] = None) -> dict[str, dict]:
         saved = rules_config.get("rules_registry")
         if saved and isinstance(saved, dict):
             for rid, overrides in saved.items():
+                # Skip rules that have been deleted by admin
+                if overrides.get("_deleted"):
+                    registry.pop(rid, None)
+                    continue
                 if rid in registry:
                     registry[rid].update(overrides)
                 else:
@@ -670,14 +674,10 @@ def _evaluate_threshold_rule(
 
     comparison = _compare(value, operator, threshold)
 
-    # Custom (AI-generated) rules express the BLOCKING condition:
-    #   "decline when job_title eq Managerial" → match triggers failure.
-    # Built-in threshold rules express the ACCEPTABLE condition:
-    #   "age gte 18" → match means the applicant passes.
-    if rule.get("is_custom"):
-        passed = not comparison
-    else:
-        passed = comparison
+    # Both built-in and custom threshold rules express the ACCEPTABLE condition:
+    #   "monthly_income gte 500"  → value must be >= 500; match means pass.
+    #   "debt_to_income_ratio lte 0.30" → value must be <= 0.30; match means pass.
+    passed = comparison
 
     if passed:
         record_fn(RuleResult(rule_id, name, True,

@@ -39,8 +39,16 @@ from app.services.collections_ai import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _ev(v):
+    """Extract enum value safely — handles both Enum members and plain strings."""
+    return v.value if hasattr(v, "value") else v
+
+
 from app.models.user import User, UserRole
 from app.models.loan import LoanApplication, LoanStatus, ApplicantProfile
+from app.models.audit import AuditLog
 from app.models.payment import Payment, PaymentSchedule, ScheduleStatus, PaymentStatus
 from app.models.collection import (
     CollectionRecord, CollectionChannel, CollectionOutcome,
@@ -191,14 +199,14 @@ async def get_collection_queue(
 
             # Apply stage filter
             if stage and case:
-                if case.delinquency_stage.value != stage:
+                if _ev(case.delinquency_stage) != stage:
                     continue
             elif stage and not case:
                 continue
 
             # Apply status filter
             if status and case:
-                if case.status.value != status:
+                if _ev(case.status) != status:
                     continue
             elif status and not case:
                 continue
@@ -279,7 +287,7 @@ async def get_collection_queue(
                 latest_ptp = ptp_q.scalar_one_or_none()
                 if latest_ptp:
                     ptp_data = {
-                        "status": latest_ptp.status.value if hasattr(latest_ptp.status, "value") else str(latest_ptp.status),
+                        "status": _ev(latest_ptp.status),
                         "amount": float(latest_ptp.amount_promised),
                         "date": latest_ptp.promise_date,
                     }
@@ -356,8 +364,8 @@ async def get_collection_queue(
                 phone=phone,
                 # Case fields
                 case_id=case.id if case else None,
-                case_status=case.status.value if case else None,
-                delinquency_stage=case.delinquency_stage.value if case else None,
+                case_status=_ev(case.status) if case else None,
+                delinquency_stage=_ev(case.delinquency_stage) if case else None,
                 assigned_agent_id=case.assigned_agent_id if case else None,
                 assigned_agent_name=agent_name,
                 next_best_action=case.next_best_action if case else None,
@@ -443,8 +451,8 @@ async def list_collection_cases(
                 loan_application_id=c.loan_application_id,
                 assigned_agent_id=c.assigned_agent_id,
                 assigned_agent_name=agent_name,
-                status=c.status.value,
-                delinquency_stage=c.delinquency_stage.value,
+                status=_ev(c.status),
+                delinquency_stage=_ev(c.delinquency_stage),
                 priority_score=c.priority_score,
                 dpd=c.dpd,
                 total_overdue=float(c.total_overdue),
@@ -499,8 +507,8 @@ async def get_collection_case(
             loan_application_id=c.loan_application_id,
             assigned_agent_id=c.assigned_agent_id,
             assigned_agent_name=agent_name,
-            status=c.status.value,
-            delinquency_stage=c.delinquency_stage.value,
+            status=_ev(c.status),
+            delinquency_stage=_ev(c.delinquency_stage),
             priority_score=c.priority_score,
             dpd=c.dpd,
             total_overdue=float(c.total_overdue),
@@ -596,7 +604,7 @@ async def get_case_full(
                 "principal": float(s.principal), "interest": float(s.interest),
                 "fee": float(s.fee), "amount_due": float(s.amount_due),
                 "amount_paid": float(s.amount_paid),
-                "status": s.status.value if hasattr(s.status, "value") else str(s.status),
+                "status": _ev(s.status),
             }
             schedules_data.append(sd)
             total_principal += float(s.principal)
@@ -620,8 +628,8 @@ async def get_case_full(
         payments_data = [{
             "id": p.id, "amount": float(p.amount),
             "payment_date": p.payment_date.isoformat() if p.payment_date else None,
-            "payment_type": p.payment_type.value if hasattr(p.payment_type, "value") else str(p.payment_type) if p.payment_type else None,
-            "status": p.status.value if hasattr(p.status, "value") else str(p.status),
+            "payment_type": _ev(p.payment_type) if p.payment_type else None,
+            "status": _ev(p.status),
             "reference_number": p.reference_number,
         } for p in payments]
 
@@ -642,9 +650,9 @@ async def get_case_full(
                 if agent_row:
                     agent_name = f"{agent_row[0]} {agent_row[1]}"
             interactions_data.append({
-                "id": r.id, "channel": r.channel.value if hasattr(r.channel, "value") else str(r.channel),
+                "id": r.id, "channel": _ev(r.channel),
                 "notes": r.notes, "action_taken": r.action_taken,
-                "outcome": r.outcome.value if hasattr(r.outcome, "value") else str(r.outcome),
+                "outcome": _ev(r.outcome),
                 "agent_name": agent_name,
                 "next_action_date": r.next_action_date.isoformat() if r.next_action_date else None,
                 "promise_amount": float(r.promise_amount) if r.promise_amount else None,
@@ -661,9 +669,9 @@ async def get_case_full(
         )
         chats = chat_result.scalars().all()
         chats_data = [{
-            "id": c.id, "direction": c.direction.value if hasattr(c.direction, "value") else str(c.direction),
+            "id": c.id, "direction": _ev(c.direction),
             "message": c.message,
-            "status": c.status.value if hasattr(c.status, "value") else str(c.status),
+            "status": _ev(c.status),
             "created_at": c.created_at.isoformat() if c.created_at else None,
         } for c in chats]
 
@@ -687,7 +695,7 @@ async def get_case_full(
                 "id": p.id, "amount_promised": float(p.amount_promised),
                 "promise_date": p.promise_date.isoformat() if p.promise_date else None,
                 "payment_method": p.payment_method,
-                "status": p.status.value if hasattr(p.status, "value") else str(p.status),
+                "status": _ev(p.status),
                 "amount_received": float(p.amount_received),
                 "agent_name": agent_name,
                 "notes": p.notes,
@@ -714,7 +722,7 @@ async def get_case_full(
             "plan_months": s.plan_months,
             "plan_monthly_amount": float(s.plan_monthly_amount) if s.plan_monthly_amount else None,
             "lump_sum": float(s.lump_sum) if s.lump_sum else None,
-            "status": s.status.value if hasattr(s.status, "value") else str(s.status),
+            "status": _ev(s.status),
             "notes": s.notes,
             "created_at": s.created_at.isoformat() if s.created_at else None,
         } for s in settlements]
@@ -800,8 +808,8 @@ async def get_case_full(
             "case": {
                 "id": case.id,
                 "loan_application_id": case.loan_application_id,
-                "status": case.status.value,
-                "delinquency_stage": case.delinquency_stage.value,
+                "status": _ev(case.status),
+                "delinquency_stage": _ev(case.delinquency_stage),
                 "dpd": case.dpd,
                 "total_overdue": float(case.total_overdue),
                 "priority_score": case.priority_score,
@@ -828,7 +836,7 @@ async def get_case_full(
                 "monthly_payment": float(loan.monthly_payment) if loan.monthly_payment else None,
                 "purpose": loan.purpose.value if hasattr(loan.purpose, "value") else str(loan.purpose) if loan.purpose else None,
                 "disbursed_at": loan.disbursed_at.isoformat() if loan.disbursed_at else None,
-                "status": loan.status.value if hasattr(loan.status, "value") else str(loan.status),
+                "status": _ev(loan.status),
             },
             # Financial breakdown
             "balance_breakdown": {
@@ -1078,7 +1086,7 @@ async def create_ptp(
             amount_promised=float(ptp.amount_promised),
             promise_date=ptp.promise_date,
             payment_method=ptp.payment_method,
-            status=ptp.status.value,
+            status=_ev(ptp.status),
             amount_received=float(ptp.amount_received),
             reminded_at=ptp.reminded_at,
             broken_at=ptp.broken_at,
@@ -1118,7 +1126,7 @@ async def list_ptps(
                 amount_promised=float(ptp.amount_promised),
                 promise_date=ptp.promise_date,
                 payment_method=ptp.payment_method,
-                status=ptp.status.value,
+                status=_ev(ptp.status),
                 amount_received=float(ptp.amount_received),
                 reminded_at=ptp.reminded_at,
                 broken_at=ptp.broken_at,
@@ -1174,7 +1182,7 @@ async def update_ptp(
             amount_promised=float(ptp.amount_promised),
             promise_date=ptp.promise_date,
             payment_method=ptp.payment_method,
-            status=ptp.status.value,
+            status=_ev(ptp.status),
             amount_received=float(ptp.amount_received),
             reminded_at=ptp.reminded_at,
             broken_at=ptp.broken_at,
@@ -1266,7 +1274,7 @@ async def create_settlement(
                 plan_months=o.plan_months,
                 plan_monthly_amount=float(o.plan_monthly_amount) if o.plan_monthly_amount else None,
                 lump_sum=float(o.lump_sum) if o.lump_sum else None,
-                status=o.status.value,
+                status=_ev(o.status),
                 offered_by=o.offered_by,
                 offered_by_name=f"{current_user.first_name} {current_user.last_name}",
                 approved_by=o.approved_by,
@@ -1328,7 +1336,7 @@ async def list_settlements(
                 plan_months=o.plan_months,
                 plan_monthly_amount=float(o.plan_monthly_amount) if o.plan_monthly_amount else None,
                 lump_sum=float(o.lump_sum) if o.lump_sum else None,
-                status=o.status.value,
+                status=_ev(o.status),
                 offered_by=o.offered_by,
                 offered_by_name=offered_name,
                 approved_by=o.approved_by,
@@ -1691,6 +1699,14 @@ async def add_collection_record(
                 case.first_contact_at = now
             case.last_contact_at = now
             case.updated_at = now
+
+        db.add(AuditLog(
+            entity_type="collection", entity_id=application_id,
+            action="collection_record_added",
+            user_id=current_user.id,
+            new_values={"channel": data.channel, "outcome": data.outcome},
+            details=f"Collection {data.channel} — {data.outcome}" + (f": {data.notes[:100]}" if data.notes else ""),
+        ))
 
         return CollectionRecordResponse(
             id=record.id,

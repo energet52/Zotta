@@ -199,6 +199,97 @@ docker compose exec backend pytest
 
 ---
 
+## Sharing Remotely with ngrok
+
+ngrok creates a secure public URL that tunnels to your local machine. This lets someone test the full Zotta application from anywhere — they just need the link.
+
+### Prerequisites
+
+- **ngrok installed:** `brew install ngrok` (Mac) or download from https://ngrok.com/download
+- **ngrok account:** Sign up at https://ngrok.com and copy your authtoken
+- **Authenticate once:**
+  ```bash
+  ngrok config add-authtoken YOUR_AUTH_TOKEN
+  ```
+- **Application running** locally (`docker compose up` + seeded)
+
+### How it works
+
+The Vite dev server (port 5173) serves the frontend **and** proxies all `/api` requests to the backend (port 8000). This means you only need **one ngrok tunnel** — on port 5173 — and everything works through a single URL.
+
+```
+Remote browser
+     │
+     └──► https://your-subdomain.ngrok-free.dev
+               │
+               └──► ngrok tunnel ──► localhost:5173 (Vite)
+                                          │
+                                    ┌─────┴─────┐
+                                    │ Frontend   │  (React pages)
+                                    │ /api/*     │──► localhost:8000 (FastAPI)
+                                    └────────────┘
+```
+
+### Start the tunnel
+
+With a paid plan, use `--url` to claim a stable subdomain on `ngrok.app`:
+
+```bash
+ngrok http 5173 --url zotta-demo.ngrok.app
+```
+
+ngrok prints the public URL:
+```
+Forwarding   https://zotta-demo.ngrok.app -> http://localhost:5173
+```
+
+Send **https://zotta-demo.ngrok.app** to your tester. They can log in with any of the test accounts listed above.
+
+> **Free plan alternative:** If you don't have a paid plan, run `ngrok http 5173` (without `--url`). You'll get a random `*.ngrok-free.dev` URL that changes on every restart, and visitors will see an ngrok interstitial page.
+
+### Add the ngrok URL to CORS (first time only)
+
+Add the ngrok domain to the `CORS_ORIGINS` line in your `.env` file:
+
+```
+CORS_ORIGINS=http://localhost:5173,http://localhost:3000,https://zotta-demo.ngrok.app
+```
+
+Then restart the backend:
+```bash
+docker compose restart backend
+```
+
+> **Tip:** With a paid plan the domain is stable, so you only need to do this once. On the free plan the URL changes every restart, so you'd need to update `.env` each time.
+
+### Useful ngrok commands
+
+| Command | What it does |
+|---------|-------------|
+| `ngrok http 5173 --url zotta-demo.ngrok.app` | Start a tunnel to the full app (paid plan, stable URL) |
+| `ngrok http 5173` | Start a tunnel to the full app (free plan, random URL) |
+| `ngrok http 8000` | Start a tunnel to the backend API only (for webhooks, Postman) |
+| Open http://127.0.0.1:4040 | ngrok inspection dashboard — view all requests in real time |
+
+### Stop the tunnel
+
+Press `Ctrl+C` in the terminal where ngrok is running, or:
+```bash
+pkill -f ngrok
+```
+
+### Twilio webhooks
+
+If you're testing WhatsApp integration, point the Twilio webhook URL to your ngrok backend tunnel:
+
+```
+https://zotta-demo.ngrok.app/api/whatsapp/webhook
+```
+
+Configure this in the Twilio Console under **Messaging > Settings > WhatsApp sandbox**.
+
+---
+
 ## Common Problems
 
 ### "Port 5432 already in use"

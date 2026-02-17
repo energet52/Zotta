@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, FileText, Clock, CheckCircle, DollarSign, ArrowRightLeft, PenTool, Download, Paperclip, Trash2, Calendar, MessageSquare } from 'lucide-react';
+import { ArrowLeft, FileText, Clock, CheckCircle, DollarSign, ArrowRightLeft, PenTool, Download, Paperclip, Trash2, Calendar, MessageSquare, XCircle, AlertTriangle } from 'lucide-react';
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
 import Badge, { getStatusBadge } from '../../../components/ui/Badge';
@@ -77,11 +77,14 @@ export default function ApplicationStatus() {
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
   const [addingComment, setAddingComment] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
   const autoAcceptDone = useRef(false);
   const user = useAuthStore((s) => s.user);
   const commentsEndRef = useRef<HTMLDivElement>(null);
 
-  const FINAL_STATUSES = ['declined', 'rejected_by_applicant', 'disbursed', 'cancelled', 'approved'];
+  const CANCELLABLE_STATUSES = ['draft', 'submitted', 'under_review', 'awaiting_documents', 'credit_check', 'decision_pending', 'counter_proposed'];
+  const FINAL_STATUSES = ['declined', 'rejected_by_applicant', 'disbursed', 'cancelled', 'voided', 'approved'];
   const canUploadDocuments = application && !FINAL_STATUSES.includes(application.status);
 
   const computeProjectedSchedule = (principal: number, annualRate: number, termMonths: number) => {
@@ -173,6 +176,17 @@ export default function ApplicationStatus() {
     setActionLoading('reject_cp');
     try {
       await loanApi.rejectCounterproposal(application.id);
+      loadData();
+    } catch {} finally { setActionLoading(''); }
+  };
+
+  const handleCancelApplication = async () => {
+    if (!application) return;
+    setActionLoading('cancel');
+    try {
+      await loanApi.cancel(application.id, cancelReason);
+      setShowCancelDialog(false);
+      setCancelReason('');
       loadData();
     } catch {} finally { setActionLoading(''); }
   };
@@ -582,7 +596,90 @@ export default function ApplicationStatus() {
             </p>
           </Card>
         )}
+
+        {/* Cancelled */}
+        {application.status === 'cancelled' && (
+          <Card className="border-orange-200 bg-orange-50">
+            <h3 className="font-semibold text-orange-800 mb-2 flex items-center">
+              <XCircle size={18} className="mr-2" />
+              Application Cancelled
+            </h3>
+            <p className="text-sm text-orange-700">
+              You cancelled this application. You may submit a new application at any time.
+            </p>
+          </Card>
+        )}
+
+        {/* Voided */}
+        {application.status === 'voided' && (
+          <Card className="border-red-200 bg-red-50">
+            <h3 className="font-semibold text-red-800 mb-2 flex items-center">
+              <XCircle size={18} className="mr-2" />
+              Application Voided
+            </h3>
+            <p className="text-sm text-red-700">
+              This application has been voided by staff. Please contact us if you have questions.
+            </p>
+          </Card>
+        )}
+
+        {/* Cancel Application Button */}
+        {CANCELLABLE_STATUSES.includes(application.status) && (
+          <div className="pt-2">
+            <button
+              onClick={() => setShowCancelDialog(true)}
+              className="text-sm text-red-500 hover:text-red-700 underline"
+            >
+              Cancel this application
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Cancel Confirmation Dialog */}
+      {showCancelDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[var(--color-surface)] rounded-xl shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-[var(--color-text)] mb-2 flex items-center">
+              <AlertTriangle size={20} className="mr-2 text-orange-500" />
+              Cancel Application
+            </h3>
+            <p className="text-sm text-[var(--color-text-muted)] mb-4">
+              Are you sure you want to cancel this application? This action cannot be undone.
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">
+                Reason (optional)
+              </label>
+              <textarea
+                value={cancelReason}
+                onChange={e => setCancelReason(e.target.value)}
+                className="w-full border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm bg-[var(--color-surface)] text-[var(--color-text)] resize-none"
+                rows={3}
+                placeholder="Why are you cancelling?"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1"
+                onClick={() => { setShowCancelDialog(false); setCancelReason(''); }}
+              >
+                Keep Application
+              </Button>
+              <Button
+                size="sm"
+                className="flex-1 !bg-red-600 hover:!bg-red-700"
+                onClick={handleCancelApplication}
+                isLoading={actionLoading === 'cancel'}
+              >
+                Yes, Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Contract Signature Modal */}
       {showContract && application && (

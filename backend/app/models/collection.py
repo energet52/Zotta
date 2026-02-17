@@ -16,6 +16,7 @@ class CollectionChannel(str, enum.Enum):
     EMAIL = "email"
     IN_PERSON = "in_person"
     SMS = "sms"
+    NOTE = "note"
 
 
 class CollectionOutcome(str, enum.Enum):

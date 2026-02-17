@@ -25,11 +25,15 @@ import {
   ShieldAlert,
   MessageSquare,
   Users,
+  ScrollText,
   PieChart,
   Target,
   ChevronRight,
   Search,
   X,
+  Zap,
+  Inbox,
+  Settings,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
@@ -60,10 +64,27 @@ const SECTIONS: NavSection[] = [
     icon: BookOpen,
     items: [
       { to: '/backoffice/conversations', icon: MessageCircle, label: 'Conversations' },
-      { to: '/backoffice/applications', icon: ClipboardList, label: 'Applications' },
       { to: '/backoffice/new-application', icon: PlusCircle, label: 'New Application' },
       { to: '/backoffice/loans', icon: BookOpen, label: 'Loan Book' },
       { to: '/backoffice/customers', icon: Users, label: 'Customers' },
+    ],
+  },
+  {
+    id: 'applications',
+    label: 'Applications',
+    icon: Inbox,
+    items: [
+      { to: '/backoffice/queue', icon: Inbox, label: 'Applications Queue' },
+      { to: '/backoffice/queue/config', icon: Settings, label: 'Configuration' },
+      { to: '/backoffice/queue/analytics', icon: BarChart3, label: 'Analytics' },
+    ],
+  },
+  {
+    id: 'pre-approvals',
+    label: 'Pre-Approvals',
+    icon: Shield,
+    items: [
+      { to: '/backoffice/pre-approvals', icon: Shield, label: 'Dashboard & Referred' },
     ],
   },
   {
@@ -73,6 +94,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { to: '/backoffice/collections', icon: AlertTriangle, label: 'Queue' },
       { to: '/backoffice/collections-dashboard', icon: BarChart3, label: 'Analytics' },
+      { to: '/backoffice/collection-sequences', icon: Zap, label: 'Sequences' },
     ],
   },
   {
@@ -139,6 +161,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { to: '/backoffice/products', icon: Boxes, label: 'Products' },
       { to: '/backoffice/merchants', icon: Store, label: 'Merchants' },
+      { to: '/backoffice/audit-trail', icon: ScrollText, label: 'Audit Trail' },
       { to: '/backoffice/error-monitor', icon: ShieldAlert, label: 'Error Monitor' },
     ],
   },

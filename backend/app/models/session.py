@@ -15,6 +15,7 @@ class UserSession(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     token_jti: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    refresh_token_jti: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True, index=True)
     device_info: Mapped[str | None] = mapped_column(String(255), nullable=True)
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
     location: Mapped[str | None] = mapped_column(String(150), nullable=True)

@@ -248,13 +248,22 @@ async def update_policy(
         if not policy:
             raise HTTPException(404, "Policy not found")
 
-        for field, value in body.model_dump(exclude_unset=True).items():
-            if field == "risk_rating" and value is not None:
-                setattr(policy, field, SectorRiskRating(value))
-            elif field in ("pause_effective_date", "pause_expiry_date") and value is not None:
-                setattr(policy, field, date.fromisoformat(value))
-            elif value is not None:
-                setattr(policy, field, value)
+        _POLICY_EDITABLE = (
+            "exposure_cap_pct", "exposure_cap_amount", "origination_paused",
+            "pause_effective_date", "pause_expiry_date", "pause_reason",
+            "max_loan_amount_override", "min_credit_score_override", "max_term_months_override",
+            "require_collateral", "require_guarantor", "risk_rating",
+            "on_watchlist", "watchlist_review_frequency", "justification",
+        )
+        for field in _POLICY_EDITABLE:
+            value = getattr(body, field, None)
+            if value is not None:
+                if field == "risk_rating":
+                    setattr(policy, field, SectorRiskRating(value))
+                elif field in ("pause_effective_date", "pause_expiry_date"):
+                    setattr(policy, field, date.fromisoformat(value))
+                else:
+                    setattr(policy, field, value)
 
         await db.flush()
         await db.refresh(policy)

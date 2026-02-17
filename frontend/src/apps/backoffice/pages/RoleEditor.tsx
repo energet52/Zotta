@@ -2,10 +2,18 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, Shield, Plus, Save, Search, ChevronDown, ChevronRight,
-  Users, RefreshCw, Trash2, Edit3, Check,
+  Users, RefreshCw, Trash2, Edit3, Check, AlertTriangle, X,
 } from 'lucide-react';
 import { userApi } from '../../../api/endpoints';
 import { clsx } from 'clsx';
+
+interface RoleBrief {
+  id: number;
+  name: string;
+  description: string | null;
+  is_system: boolean;
+  is_active: boolean;
+}
 
 interface PermissionRow {
   id: number;
@@ -27,14 +35,6 @@ interface RoleDetail {
   user_count: number;
   created_at: string;
   updated_at: string;
-}
-
-interface RoleBrief {
-  id: number;
-  name: string;
-  description: string | null;
-  is_system: boolean;
-  is_active: boolean;
 }
 
 
@@ -91,7 +91,7 @@ export default function RoleEditor() {
             Loading roles...
           </div>
         ) : (
-          roles.map(role => (
+          roles.filter(role => role.name !== 'Applicant').map(role => (
             <div
               key={role.id}
               onClick={() => navigate(`/backoffice/users/roles/${role.id}`)}
@@ -145,6 +145,13 @@ export function RoleDetailPage() {
   const [selectedPerms, setSelectedPerms] = useState<Set<string>>(new Set());
   const [searchPerm, setSearchPerm] = useState('');
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
+
+  // Delete dialog state
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [allRoles, setAllRoles] = useState<RoleBrief[]>([]);
+  const [reassignRoleId, setReassignRoleId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -239,6 +246,30 @@ export function RoleDetailPage() {
     }
   };
 
+  const openDeleteDialog = async () => {
+    setDeleteError('');
+    setReassignRoleId(null);
+    try {
+      const res = await userApi.listRoles();
+      setAllRoles(res.data.filter((r: RoleBrief) => r.id !== Number(roleId)));
+    } catch { /* ignore */ }
+    setShowDeleteDialog(true);
+  };
+
+  const handleDelete = async () => {
+    if (!reassignRoleId || !roleId) return;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await userApi.deleteRole(Number(roleId), reassignRoleId);
+      navigate('/backoffice/users/roles', { replace: true });
+    } catch (err: any) {
+      setDeleteError(err?.response?.data?.detail || 'Failed to delete role');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20 text-[var(--color-text-muted)]">
@@ -261,14 +292,24 @@ export function RoleDetailPage() {
             {isNew ? 'Create Role' : `Edit: ${role?.name || ''}`}
           </h1>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={saving || !name.trim()}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--color-primary)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50"
-        >
-          {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
-          {saving ? 'Saving...' : 'Save Role'}
-        </button>
+        <div className="flex items-center gap-2">
+          {!isNew && role && !role.is_system && (
+            <button
+              onClick={openDeleteDialog}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-red-500/30 text-red-400 text-sm font-medium hover:bg-red-500/10 transition-colors"
+            >
+              <Trash2 size={14} /> Delete
+            </button>
+          )}
+          <button
+            onClick={handleSave}
+            disabled={saving || !name.trim()}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--color-primary)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50"
+          >
+            {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+            {saving ? 'Saving...' : 'Save Role'}
+          </button>
+        </div>
       </div>
 
       {/* Name & description */}
@@ -372,6 +413,75 @@ export function RoleDetailPage() {
           })}
         </div>
       </div>
+
+      {/* ── Delete Confirmation Dialog ── */}
+      {showDeleteDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl shadow-2xl w-full max-w-md mx-4">
+            <div className="flex items-center justify-between p-5 border-b border-[var(--color-border)]">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-red-500/15">
+                  <AlertTriangle size={18} className="text-red-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-[var(--color-text)]">Delete Role</h3>
+              </div>
+              <button
+                onClick={() => setShowDeleteDialog(false)}
+                className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-hover)]"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-[var(--color-text-muted)]">
+                You are about to permanently delete the role <strong className="text-[var(--color-text)]">{role?.name}</strong>.
+                {(role?.user_count ?? 0) > 0 && (
+                  <> This role has <strong className="text-[var(--color-text)]">{role?.user_count} user(s)</strong> assigned.
+                  They will be reassigned to the role you select below.</>
+                )}
+              </p>
+
+              <div>
+                <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1.5">
+                  Reassign users to *
+                </label>
+                <select
+                  value={reassignRoleId ?? ''}
+                  onChange={e => setReassignRoleId(Number(e.target.value) || null)}
+                  className="w-full h-10 px-3 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)]"
+                >
+                  <option value="">Select a role...</option>
+                  {allRoles.filter(r => r.is_active).map(r => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {deleteError && (
+                <p className="text-xs text-red-400 bg-red-500/10 rounded-lg px-3 py-2">{deleteError}</p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 p-5 border-t border-[var(--color-border)]">
+              <button
+                onClick={() => setShowDeleteDialog(false)}
+                className="px-4 py-2 rounded-lg border border-[var(--color-border)] text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-hover)]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={!reassignRoleId || deleting}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 disabled:opacity-50 transition-colors"
+              >
+                {deleting ? <RefreshCw size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                {deleting ? 'Deleting...' : 'Delete Role'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

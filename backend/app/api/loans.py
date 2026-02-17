@@ -124,8 +124,17 @@ async def update_profile(
             profile = ApplicantProfile(user_id=current_user.id)
             db.add(profile)
 
-        for field, value in data.model_dump(exclude_unset=True).items():
-            setattr(profile, field, value)
+        _PROFILE_EDITABLE = (
+            "date_of_birth", "id_type", "national_id", "gender", "marital_status",
+            "address_line1", "address_line2", "city", "parish",
+            "whatsapp_number", "contact_email", "mobile_phone", "home_phone",
+            "employer_phone", "employer_name", "employer_sector", "job_title",
+            "employment_type", "years_employed", "monthly_income",
+        )
+        for field in _PROFILE_EDITABLE:
+            value = getattr(data, field, None)
+            if value is not None:
+                setattr(profile, field, value)
 
         # Keep User.phone in sync with the best available contact number
         if not current_user.phone:
@@ -263,6 +272,7 @@ async def get_application(
             merchant_name=application.merchant.name if application.merchant else None,
             branch_name=application.branch.name if application.branch else None,
             credit_product_name=application.credit_product.name if application.credit_product else None,
+            credit_product_rate=float(application.credit_product.interest_rate) if application.credit_product and application.credit_product.interest_rate else None,
             downpayment=float(application.downpayment) if application.downpayment else None,
             total_financed=float(application.total_financed) if application.total_financed else None,
             items=app_items,
@@ -305,10 +315,16 @@ async def update_application(
         if not application:
             raise HTTPException(status_code=404, detail="Application not found or not editable")
 
-        for field, value in data.model_dump(exclude_unset=True).items():
-            if field == "purpose" and value:
-                value = LoanPurpose(value)
-            setattr(application, field, value)
+        _APP_EDITABLE = (
+            "amount_requested", "term_months", "purpose", "purpose_description",
+            "merchant_id", "branch_id", "credit_product_id", "downpayment", "total_financed",
+        )
+        for field in _APP_EDITABLE:
+            value = getattr(data, field, None)
+            if value is not None:
+                if field == "purpose":
+                    value = LoanPurpose(value)
+                setattr(application, field, value)
 
         await db.flush()
         await db.refresh(application)
@@ -483,10 +499,20 @@ async def upload_document(
         if len(content) > settings.max_upload_size_mb * 1024 * 1024:
             raise HTTPException(status_code=400, detail="File too large")
 
-        # Save file
+        # Sanitize filename and validate extension to prevent path traversal
+        import uuid as _uuid
+        original_name = os.path.basename(file.filename or "upload")
+        ext = os.path.splitext(original_name)[1].lower()
+        _ALLOWED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png", ".csv", ".docx", ".xlsx"}
+        if ext not in _ALLOWED_EXTENSIONS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File type '{ext}' not allowed. Accepted: {', '.join(sorted(_ALLOWED_EXTENSIONS))}",
+            )
+        safe_name = f"{_uuid.uuid4().hex}{ext}"
         upload_dir = os.path.join(settings.upload_dir, str(application_id))
         os.makedirs(upload_dir, exist_ok=True)
-        file_path = os.path.join(upload_dir, file.filename)
+        file_path = os.path.join(upload_dir, safe_name)
         with open(file_path, "wb") as f:
             f.write(content)
 
@@ -494,7 +520,7 @@ async def upload_document(
             loan_application_id=application_id,
             uploaded_by=current_user.id,
             document_type=DocumentType(document_type),
-            file_name=file.filename,
+            file_name=original_name,
             file_path=file_path,
             file_size=len(content),
             mime_type=file.content_type or "application/octet-stream",
@@ -853,6 +879,75 @@ async def decline_offer(
         raise
     except Exception as e:
         await log_error(e, db=db, module="api.loans", function_name="decline_offer")
+        raise
+
+
+# ── Cancel Application ────────────────────────────────
+
+# Statuses that allow consumer cancellation (before final decision)
+_CANCELLABLE_STATUSES = [
+    LoanStatus.DRAFT,
+    LoanStatus.SUBMITTED,
+    LoanStatus.UNDER_REVIEW,
+    LoanStatus.AWAITING_DOCUMENTS,
+    LoanStatus.CREDIT_CHECK,
+    LoanStatus.DECISION_PENDING,
+    LoanStatus.COUNTER_PROPOSED,
+]
+
+
+@router.post("/{application_id}/cancel", response_model=LoanApplicationResponse)
+async def cancel_application(
+    application_id: int,
+    data: dict | None = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Consumer cancels their own application before a final decision."""
+    try:
+        result = await db.execute(
+            select(LoanApplication).where(
+                LoanApplication.id == application_id,
+                LoanApplication.applicant_id == current_user.id,
+            )
+        )
+        application = result.scalar_one_or_none()
+        if not application:
+            raise HTTPException(status_code=404, detail="Application not found")
+
+        if application.status not in _CANCELLABLE_STATUSES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot cancel application in '{application.status.value}' status. "
+                       "Cancellation is only allowed before a final decision.",
+            )
+
+        old_status = application.status.value
+        reason = (data or {}).get("reason", "")
+
+        application.status = LoanStatus.CANCELLED
+        application.cancellation_reason = reason or "Cancelled by applicant"
+        application.cancelled_at = datetime.now(timezone.utc)
+        application.cancelled_by = current_user.id
+
+        db.add(AuditLog(
+            entity_type="loan_application",
+            entity_id=application_id,
+            action="cancelled_by_applicant",
+            user_id=current_user.id,
+            old_values={"status": old_status},
+            new_values={"status": "cancelled", "reason": reason},
+            details=f"Application {application.reference_number} cancelled by applicant"
+                    + (f": {reason}" if reason else ""),
+        ))
+
+        await db.flush()
+        await db.refresh(application)
+        return application
+    except HTTPException:
+        raise
+    except Exception as e:
+        await log_error(e, db=db, module="api.loans", function_name="cancel_application")
         raise
 
 

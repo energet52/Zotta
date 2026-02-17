@@ -146,16 +146,17 @@ async def seed_personas():
             db.add(staff)
             await db.flush()
 
-        print("Seeding 5 Customer 360 personas...")
+        print("Seeding 6 Customer 360 personas...")
 
         await _persona_perfect_borrower(db, staff.id)
         await _persona_recovering(db, staff.id)
         await _persona_deteriorating(db, staff.id)
         await _persona_new_customer(db, staff.id)
         await _persona_complex(db, staff.id)
+        await _persona_bureau_alert_storm(db, staff.id)
 
         await db.commit()
-        print("Done! 5 personas created.")
+        print("Done! 6 personas created.")
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -920,6 +921,260 @@ async def _persona_complex(db: AsyncSession, staff_id: int):
     print(f"    Created user #{user.id} with 4 loans (1 declined), {total_payments} payments, {len(collection_events)} collection records, {len(chat_msgs)} chat messages")
 
 
+# ══════════════════════════════════════════════════════════════════════════
+# PERSONA 6: Bureau Alert Storm — Simone Charles
+# A borrower with an active loan who simultaneously triggers every type
+# of credit-bureau alert across all severity levels.  Use this persona
+# to test the full Bureau Alerts UI (Customer 360 → Bureau Alerts tab).
+# Login: simone.charles@email.com / Test1234!
+# ══════════════════════════════════════════════════════════════════════════
+
+async def _persona_bureau_alert_storm(db: AsyncSession, staff_id: int):
+    print("  6/6 Bureau Alert Storm — Simone Charles")
+    today = date.today()
+    now = datetime.now(timezone.utc)
+    start = today - timedelta(days=365)  # loan started 1 year ago
+
+    # ── User ───────────────────────────────────────────
+    user = User(
+        email="simone.charles@email.com", hashed_password=hash_password("Test1234!"),
+        first_name="Simone", last_name="Charles", phone="+18687009900",
+        role=UserRole.APPLICANT,
+    )
+    db.add(user)
+    await db.flush()
+
+    # ── Profile ────────────────────────────────────────
+    profile = ApplicantProfile(
+        user_id=user.id, date_of_birth=date(1991, 7, 22),
+        id_type="national_id", national_id="19910722388",
+        gender="female", marital_status="single",
+        address_line1="42 Ariapita Avenue", city="Port of Spain",
+        parish="Port of Spain", country="Trinidad and Tobago",
+        employer_name="Trinidad Cement Ltd", job_title="Logistics Coordinator",
+        employment_type="employed", years_employed=4,
+        monthly_income=11000, other_income=0, monthly_expenses=5500,
+        existing_debt=22000, dependents=1,
+        whatsapp_number="+18687009900", contact_email="simone.charles@email.com",
+        mobile_phone="+18687009900",
+        id_verified=True, id_verification_status="verified",
+    )
+    db.add(profile)
+
+    # ── Active Loan (disbursed, 12 of 36 months paid) ──
+    loan = LoanApplication(
+        reference_number=_ref(), applicant_id=user.id,
+        amount_requested=85000, term_months=36, purpose=LoanPurpose.PERSONAL,
+        interest_rate=14.0, amount_approved=85000, monthly_payment=2906,
+        status=LoanStatus.DISBURSED,
+        submitted_at=_ts(start), decided_at=_ts(start + timedelta(days=2)),
+        disbursed_at=_ts(start + timedelta(days=4)),
+        created_at=_ts(start),
+    )
+    db.add(loan)
+    await db.flush()
+
+    schedules, payments = _make_schedule(
+        loan.id, 85000, 14.0, 36, start, paid_through=12,
+    )
+    db.add_all(schedules + payments)
+
+    db.add(Decision(
+        loan_application_id=loan.id, credit_score=645, risk_band="C",
+        engine_outcome=DecisionOutcome.MANUAL_REVIEW, underwriter_action=UnderwriterAction.APPROVE,
+        final_outcome="approved", created_at=_ts(start + timedelta(days=2)),
+    ))
+    db.add(Disbursement(
+        loan_application_id=loan.id, amount=85000,
+        method=DisbursementMethod.BANK_TRANSFER,
+        status=DisbursementStatus.COMPLETED, disbursed_by=staff_id,
+        disbursed_at=_ts(start + timedelta(days=4)),
+    ))
+    db.add(CreditReport(
+        loan_application_id=loan.id, provider="mock",
+        national_id="19910722388", bureau_score=645,
+        report_data={"summary": "Fair credit with moderate risk indicators"},
+        status="success",
+    ))
+
+    # ── Bureau Alerts (8 alerts covering every type × severity) ──
+
+    alerts: list[CreditBureauAlert] = []
+
+    # 1. NEW_INQUIRY — LOW: routine credit check
+    alerts.append(CreditBureauAlert(
+        user_id=user.id, alert_type=AlertType.NEW_INQUIRY,
+        severity=AlertSeverity.LOW, status=AlertStatus.NEW,
+        bureau_name="TransUnion Caribbean",
+        bureau_reference="TU-INQ-2026-88001",
+        title="Credit Inquiry by Digicel Mobile",
+        description=(
+            "A soft credit inquiry was made by Digicel Trinidad on 2026-02-08 "
+            "for a post-paid mobile plan upgrade. Low-risk routine check."
+        ),
+        other_institution="Digicel Trinidad",
+        other_product_type="Post-Paid Plan",
+        alert_date=now - timedelta(days=6),
+    ))
+
+    # 2. NEW_INQUIRY — MEDIUM: rate-shopping pattern (multiple inquiries)
+    alerts.append(CreditBureauAlert(
+        user_id=user.id, alert_type=AlertType.NEW_INQUIRY,
+        severity=AlertSeverity.MEDIUM, status=AlertStatus.NEW,
+        bureau_name="TransUnion Caribbean",
+        bureau_reference="TU-INQ-2026-88002",
+        title="Multiple Credit Inquiries Detected — Rate Shopping",
+        description=(
+            "Three credit inquiries detected within the last 14 days from "
+            "Republic Bank, JMMB, and First Citizens Bank, all for personal loans. "
+            "Customer appears to be actively seeking new credit."
+        ),
+        other_institution="Republic Bank Trinidad",
+        other_product_type="Personal Loan",
+        alert_date=now - timedelta(days=3),
+    ))
+
+    # 3. NEW_LOAN — MEDIUM: small new obligation
+    alerts.append(CreditBureauAlert(
+        user_id=user.id, alert_type=AlertType.NEW_LOAN,
+        severity=AlertSeverity.MEDIUM, status=AlertStatus.NEW,
+        bureau_name="TransUnion Caribbean",
+        bureau_reference="TU-NL-2026-88003",
+        title="New Hire Purchase at Courts Trinidad",
+        description=(
+            "Customer entered into a new hire purchase agreement at Courts "
+            "Trinidad for household appliances worth 18,500 TTD. "
+            "24-month term. Moderate increase in total obligations."
+        ),
+        other_institution="Courts Trinidad",
+        other_product_type="Hire Purchase",
+        other_amount=Decimal("18500.00"),
+        alert_date=now - timedelta(days=10),
+    ))
+
+    # 4. NEW_LOAN — HIGH: large new loan that significantly increases exposure
+    alerts.append(CreditBureauAlert(
+        user_id=user.id, alert_type=AlertType.NEW_LOAN,
+        severity=AlertSeverity.HIGH, status=AlertStatus.NEW,
+        bureau_name="TransUnion Caribbean",
+        bureau_reference="TU-NL-2026-88004",
+        title="Large Vehicle Loan Opened at Scotiabank",
+        description=(
+            "Customer opened a new vehicle loan at Scotiabank T&T for "
+            "220,000 TTD with a 60-month term (monthly payment ~4,600 TTD). "
+            "This brings total estimated monthly debt-service to over 60%% of "
+            "reported income, significantly increasing credit exposure."
+        ),
+        other_institution="Scotiabank Trinidad & Tobago",
+        other_product_type="Vehicle Loan",
+        other_amount=Decimal("220000.00"),
+        alert_date=now - timedelta(days=2),
+    ))
+
+    # 5. NEW_DELINQUENCY — HIGH: 30-day late at another lender
+    alerts.append(CreditBureauAlert(
+        user_id=user.id, alert_type=AlertType.NEW_DELINQUENCY,
+        severity=AlertSeverity.HIGH, status=AlertStatus.NEW,
+        bureau_name="TransUnion Caribbean",
+        bureau_reference="TU-DEL-2026-88005",
+        title="30-Day Delinquency Reported at JMMB Trinidad",
+        description=(
+            "Customer is 30 days past due on a personal loan at JMMB Trinidad. "
+            "Outstanding balance 45,000 TTD with 3,200 TTD overdue. "
+            "This is the first reported delinquency in the last 12 months."
+        ),
+        other_institution="JMMB Trinidad",
+        other_product_type="Personal Loan",
+        other_amount=Decimal("45000.00"),
+        other_delinquency_days=30,
+        other_delinquency_amount=Decimal("3200.00"),
+        alert_date=now - timedelta(days=5),
+    ))
+
+    # 6. NEW_DELINQUENCY — CRITICAL: 90-day delinquency on credit card
+    alerts.append(CreditBureauAlert(
+        user_id=user.id, alert_type=AlertType.NEW_DELINQUENCY,
+        severity=AlertSeverity.CRITICAL, status=AlertStatus.NEW,
+        bureau_name="TransUnion Caribbean",
+        bureau_reference="TU-DEL-2026-88006",
+        title="90-Day Delinquency on Credit Card at RBC Caribbean",
+        description=(
+            "Customer is 90 days past due on a credit card at RBC Royal Bank "
+            "Caribbean. Credit limit 25,000 TTD, balance 23,800 TTD, with "
+            "7,500 TTD in arrears. Account at risk of charge-off. "
+            "This represents severe deterioration in repayment behaviour."
+        ),
+        other_institution="RBC Royal Bank Caribbean",
+        other_product_type="Credit Card",
+        other_amount=Decimal("23800.00"),
+        other_delinquency_days=90,
+        other_delinquency_amount=Decimal("7500.00"),
+        alert_date=now - timedelta(hours=18),
+    ))
+
+    # 7. DEFAULT_ELSEWHERE — CRITICAL: account written off at another bank
+    alerts.append(CreditBureauAlert(
+        user_id=user.id, alert_type=AlertType.DEFAULT_ELSEWHERE,
+        severity=AlertSeverity.CRITICAL, status=AlertStatus.NEW,
+        bureau_name="TransUnion Caribbean",
+        bureau_reference="TU-DEF-2026-88007",
+        title="Default Reported — Account Written Off at First Citizens",
+        description=(
+            "First Citizens Bank has written off an unsecured personal loan "
+            "of 38,000 TTD after 120+ days of non-payment. The full balance "
+            "has been classified as a loss. This is the most severe credit "
+            "event and indicates the customer has defaulted on obligations "
+            "at another institution."
+        ),
+        other_institution="First Citizens Bank",
+        other_product_type="Unsecured Personal Loan",
+        other_amount=Decimal("38000.00"),
+        other_delinquency_days=125,
+        other_delinquency_amount=Decimal("38000.00"),
+        alert_date=now - timedelta(hours=4),
+    ))
+
+    # 8. COLLECTION_PAYMENT_ELSEWHERE — HIGH: paying another creditor
+    #    while potentially behind on Zotta's loan
+    alerts.append(CreditBureauAlert(
+        user_id=user.id, alert_type=AlertType.COLLECTION_PAYMENT_ELSEWHERE,
+        severity=AlertSeverity.HIGH, status=AlertStatus.NEW,
+        bureau_name="TransUnion Caribbean",
+        bureau_reference="TU-CP-2026-88008",
+        title="Collection Payment Made to Guardian Life Insurance",
+        description=(
+            "While having overdue obligations, the customer made a 22,000 TTD "
+            "lump-sum payment to Guardian Life Insurance to settle a policy "
+            "loan. This suggests the customer is prioritising other creditors "
+            "and may have available funds not directed to Zotta repayments."
+        ),
+        other_institution="Guardian Life Insurance",
+        other_product_type="Policy Loan",
+        other_amount=Decimal("22000.00"),
+        alert_date=now - timedelta(hours=1),
+    ))
+
+    for a in alerts:
+        db.add(a)
+    await db.flush()
+
+    # ── Audit log for context ──
+    db.add(AuditLog(
+        entity_type="loan_application", entity_id=loan.id,
+        action="approved", user_id=staff_id,
+    ))
+    db.add(AuditLog(
+        entity_type="loan_application", entity_id=loan.id,
+        action="disbursed", user_id=staff_id,
+    ))
+
+    total_payments = len(payments)
+    print(
+        f"    Created user #{user.id} (Simone Charles) with 1 active loan, "
+        f"{total_payments} payments, {len(alerts)} bureau alerts"
+    )
+
+
 # ── Credit Bureau Alerts seeding ─────────────────────
 
 async def seed_bureau_alerts():
@@ -936,6 +1191,7 @@ async def seed_bureau_alerts():
             "kevin": "kevin.persad360@email.com",
             "priya": "priya.ramnath@email.com",
             "marcus": "marcus.williams360@email.com",
+            "simone": "simone.charles@email.com",
         }
         user_ids: dict[str, int] = {}
         for name, email in persona_emails.items():

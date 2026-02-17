@@ -16,10 +16,11 @@ import Chat from './apps/consumer/pages/Chat';
 import Profile from './apps/consumer/pages/Profile';
 import MyLoans from './apps/consumer/pages/MyLoans.tsx';
 import Notifications from './apps/consumer/pages/Notifications';
+import PreApproval from './apps/consumer/pages/PreApproval';
+import PreApprovalStatus from './apps/consumer/pages/PreApprovalStatus';
 
 // Back-office pages
 import UnderwriterDashboard from './apps/backoffice/pages/UnderwriterDashboard';
-import Applications from './apps/backoffice/pages/Queue';
 import ApplicationReview from './apps/backoffice/pages/ApplicationReview';
 import Reports from './apps/backoffice/pages/Reports';
 import ConversationQueue from './apps/backoffice/pages/ConversationQueue';
@@ -28,6 +29,7 @@ import LoanBook from './apps/backoffice/pages/LoanBook';
 import Collections from './apps/backoffice/pages/Collections';
 import CollectionDetail from './apps/backoffice/pages/CollectionDetail';
 import CollectionsDashboard from './apps/backoffice/pages/CollectionsDashboard';
+import CollectionSequences from './apps/backoffice/pages/CollectionSequences';
 import NewApplication from './apps/backoffice/pages/NewApplication';
 import ProductManagement from './apps/backoffice/pages/ProductManagement';
 import ProductDetail from './apps/backoffice/pages/ProductDetail';
@@ -35,6 +37,9 @@ import MerchantManagement from './apps/backoffice/pages/MerchantManagement';
 import RulesManagement from './apps/backoffice/pages/RulesManagement';
 import CustomerList from './apps/backoffice/pages/CustomerList';
 import Customer360 from './apps/backoffice/pages/Customer360';
+import SmartQueue from './apps/backoffice/pages/SmartQueue';
+import QueueConfigPage from './apps/backoffice/pages/QueueConfig';
+import QueueAnalytics from './apps/backoffice/pages/QueueAnalytics';
 
 // Scorecard pages
 import ScorecardManagement from './apps/backoffice/pages/ScorecardManagement';
@@ -65,8 +70,13 @@ import UserManagement from './apps/backoffice/pages/UserManagement';
 import UserDetail, { CreateUserForm } from './apps/backoffice/pages/UserDetail';
 import RoleEditor, { RoleDetailPage } from './apps/backoffice/pages/RoleEditor';
 
+// Pre-Approval backoffice
+import PreApprovalDashboard from './apps/backoffice/pages/PreApprovalDashboard';
+import PreApprovalDetail from './apps/backoffice/pages/PreApprovalDetail';
+
 // Admin pages
 import ErrorMonitor from './apps/backoffice/pages/ErrorMonitor';
+import AuditTrail from './apps/backoffice/pages/AuditTrail';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
   const { isAuthenticated, user, isLoading } = useAuthStore();
@@ -101,6 +111,9 @@ export default function App() {
         {/* Public routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/pre-approval" element={<PreApproval />} />
+        <Route path="/pre-approval/status" element={<PreApprovalStatus />} />
+        <Route path="/pre-approval/status/:ref" element={<PreApprovalStatus />} />
 
         {/* Consumer portal */}
         <Route
@@ -131,12 +144,17 @@ export default function App() {
           <Route path="/backoffice" element={<UnderwriterDashboard />} />
           <Route path="/backoffice/conversations" element={<ConversationQueue />} />
           <Route path="/backoffice/conversations/:id" element={<ConversationDetail />} />
-          <Route path="/backoffice/applications" element={<Applications />} />
+          <Route path="/backoffice/applications" element={<Navigate to="/backoffice/queue?tab=all" replace />} />
+          {/* Queue Management */}
+          <Route path="/backoffice/queue" element={<SmartQueue />} />
+          <Route path="/backoffice/queue/config" element={<QueueConfigPage />} />
+          <Route path="/backoffice/queue/analytics" element={<QueueAnalytics />} />
           <Route path="/backoffice/review/:id" element={<ApplicationReview />} />
           <Route path="/backoffice/reports" element={<Reports />} />
           <Route path="/backoffice/loans" element={<LoanBook />} />
           <Route path="/backoffice/collections" element={<Collections />} />
           <Route path="/backoffice/collections-dashboard" element={<CollectionsDashboard />} />
+          <Route path="/backoffice/collection-sequences" element={<CollectionSequences />} />
           <Route path="/backoffice/collections/:id" element={<CollectionDetail />} />
           <Route path="/backoffice/new-application" element={<NewApplication />} />
           <Route path="/backoffice/products" element={<ProductManagement />} />
@@ -174,6 +192,11 @@ export default function App() {
           <Route path="/backoffice/gl/report-builder" element={<ReportBuilder />} />
           <Route path="/backoffice/gl/anomalies" element={<AnomalyDashboard />} />
           <Route path="/backoffice/gl/chat" element={<GLChat />} />
+          {/* Pre-Approval */}
+          <Route path="/backoffice/pre-approvals" element={<PreApprovalDashboard />} />
+          <Route path="/backoffice/pre-approvals/:ref" element={<PreApprovalDetail />} />
+          {/* Audit */}
+          <Route path="/backoffice/audit-trail" element={<AuditTrail />} />
         </Route>
 
         {/* Default redirect */}

@@ -16,12 +16,14 @@ from app.models.rbac import (
     PendingAction, PendingActionStatus,
 )
 from app.models.session import UserSession, LoginAttempt
+from app.models.loan import ApplicantProfile
 from app.models.mfa import MFADevice
 from app.models.audit import AuditLog
 from app.auth_utils import (
     get_current_user,
     require_permission,
     hash_password,
+    validate_password_strength,
 )
 from app.schemas import (
     UserResponse,
@@ -37,6 +39,7 @@ from app.schemas import (
     PermissionResponse,
     PendingActionResponse,
     PendingActionDecision,
+    ResetPasswordRequest,
 )
 from app.services.error_logger import log_error
 
@@ -83,6 +86,10 @@ async def _get_user_effective_permissions(db: AsyncSession, user_id: int) -> lis
 
 async def _build_user_detail(db: AsyncSession, user: User) -> dict:
     """Build the full user detail response."""
+    # Ensure all server-computed columns (created_at, updated_at) are loaded
+    # to avoid MissingGreenlet errors after flush() in async context
+    await db.refresh(user)
+
     # Roles
     ura_result = await db.execute(
         select(UserRoleAssignment, Role.name).join(
@@ -173,8 +180,8 @@ async def list_users(
     current_user: User = Depends(require_permission("users.view")),
     db: AsyncSession = Depends(get_db),
 ):
-    """List users with search & filters."""
-    q = select(User)
+    """List users with search & filters (excludes consumer applicants)."""
+    q = select(User).where(User.role != UserRole.APPLICANT)
     if search:
         q = q.where(
             User.email.ilike(f"%{search}%")
@@ -196,12 +203,15 @@ async def user_count(
     current_user: User = Depends(require_permission("users.view")),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return total user count and breakdown by status."""
-    total = (await db.execute(select(func.count(User.id)))).scalar() or 0
+    """Return staff user count and breakdown by status (excludes applicants)."""
+    staff_filter = User.role != UserRole.APPLICANT
+    total = (await db.execute(
+        select(func.count(User.id)).where(staff_filter)
+    )).scalar() or 0
     by_status = {}
     for s in UserStatus:
         c = (await db.execute(
-            select(func.count(User.id)).where(User.status == s.value)
+            select(func.count(User.id)).where(staff_filter, User.status == s.value)
         )).scalar() or 0
         by_status[s.value] = c
     return {"total": total, "by_status": by_status}
@@ -229,6 +239,11 @@ async def create_user(
 ):
     """Admin creates a new user."""
     try:
+        # Validate password strength
+        pwd_error = validate_password_strength(data.password)
+        if pwd_error:
+            raise HTTPException(status_code=400, detail=pwd_error)
+
         # Check email uniqueness
         existing = await db.execute(select(User).where(User.email == data.email))
         if existing.scalar_one_or_none():
@@ -318,6 +333,7 @@ async def update_user(
             old_values=old_values, new_values=new_values,
         )
 
+        await db.refresh(user)
         return await _build_user_detail(db, user)
     except HTTPException:
         raise
@@ -444,7 +460,7 @@ async def unlock_user(
 @router.post("/{user_id}/reset-password")
 async def reset_user_password(
     user_id: int,
-    data: dict,
+    data: ResetPasswordRequest,
     current_user: User = Depends(require_permission("users.edit")),
     db: AsyncSession = Depends(get_db),
 ):
@@ -454,11 +470,11 @@ async def reset_user_password(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    new_password = data.get("new_password", "")
-    if len(new_password) < 8:
-        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    pwd_error = validate_password_strength(data.new_password)
+    if pwd_error:
+        raise HTTPException(status_code=400, detail=pwd_error)
 
-    user.hashed_password = hash_password(new_password)
+    user.hashed_password = hash_password(data.new_password)
     user.must_change_password = True
     user.password_changed_at = datetime.now(timezone.utc)
 
@@ -556,7 +572,9 @@ async def list_roles(
     current_user: User = Depends(require_permission("users.view")),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Role).order_by(Role.name))
+    result = await db.execute(
+        select(Role).where(Role.name != "Applicant").order_by(Role.name)
+    )
     return result.scalars().all()
 
 
@@ -672,6 +690,120 @@ async def update_role(
     await db.flush()
     await _audit(db, "role", role.id, "update", current_user.id)
     return await get_role(role.id, current_user, db)
+
+
+@router.delete("/roles/{role_id}")
+async def delete_role(
+    role_id: int,
+    reassign_to_role_id: int = Query(..., description="Role ID to reassign users to"),
+    current_user: User = Depends(require_permission("users.roles.manage")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a role, reassigning any users to another role first."""
+    result = await db.execute(select(Role).where(Role.id == role_id))
+    role = result.scalar_one_or_none()
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+    if role.is_system:
+        raise HTTPException(status_code=400, detail="Cannot delete system roles")
+
+    if reassign_to_role_id == role_id:
+        raise HTTPException(status_code=400, detail="Cannot reassign users to the role being deleted")
+
+    target_result = await db.execute(select(Role).where(Role.id == reassign_to_role_id))
+    target_role = target_result.scalar_one_or_none()
+    if not target_role:
+        raise HTTPException(status_code=400, detail="Target reassignment role not found")
+
+    # Reassign all users from this role to the target role
+    assignments = await db.execute(
+        select(UserRoleAssignment).where(UserRoleAssignment.role_id == role_id)
+    )
+    reassigned_count = 0
+    for assignment in assignments.scalars().all():
+        # Check if user already has the target role
+        existing = await db.execute(
+            select(UserRoleAssignment).where(
+                UserRoleAssignment.user_id == assignment.user_id,
+                UserRoleAssignment.role_id == reassign_to_role_id,
+            )
+        )
+        if not existing.scalar_one_or_none():
+            db.add(UserRoleAssignment(
+                user_id=assignment.user_id,
+                role_id=reassign_to_role_id,
+                granted_by=current_user.id,
+                is_primary=assignment.is_primary,
+            ))
+        await db.delete(assignment)
+        reassigned_count += 1
+
+    # Delete role permissions and the role itself
+    await db.execute(
+        sa_delete(RolePermission).where(RolePermission.role_id == role_id)
+    )
+    await db.delete(role)
+    await db.flush()
+
+    await _audit(
+        db, "role", role_id, "delete", current_user.id,
+        old_values={"name": role.name},
+        details=f"Reassigned {reassigned_count} user(s) to role '{target_role.name}'",
+    )
+    return {
+        "status": "ok",
+        "deleted_role": role.name,
+        "reassigned_users": reassigned_count,
+        "reassigned_to": target_role.name,
+    }
+
+
+@router.delete("/{user_id}")
+async def delete_user(
+    user_id: int,
+    current_user: User = Depends(require_permission("users.manage")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Hard-delete a user (for test cleanup). Removes role assignments, sessions, and the user."""
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot delete yourself")
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Capture info for the audit trail before deletion
+    deleted_email = user.email
+    deleted_name = f"{user.first_name} {user.last_name}"
+
+    # Remove related records in order (FK constraints)
+    await db.execute(
+        sa_delete(UserRoleAssignment).where(UserRoleAssignment.user_id == user_id)
+    )
+    await db.execute(
+        sa_delete(UserSession).where(UserSession.user_id == user_id)
+    )
+    await db.execute(
+        sa_delete(LoginAttempt).where(LoginAttempt.user_id == user_id)
+    )
+    await db.execute(
+        sa_delete(MFADevice).where(MFADevice.user_id == user_id)
+    )
+    await db.execute(
+        sa_delete(ApplicantProfile).where(ApplicantProfile.user_id == user_id)
+    )
+    # Nullify audit_log references so the FK doesn't block deletion
+    await db.execute(
+        update(AuditLog).where(AuditLog.user_id == user_id).values(user_id=None)
+    )
+    await db.delete(user)
+    await db.flush()
+
+    await _audit(
+        db, "user", user_id, "delete", current_user.id,
+        old_values={"email": deleted_email, "name": deleted_name},
+    )
+    return {"status": "ok", "deleted_user_id": user_id}
 
 
 # ═══════════════════════════════════════════════════════════════

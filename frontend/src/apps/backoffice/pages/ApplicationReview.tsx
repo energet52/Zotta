@@ -167,6 +167,11 @@ export default function ApplicationReview() {
   const [docUploading, setDocUploading] = useState(false);
   const [docDeleting, setDocDeleting] = useState<number | null>(null);
 
+  // Void
+  const [showVoidDialog, setShowVoidDialog] = useState(false);
+  const [voidReason, setVoidReason] = useState('');
+  const [voiding, setVoiding] = useState(false);
+
   // Disbursement
   const [showDisburse, setShowDisburse] = useState(false);
   const [disbursing, setDisbursing] = useState(false);
@@ -190,6 +195,8 @@ export default function ApplicationReview() {
   const [addingReply, setAddingReply] = useState(false);
   const [references, setReferences] = useState<Reference[]>([]);
   const [addingNote, setAddingNote] = useState(false);
+  const [engineRunning, setEngineRunning] = useState(false);
+  const engineAutoRanRef = React.useRef(false);
 
   // Compute a projected amortization schedule from application data
   const computeProjectedSchedule = (principal: number, annualRate: number, termMonths: number) => {
@@ -237,7 +244,13 @@ export default function ApplicationReview() {
           ? Math.min(Number(req), Number(d.suggested_amount))
           : (d?.suggested_amount ?? req);
         if (amt != null) setApprovedAmount(String(amt));
-        if (d?.suggested_rate != null) setApprovedRate(String(d.suggested_rate));
+        // Rate comes from credit product, not decision engine
+        const productRate = res.data.application?.credit_product_rate;
+        if (productRate != null) {
+          setApprovedRate(String(productRate));
+        } else if (d?.suggested_rate != null) {
+          setApprovedRate(String(d.suggested_rate));
+        }
         // Load disbursement info if disbursed
         if (res.data.application?.status === 'disbursed') {
           underwriterApi.getDisbursement(parseInt(id))
@@ -265,12 +278,43 @@ export default function ApplicationReview() {
         loanApi.listReferences(parseInt(id))
           .then((rRes) => setReferences(rRes.data || []))
           .catch(() => setReferences([]));
+
+        // Auto-run decision engine if no decisions exist yet
+        const hasDecisions = (res.data.decisions || []).length > 0;
+        const appStatus = res.data.application?.status;
+        const canAutoRun = !hasDecisions && !engineAutoRanRef.current
+          && appStatus !== 'draft' && appStatus !== 'cancelled' && appStatus !== 'voided';
+        if (canAutoRun) {
+          engineAutoRanRef.current = true;
+          setEngineRunning(true);
+          underwriterApi.runEngine(parseInt(id))
+            .then(() => {
+              // Reload to pick up the new decision
+              underwriterApi.getFullApplication(parseInt(id)).then((freshRes) => {
+                setData(freshRes.data);
+                const freshD = freshRes.data.decisions?.[0];
+                const freshReq = freshRes.data.application?.amount_requested;
+                const freshAmt = freshD?.suggested_amount != null && freshReq != null
+                  ? Math.min(Number(freshReq), Number(freshD.suggested_amount))
+                  : (freshD?.suggested_amount ?? freshReq);
+                if (freshAmt != null) setApprovedAmount(String(freshAmt));
+                const freshProductRate = freshRes.data.application?.credit_product_rate;
+                if (freshProductRate != null) {
+                  setApprovedRate(String(freshProductRate));
+                } else if (freshD?.suggested_rate != null) {
+                  setApprovedRate(String(freshD.suggested_rate));
+                }
+              }).catch(() => {});
+            })
+            .catch(() => {})
+            .finally(() => setEngineRunning(false));
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { loadData(); }, [id]);
+  useEffect(() => { engineAutoRanRef.current = false; loadData(); }, [id]);
 
   const handleDecide = async () => {
     if (!action || !reason) { setError('Select action and provide a reason'); return; }
@@ -339,6 +383,20 @@ export default function ApplicationReview() {
     } finally { setDisbursing(false); }
   };
 
+  const handleVoid = async () => {
+    if (!id || !voidReason.trim()) return;
+    setVoiding(true); setError('');
+    try {
+      await underwriterApi.voidApplication(parseInt(id), voidReason.trim());
+      setSuccessMsg('Application voided');
+      setShowVoidDialog(false);
+      setVoidReason('');
+      loadData();
+    } catch (err: any) {
+      setError(parseApiError(err, 'Void failed'));
+    } finally { setVoiding(false); }
+  };
+
   const handleDocUpload = async () => {
     if (!id || !docUploadFile) return;
     setDocUploading(true); setError('');
@@ -392,7 +450,7 @@ export default function ApplicationReview() {
 
   const tabs: { key: TabKey; label: string; icon: any }[] = [
     { key: 'details', label: 'Application Details', icon: FileText },
-    { key: 'decision', label: 'Decision Engine', icon: Shield },
+    { key: 'decision', label: 'Credit Analysis', icon: Shield },
     { key: 'credit_bureau', label: 'Credit Bureau', icon: Shield },
     { key: 'bank_analysis', label: 'Bank Analysis', icon: Banknote },
     { key: 'references', label: 'References', icon: Users },
@@ -725,7 +783,7 @@ export default function ApplicationReview() {
             </div>
           )}
 
-          {/* Tab: Decision Engine */}
+          {/* Tab: Credit Analysis */}
           {activeTab === 'decision' && decision && (
             <div className="space-y-4">
               {/* Score & Band */}
@@ -760,7 +818,7 @@ export default function ApplicationReview() {
                   <div className="mb-6">
                     <h4 className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-3">Scoring Breakdown</h4>
                     <div className="space-y-2">
-                      {Object.entries(decision.scoring_breakdown).map(([key, value]) => (
+                      {Object.entries(decision.scoring_breakdown).filter(([, v]) => typeof v === 'number' && v <= 100).map(([key, value]) => (
                         <div key={key} className="flex items-center">
                           <span className="text-xs text-[var(--color-text-muted)] w-36 capitalize">{key.replace(/_/g, ' ')}</span>
                           <div className="flex-1 bg-[var(--color-bg)] rounded-full h-2 mx-2">
@@ -858,30 +916,66 @@ export default function ApplicationReview() {
                   </div>
                 </Card>
               )}
+
+              {/* Re-run analysis */}
+              <div className="flex items-center justify-between pt-2">
+                <p className="text-xs text-[var(--color-text-muted)]">
+                  Analysis run on {decision.created_at ? new Date(decision.created_at).toLocaleString() : 'unknown date'}
+                </p>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={async () => {
+                    setSubmitting(true); setError('');
+                    try {
+                      await underwriterApi.runEngine(parseInt(id!));
+                      setSuccessMsg('Analysis refreshed');
+                      loadData();
+                    } catch (err: any) {
+                      setError(parseApiError(err, 'Failed to re-run analysis'));
+                    } finally { setSubmitting(false); }
+                  }}
+                  isLoading={submitting}
+                >
+                  <Calculator size={14} className="mr-1" />
+                  Re-run Analysis
+                </Button>
+              </div>
             </div>
           )}
 
           {activeTab === 'decision' && !decision && (
             <Card>
               <div className="text-center py-8">
-                <Shield size={32} className="mx-auto text-[var(--color-text-muted)] mb-3" />
-                <p className="text-[var(--color-text-muted)] mb-4">No decision engine data available yet.</p>
-                <Button
-                  onClick={async () => {
-                    setSubmitting(true); setError('');
-                    try {
-                      await underwriterApi.runEngine(parseInt(id!));
-                      setSuccessMsg('Decision engine executed successfully');
-                      loadData();
-                    } catch (err: any) {
-                      setError(parseApiError(err, 'Failed to run decision engine'));
-                    } finally { setSubmitting(false); }
-                  }}
-                  isLoading={submitting}
-                >
-                  <Calculator size={16} className="mr-2" />
-                  Run Decision Engine
-                </Button>
+                {engineRunning ? (
+                  <>
+                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-[var(--color-primary)] border-t-transparent mx-auto mb-3" />
+                    <p className="text-[var(--color-text-muted)]">Running credit analysis...</p>
+                    <p className="text-xs text-[var(--color-text-muted)] mt-1">This usually takes a few seconds</p>
+                  </>
+                ) : (
+                  <>
+                    <Shield size={32} className="mx-auto text-[var(--color-text-muted)] mb-3" />
+                    <p className="text-[var(--color-text-muted)] mb-1">Decision analysis could not be completed automatically.</p>
+                    <p className="text-xs text-[var(--color-text-muted)] mb-4">This may happen if required data (credit bureau, profile) was not available at submission time.</p>
+                    <Button
+                      onClick={async () => {
+                        setSubmitting(true); setError('');
+                        try {
+                          await underwriterApi.runEngine(parseInt(id!));
+                          setSuccessMsg('Decision analysis completed');
+                          loadData();
+                        } catch (err: any) {
+                          setError(parseApiError(err, 'Failed to run decision analysis'));
+                        } finally { setSubmitting(false); }
+                      }}
+                      isLoading={submitting}
+                    >
+                      <Calculator size={16} className="mr-2" />
+                      Retry Analysis
+                    </Button>
+                  </>
+                )}
               </div>
             </Card>
           )}
@@ -1415,7 +1509,7 @@ export default function ApplicationReview() {
 
               {action === 'approve' && (
                 <div className="space-y-2 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] p-3 text-sm">
-                  <p className="text-[var(--color-text-muted)]">Approved Amount & Rate (from decision engine — not editable)</p>
+                  <p className="text-[var(--color-text-muted)]">Approved Amount & Rate (from credit product — not editable)</p>
                   <div className="flex gap-4">
                     <div>
                       <span className="text-[var(--color-text-muted)]">Amount:</span>{' '}
@@ -1665,6 +1759,85 @@ export default function ApplicationReview() {
                   </div>
                 )}
               </div>
+            </Card>
+          )}
+
+          {/* Void Application */}
+          {!['disbursed', 'cancelled', 'voided'].includes(app.status) && (
+            <Card className="border-red-200/50">
+              <div className="flex items-center space-x-2 mb-2">
+                <div className="p-1.5 rounded-lg bg-red-500/15">
+                  <XCircle size={18} className="text-red-500" />
+                </div>
+                <h3 className="font-semibold text-[var(--color-text)]">Void Application</h3>
+              </div>
+              <p className="text-xs text-[var(--color-text-muted)] mb-3">
+                Permanently void this application. This cannot be undone.
+              </p>
+              {!showVoidDialog ? (
+                <Button
+                  size="sm"
+                  className="w-full !bg-red-600 hover:!bg-red-700 text-white"
+                  onClick={() => setShowVoidDialog(true)}
+                >
+                  <XCircle size={14} className="mr-1" /> Void Application
+                </Button>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">
+                      Reason <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={voidReason}
+                      onChange={e => setVoidReason(e.target.value)}
+                      rows={3}
+                      className="w-full px-3 py-2 bg-[var(--color-bg)] border border-red-300 rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:ring-1 focus:ring-red-400 resize-none"
+                      placeholder="Reason for voiding (required)..."
+                    />
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button
+                      size="sm"
+                      className="flex-1 !bg-red-600 hover:!bg-red-700 text-white"
+                      onClick={handleVoid}
+                      isLoading={voiding}
+                      disabled={!voidReason.trim()}
+                    >
+                      Confirm Void
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => { setShowVoidDialog(false); setVoidReason(''); }}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* Voided Banner */}
+          {app.status === 'voided' && (
+            <Card className="border-red-200 bg-red-50">
+              <div className="flex items-center space-x-2 mb-2">
+                <XCircle size={18} className="text-red-600" />
+                <h3 className="font-semibold text-red-800">Application Voided</h3>
+              </div>
+              <p className="text-sm text-red-700">
+                This application has been voided and cannot be processed further.
+              </p>
+            </Card>
+          )}
+
+          {/* Cancelled Banner */}
+          {app.status === 'cancelled' && (
+            <Card className="border-orange-200 bg-orange-50">
+              <div className="flex items-center space-x-2 mb-2">
+                <XCircle size={18} className="text-orange-600" />
+                <h3 className="font-semibold text-orange-800">Application Cancelled</h3>
+              </div>
+              <p className="text-sm text-orange-700">
+                This application was cancelled by the applicant.
+              </p>
             </Card>
           )}
 

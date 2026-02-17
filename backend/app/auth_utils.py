@@ -26,6 +26,34 @@ LOCKOUT_MINUTES = 30
 
 # ── Password helpers ─────────────────────────────────────────
 
+# Common weak passwords (top entries — extend as needed)
+_COMMON_PASSWORDS = frozenset({
+    "password", "12345678", "123456789", "1234567890", "qwerty123",
+    "password1", "password123", "iloveyou", "sunshine", "princess",
+    "football", "charlie", "access14", "trustno1", "letmein1",
+    "abc12345", "monkey12", "master12", "dragon12", "login123",
+    "passw0rd", "admin123", "welcome1", "mustang1", "shadow12",
+})
+
+
+def validate_password_strength(password: str) -> str | None:
+    """Return an error message if the password is too weak, or None if it passes."""
+    if len(password) < 8:
+        return "Password must be at least 8 characters"
+    if len(password) > 128:
+        return "Password must not exceed 128 characters"
+    if not any(c.isupper() for c in password):
+        return "Password must contain at least one uppercase letter"
+    if not any(c.islower() for c in password):
+        return "Password must contain at least one lowercase letter"
+    if not any(c.isdigit() for c in password):
+        return "Password must contain at least one digit"
+    if not any(c in "!@#$%^&*()_+-=[]{}|;':\",./<>?`~" for c in password):
+        return "Password must contain at least one special character"
+    if password.lower() in _COMMON_PASSWORDS:
+        return "This password is too common. Please choose a stronger password."
+    return None
+
 
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)

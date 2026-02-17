@@ -10,6 +10,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import select, func, and_, case as sa_case
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.scorecard import (
@@ -193,7 +194,16 @@ async def generate_performance_snapshot(
             total_scored=0, total_approved=0, total_declined=0, total_review=0,
         )
         db.add(snap)
-        await db.flush()
+        try:
+            await db.flush()
+        except IntegrityError:
+            await db.rollback()
+            snap = (await db.execute(
+                select(ScorecardPerformanceSnapshot).where(
+                    ScorecardPerformanceSnapshot.scorecard_id == scorecard_id,
+                    ScorecardPerformanceSnapshot.snapshot_date == today,
+                )
+            )).scalar_one()
         return snap
 
     # Count decisions
@@ -289,7 +299,7 @@ async def generate_performance_snapshot(
     else:
         psi = 0.0
 
-    # Check existing snapshot for today
+    # Check existing snapshot for today (or create with race-condition guard)
     existing_q = select(ScorecardPerformanceSnapshot).where(
         ScorecardPerformanceSnapshot.scorecard_id == scorecard_id,
         ScorecardPerformanceSnapshot.snapshot_date == today,
@@ -301,6 +311,11 @@ async def generate_performance_snapshot(
     else:
         snap = ScorecardPerformanceSnapshot(scorecard_id=scorecard_id, snapshot_date=today)
         db.add(snap)
+        try:
+            await db.flush()
+        except IntegrityError:
+            await db.rollback()
+            snap = (await db.execute(existing_q)).scalar_one()
 
     snap.total_scored = total
     snap.total_approved = approved

@@ -830,9 +830,18 @@ export default function CollectionDetail() {
               <h1 className="text-lg font-bold truncate">
                 {borrower?.first_name} {borrower?.last_name}
               </h1>
-              <span className="text-xs text-[var(--color-text-muted)] font-mono">
-                #{loan?.reference_number}
-              </span>
+              {loan && (
+                <Link
+                  to={`/backoffice/review/${loan.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-mono text-[var(--color-primary)] hover:underline flex items-center gap-1"
+                  title="Open loan details in new tab"
+                >
+                  #{loan.reference_number}
+                  <FileText size={11} />
+                </Link>
+              )}
             </div>
             <div className="flex items-center gap-3 text-xs text-[var(--color-text-muted)] flex-wrap">
               {borrower?.phone && (

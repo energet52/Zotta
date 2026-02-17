@@ -321,6 +321,7 @@ def _to_detail(conv: Conversation) -> ConversationDetailResponse:
         }
     return ConversationDetailResponse(
         id=conv.id,
+        participant_user_id=conv.participant_user_id,
         channel=conv.channel.value,
         current_state=conv.current_state.value,
         loan_application_id=conv.loan_application_id,

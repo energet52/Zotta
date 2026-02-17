@@ -6,7 +6,6 @@ so admins can monitor system health from the UI.
 
 from __future__ import annotations
 
-import json
 import logging
 import time
 from typing import Optional
@@ -21,7 +20,16 @@ from app.services.error_logger import log_error_standalone
 logger = logging.getLogger("zotta.middleware")
 
 # Paths we don't want to capture request bodies for (security)
-_SENSITIVE_PATHS = {"/api/auth/login", "/api/auth/register"}
+_SENSITIVE_PATHS = {
+    "/api/auth/login",
+    "/api/auth/register",
+    "/api/auth/refresh",
+    "/api/auth/change-password",
+    "/api/auth/mfa/setup",
+    "/api/auth/mfa/verify",
+    "/api/auth/mfa/confirm",
+    "/api/payments",
+}
 
 # Max body size to capture (avoid storing huge payloads)
 _MAX_BODY_SIZE = 4096
@@ -37,7 +45,8 @@ class ErrorCaptureMiddleware(BaseHTTPMiddleware):
         request_body: Optional[str] = None
 
         # Try to read request body for context (skip sensitive endpoints)
-        if request.method in ("POST", "PUT", "PATCH") and request.url.path not in _SENSITIVE_PATHS:
+        _is_sensitive = any(request.url.path.startswith(p) for p in _SENSITIVE_PATHS)
+        if request.method in ("POST", "PUT", "PATCH") and not _is_sensitive:
             try:
                 body_bytes = await request.body()
                 if len(body_bytes) <= _MAX_BODY_SIZE:
@@ -49,14 +58,14 @@ class ErrorCaptureMiddleware(BaseHTTPMiddleware):
         user_id: Optional[int] = None
         user_email: Optional[str] = None
         try:
-            # The JWT payload is parsed by auth_utils; we peek at it here
             from app.config import settings
-            import jwt
+            from jose import jwt as jose_jwt
             auth_header = request.headers.get("authorization", "")
             if auth_header.startswith("Bearer "):
                 token = auth_header[7:]
-                payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+                payload = jose_jwt.decode(token, settings.secret_key, algorithms=["HS256"])
                 user_id = int(payload.get("sub", 0)) or None
+                user_email = payload.get("email") or None
         except Exception:
             pass  # auth extraction is best-effort
 
@@ -84,10 +93,9 @@ class ErrorCaptureMiddleware(BaseHTTPMiddleware):
                 )
             # Log 4xx client errors as WARNING severity (skip 401/403 auth noise)
             elif response.status_code >= 400 and response.status_code not in (401, 403):
-                sev = ErrorSeverity.WARNING if response.status_code < 500 else ErrorSeverity.ERROR
                 await log_error_standalone(
                     Exception(f"HTTP {response.status_code} on {request.method} {request.url.path}"),
-                    severity=sev,
+                    severity=ErrorSeverity.WARNING,
                     module="middleware.error_capture",
                     function_name="dispatch",
                     request_method=request.method,

@@ -151,11 +151,13 @@ class LoanApplicationResponse(BaseModel):
     merchant_name: Optional[str] = None  # populated when relations loaded
     branch_name: Optional[str] = None
     credit_product_name: Optional[str] = None
+    credit_product_rate: Optional[float] = None  # interest rate from credit product
     downpayment: Optional[float] = None
     total_financed: Optional[float] = None
     items: list["ApplicationItemResponse"] = []  # populated when relations loaded
     status: str
     assigned_underwriter_id: Optional[int]
+    assigned_underwriter_name: Optional[str] = None
     # Counterproposal
     proposed_amount: Optional[float] = None
     proposed_rate: Optional[float] = None
@@ -354,6 +356,57 @@ class ProductFeeResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ── Rate Tiers ────────────────────────────────────────
+class ProductRateTierCreate(BaseModel):
+    tier_name: str = Field(min_length=1, max_length=100)
+    min_score: int = Field(ge=0, le=1000)
+    max_score: int = Field(ge=0, le=1000)
+    interest_rate: float = Field(ge=0, le=100)
+    max_ltv_pct: Optional[float] = Field(default=None, ge=0, le=200)
+    max_dti_pct: Optional[float] = Field(default=None, ge=0, le=100)
+    is_active: bool = True
+
+
+class ProductRateTierUpdate(BaseModel):
+    tier_name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    min_score: Optional[int] = Field(default=None, ge=0, le=1000)
+    max_score: Optional[int] = Field(default=None, ge=0, le=1000)
+    interest_rate: Optional[float] = Field(default=None, ge=0, le=100)
+    max_ltv_pct: Optional[float] = None
+    max_dti_pct: Optional[float] = None
+    is_active: Optional[bool] = None
+
+
+class ProductRateTierResponse(BaseModel):
+    id: int
+    credit_product_id: int
+    tier_name: str
+    min_score: int
+    max_score: int
+    interest_rate: float
+    max_ltv_pct: Optional[float] = None
+    max_dti_pct: Optional[float] = None
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ── Eligibility Criteria ──────────────────────────────
+class EligibilityCriteria(BaseModel):
+    min_age: Optional[int] = Field(default=None, ge=18, le=100)
+    max_age: Optional[int] = Field(default=None, ge=18, le=100)
+    min_income: Optional[float] = Field(default=None, ge=0)
+    max_dti: Optional[float] = Field(default=None, ge=0, le=100)
+    employment_types: list[str] = []
+    min_employment_months: Optional[int] = Field(default=None, ge=0)
+    required_documents: list[str] = []
+    excluded_sectors: list[str] = []
+    citizenship_required: bool = False
+    existing_customer_only: bool = False
+
+
 class CreditProductCreate(BaseModel):
     name: str = Field(min_length=1, max_length=180)
     description: Optional[str] = None
@@ -365,8 +418,16 @@ class CreditProductCreate(BaseModel):
     repayment_scheme: str = Field(min_length=1, max_length=200)
     grace_period_days: int = Field(ge=0, le=365, default=0)
     is_active: bool = True
+    interest_rate: Optional[float] = Field(default=None, ge=0, le=100)
+    eligibility_criteria: Optional[dict] = None
+    lifecycle_status: str = Field(default="active", pattern="^(draft|active|sunset|retired)$")
+    channels: Optional[list[str]] = None
+    target_segments: Optional[list[str]] = None
+    internal_notes: Optional[str] = None
+    regulatory_code: Optional[str] = None
     score_ranges: list[ProductScoreRangeCreate] = []
     fees: list[ProductFeeCreate] = []
+    rate_tiers: list[ProductRateTierCreate] = []
 
 
 class CreditProductUpdate(BaseModel):
@@ -380,6 +441,13 @@ class CreditProductUpdate(BaseModel):
     repayment_scheme: Optional[str] = Field(default=None, min_length=1, max_length=200)
     grace_period_days: Optional[int] = Field(default=None, ge=0, le=365)
     is_active: Optional[bool] = None
+    interest_rate: Optional[float] = Field(default=None, ge=0, le=100)
+    eligibility_criteria: Optional[dict] = None
+    lifecycle_status: Optional[str] = Field(default=None, pattern="^(draft|active|sunset|retired)$")
+    channels: Optional[list[str]] = None
+    target_segments: Optional[list[str]] = None
+    internal_notes: Optional[str] = None
+    regulatory_code: Optional[str] = None
 
 
 class CreditProductResponse(BaseModel):
@@ -395,12 +463,47 @@ class CreditProductResponse(BaseModel):
     repayment_scheme: str
     grace_period_days: int
     is_active: bool
+    interest_rate: Optional[float] = None
+    eligibility_criteria: Optional[dict] = None
+    lifecycle_status: str = "active"
+    version: int = 1
+    channels: Optional[list[str]] = None
+    target_segments: Optional[list[str]] = None
+    internal_notes: Optional[str] = None
+    regulatory_code: Optional[str] = None
+    ai_summary: Optional[str] = None
     score_ranges: list[ProductScoreRangeResponse] = []
     fees: list[ProductFeeResponse] = []
+    rate_tiers: list[ProductRateTierResponse] = []
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ── AI Product Schemas ────────────────────────────────
+class ProductAdvisorRequest(BaseModel):
+    product_id: Optional[int] = None
+    question: str = Field(min_length=1, max_length=2000)
+    conversation_history: list[dict] = []
+
+
+class ProductAdvisorResponse(BaseModel):
+    answer: str
+    suggestions: list[str] = []
+
+
+class ProductSimulateRequest(BaseModel):
+    product_id: int
+    changes: dict
+
+
+class ProductGenerateRequest(BaseModel):
+    description: str = Field(min_length=10, max_length=2000)
+
+
+class ProductCompareRequest(BaseModel):
+    product_ids: list[int] = Field(min_length=2, max_length=10)
 
 
 class PaymentCalculationRequest(BaseModel):
@@ -1143,6 +1246,7 @@ class ConversationCreate(BaseModel):
 
 class ConversationResponse(BaseModel):
     id: int
+    participant_user_id: Optional[int] = None
     channel: str
     current_state: str
     loan_application_id: Optional[int] = None
@@ -1183,7 +1287,6 @@ class StartApplicationRequest(BaseModel):
 # ── MFA ──────────────────────────────────────────────────────
 
 class MFASetupResponse(BaseModel):
-    secret: str
     provisioning_uri: str
     device_id: int
 
@@ -1195,6 +1298,15 @@ class MFAVerifyRequest(BaseModel):
 
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str = Field(min_length=1)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+class ResetPasswordRequest(BaseModel):
+    new_password: str = Field(min_length=8, max_length=128)
 
 
 # ── Roles & Permissions ─────────────────────────────────────
@@ -1330,3 +1442,122 @@ class PendingActionResponse(BaseModel):
 class PendingActionDecision(BaseModel):
     approved: bool
     rejection_reason: Optional[str] = None
+
+
+# ── Pre-Approval ──────────────────────────────────────────────────
+
+class PreApprovalStartRequest(BaseModel):
+    """Consumer submits Step 1 + Step 2 data."""
+    # Identity
+    phone: str
+    first_name: str
+    last_name: str
+    date_of_birth: Optional[str] = None  # YYYY-MM-DD
+    national_id: Optional[str] = None
+    email: Optional[str] = None
+    # Item
+    price: float
+    currency: str = "TTD"
+    downpayment: float = 0
+    item_description: Optional[str] = None
+    goods_category: Optional[str] = None
+    merchant_id: Optional[int] = None
+    merchant_name_manual: Optional[str] = None
+    branch_id: Optional[int] = None
+    # Financial
+    monthly_income: float
+    income_frequency: str = "monthly"
+    employment_status: str
+    employment_tenure: Optional[str] = None
+    employer_name: Optional[str] = None
+    monthly_expenses: float
+    existing_loan_payments: float = 0
+    # Photo (set by server after upload)
+    photo_url: Optional[str] = None
+    photo_extraction_data: Optional[dict] = None
+
+
+class PreApprovalConsentRequest(BaseModel):
+    consent_soft_inquiry: bool
+    consent_data_processing: bool
+
+
+class PreApprovalOTPRequest(BaseModel):
+    code: str
+
+
+class PreApprovalCheckLowerRequest(BaseModel):
+    amount: float
+
+
+class PreApprovalAdminDecideRequest(BaseModel):
+    outcome: str  # pre_approved or declined
+    reason: Optional[str] = None
+
+
+class PreApprovalStatusLookupRequest(BaseModel):
+    phone: str
+
+
+class PreApprovalResponse(BaseModel):
+    reference_code: str
+    outcome: Optional[str] = None
+    status: str
+    financing_amount: Optional[float] = None
+    estimated_monthly_payment: Optional[float] = None
+    estimated_tenure_months: Optional[int] = None
+    estimated_rate: Optional[float] = None
+    credit_product_name: Optional[str] = None
+    dti_ratio: Optional[float] = None
+    ndi_amount: Optional[float] = None
+    expires_at: Optional[datetime] = None
+    message: Optional[str] = None
+    reasons: list[str] = []
+    suggestions: list[str] = []
+    alternative_amount: Optional[float] = None
+    alternative_payment: Optional[float] = None
+    document_checklist: list[dict] = []
+    merchant_name: Optional[str] = None
+    merchant_approved: bool = False
+    # Item info (echoed back)
+    item_description: Optional[str] = None
+    price: Optional[float] = None
+    currency: str = "TTD"
+    downpayment: Optional[float] = None
+    goods_category: Optional[str] = None
+    # Consumer info
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    phone: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class PreApprovalAdminListItem(BaseModel):
+    id: int
+    reference_code: str
+    phone: str
+    first_name: str
+    last_name: str
+    item_description: Optional[str] = None
+    price: float
+    financing_amount: Optional[float] = None
+    outcome: Optional[str] = None
+    status: str
+    merchant_name: Optional[str] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PreApprovalAnalyticsResponse(BaseModel):
+    total: int = 0
+    pre_approved: int = 0
+    conditionally_approved: int = 0
+    referred: int = 0
+    declined: int = 0
+    converted: int = 0
+    conversion_rate: float = 0
+    top_decline_reasons: list[dict] = []
+    merchant_breakdown: list[dict] = []
+    category_breakdown: list[dict] = []
+    daily_volume: list[dict] = []

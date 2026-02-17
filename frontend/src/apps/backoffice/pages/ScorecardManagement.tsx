@@ -440,7 +440,21 @@ export default function ScorecardManagement() {
                           value={trafficAllocations[entry.id] ?? entry.traffic_pct}
                           onChange={e => {
                             e.stopPropagation();
-                            setTrafficAllocations(prev => ({ ...prev, [entry.id]: Number(e.target.value) }));
+                            const newVal = Number(e.target.value);
+                            setTrafficAllocations(prev => {
+                              const otherIds = champStatus.filter(s => s.id !== entry.id).map(s => s.id);
+                              const remaining = 100 - newVal;
+                              if (otherIds.length === 1) {
+                                return { ...prev, [entry.id]: newVal, [otherIds[0]]: Math.max(0, remaining) };
+                              }
+                              const otherTotal = otherIds.reduce((sum, id) => sum + (prev[id] ?? 0), 0);
+                              const next: Record<number, number> = { ...prev, [entry.id]: newVal };
+                              otherIds.forEach(id => {
+                                const share = otherTotal > 0 ? (prev[id] ?? 0) / otherTotal : 1 / otherIds.length;
+                                next[id] = Math.max(0, Math.round(remaining * share));
+                              });
+                              return next;
+                            });
                           }}
                           onClick={e => e.stopPropagation()}
                           className="w-full h-1.5 rounded-full appearance-none cursor-pointer"

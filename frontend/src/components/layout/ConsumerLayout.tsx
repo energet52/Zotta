@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { Home, FileText, Upload, User, LogOut, Wallet, Bell, MessageCircle } from 'lucide-react';
+import { Home, FileText, Upload, User, LogOut, Wallet, Bell, MessageCircle, Sparkles } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useNotificationStore } from '../../store/notificationStore';
 import { clsx } from 'clsx';
@@ -24,6 +24,7 @@ export default function ConsumerLayout() {
 
   const navItems = [
     { to: '/dashboard', icon: Home, label: 'Dashboard' },
+    { to: '/pre-approval', icon: Sparkles, label: 'Quick Check' },
     { to: '/chat', icon: MessageCircle, label: 'Chat' },
     { to: '/apply', icon: FileText, label: 'Apply' },
     { to: '/loans', icon: Wallet, label: 'My Loans' },

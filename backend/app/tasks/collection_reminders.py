@@ -270,6 +270,170 @@ def check_ptps() -> dict:
         loop.close()
 
 
+@celery_app.task(name="app.tasks.collection_reminders.execute_sequence_steps")
+def execute_sequence_steps() -> dict:
+    """Execute due sequence steps for all active enrollments."""
+
+    async def _run():
+        from app.models.collection_sequence import (
+            SequenceEnrollment, SequenceStep, StepExecution, CollectionSequence,
+        )
+        from app.services.whatsapp_notifier import send_whatsapp_message
+        from app.services.sequence_ai import render_template
+
+        session_factory = _get_async_session()
+        async with session_factory() as db:
+            try:
+                # Get active enrollments with their cases and sequences
+                result = await db.execute(
+                    select(SequenceEnrollment)
+                    .where(SequenceEnrollment.status == "active")
+                )
+                enrollments = result.scalars().all()
+
+                executed = 0
+                paused = 0
+                skipped = 0
+
+                for enrollment in enrollments:
+                    # Load the case
+                    case_result = await db.execute(
+                        select(CollectionCase).where(CollectionCase.id == enrollment.case_id)
+                    )
+                    case = case_result.scalar_one_or_none()
+                    if not case:
+                        continue
+
+                    # Auto-pause checks
+                    if case.do_not_contact or case.dispute_active or case.hardship_flag:
+                        enrollment.status = "paused"
+                        reason = []
+                        if case.do_not_contact:
+                            reason.append("DNC flag")
+                        if case.dispute_active:
+                            reason.append("Dispute active")
+                        if case.hardship_flag:
+                            reason.append("Hardship flag")
+                        enrollment.paused_reason = ", ".join(reason)
+                        paused += 1
+                        continue
+
+                    # Get sequence steps
+                    steps_result = await db.execute(
+                        select(SequenceStep)
+                        .where(
+                            SequenceStep.sequence_id == enrollment.sequence_id,
+                            SequenceStep.is_active == True,
+                        )
+                        .order_by(SequenceStep.step_number)
+                    )
+                    steps = steps_result.scalars().all()
+
+                    # Find the next due step
+                    for step in steps:
+                        if step.step_number <= enrollment.current_step_number:
+                            continue
+                        if step.day_offset > case.dpd:
+                            break
+
+                        # Check if already executed
+                        existing = await db.execute(
+                            select(StepExecution.id).where(
+                                StepExecution.enrollment_id == enrollment.id,
+                                StepExecution.step_id == step.id,
+                            )
+                        )
+                        if existing.scalar_one_or_none():
+                            continue
+
+                        # Render message
+                        msg_body = step.custom_message or ""
+                        if step.template_id:
+                            from app.models.collection_sequence import MessageTemplate as MT
+                            tmpl_result = await db.execute(
+                                select(MT).where(MT.id == step.template_id)
+                            )
+                            tmpl = tmpl_result.scalar_one_or_none()
+                            if tmpl:
+                                msg_body = tmpl.body
+
+                        # Build context from case
+                        loan = None
+                        user_profile = None
+                        try:
+                            loan_result = await db.execute(
+                                select(LoanApplication).where(
+                                    LoanApplication.id == case.loan_application_id
+                                )
+                            )
+                            loan = loan_result.scalar_one_or_none()
+                            if loan:
+                                from app.models.loan import ApplicantProfile
+                                profile_result = await db.execute(
+                                    select(ApplicantProfile).where(
+                                        ApplicantProfile.user_id == loan.user_id
+                                    )
+                                )
+                                user_profile = profile_result.scalar_one_or_none()
+                        except Exception:
+                            pass
+
+                        context = {
+                            "name": f"{user_profile.first_name} {user_profile.last_name}" if user_profile else "Customer",
+                            "first_name": user_profile.first_name if user_profile else "Customer",
+                            "amount_due": f"{float(case.total_overdue or 0):,.2f}",
+                            "total_overdue": f"{float(case.total_overdue or 0):,.2f}",
+                            "dpd": str(case.dpd),
+                            "ref": f"ZL-{loan.id}" if loan else "N/A",
+                        }
+                        rendered = render_template(msg_body, context)
+
+                        # Send via channel
+                        delivery_status = "sent"
+                        if step.channel == "whatsapp" and step.action_type == "send_message":
+                            phone = None
+                            if user_profile and hasattr(user_profile, 'phone'):
+                                phone = user_profile.phone
+                            if phone:
+                                send_result = send_whatsapp_message(phone, rendered)
+                                if "error" in send_result:
+                                    delivery_status = "failed"
+                                else:
+                                    delivery_status = "delivered"
+
+                        # Record execution
+                        db.add(StepExecution(
+                            enrollment_id=enrollment.id,
+                            step_id=step.id,
+                            channel=step.channel,
+                            message_sent=rendered,
+                            delivery_status=delivery_status,
+                        ))
+
+                        enrollment.current_step_number = step.step_number
+                        executed += 1
+
+                        # Check if last step
+                        if step.step_number >= len(steps):
+                            enrollment.status = "completed"
+                            enrollment.completed_at = datetime.now()
+
+                        break  # One step per cycle per enrollment
+
+                await db.commit()
+                return {"executed": executed, "paused": paused, "skipped": skipped}
+            except Exception:
+                await db.rollback()
+                logger.exception("execute_sequence_steps task failed")
+                raise
+
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(_run())
+    finally:
+        loop.close()
+
+
 @celery_app.task(name="app.tasks.collection_reminders.daily_snapshot")
 def daily_snapshot() -> dict:
     """Daily: generate collections dashboard snapshot."""

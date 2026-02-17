@@ -4,6 +4,8 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,13 +14,16 @@ from app.models.user import User, UserRole, UserStatus
 from app.models.session import UserSession, LoginAttempt
 from app.models.mfa import MFADevice
 from app.models.loan import ApplicantProfile
+from app.models.audit import AuditLog
 from app.schemas import (
     UserCreate, UserLogin, TokenResponse, UserResponse, UserUpdate,
     MFASetupResponse, MFAVerifyRequest, RefreshRequest,
+    ChangePasswordRequest, ResetPasswordRequest,
 )
 from app.auth_utils import (
     hash_password,
     verify_password,
+    validate_password_strength,
     create_access_token,
     create_refresh_token,
     decode_token,
@@ -34,6 +39,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 
 def _client_ip(request: Request) -> str:
@@ -74,6 +80,7 @@ async def _create_session(
     jti: str,
     request: Request,
     expires_delta: timedelta | None = None,
+    refresh_jti: str | None = None,
 ) -> UserSession:
     """Create a tracked session for the user."""
     expires = datetime.now(timezone.utc) + (
@@ -82,6 +89,7 @@ async def _create_session(
     session = UserSession(
         user_id=user.id,
         token_jti=jti,
+        refresh_token_jti=refresh_jti,
         device_info=_user_agent(request)[:255],
         ip_address=_client_ip(request),
         expires_at=expires,
@@ -94,15 +102,24 @@ async def _create_session(
 
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
+@limiter.limit("10/minute")
 async def register(
     data: UserCreate,
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     try:
+        # Validate password strength
+        pwd_error = validate_password_strength(data.password)
+        if pwd_error:
+            raise HTTPException(status_code=400, detail=pwd_error)
+
         result = await db.execute(select(User).where(User.email == data.email))
         if result.scalar_one_or_none():
-            raise HTTPException(status_code=400, detail="Email already registered")
+            raise HTTPException(
+                status_code=400,
+                detail="Registration could not be completed. If you already have an account, please log in.",
+            )
 
         user = User(
             email=data.email,
@@ -119,16 +136,23 @@ async def register(
         db.add(profile)
 
         jti = _generate_jti()
+        refresh_jti = _generate_jti()
         access_token = create_access_token(
-            {"sub": str(user.id), "role": user.role.value}, jti=jti,
+            {"sub": str(user.id), "role": user.role.value, "email": user.email}, jti=jti,
         )
-        refresh_token = create_refresh_token({"sub": str(user.id)})
+        refresh_token = create_refresh_token({"sub": str(user.id)}, jti=refresh_jti)
 
-        await _create_session(db, user, jti, request)
+        await _create_session(db, user, jti, request, refresh_jti=refresh_jti)
         await _record_login_attempt(
             db, email=data.email, user_id=user.id,
             ip=_client_ip(request), ua=_user_agent(request), success=True,
         )
+
+        db.add(AuditLog(
+            entity_type="auth", entity_id=user.id, action="register",
+            user_id=user.id, ip_address=_client_ip(request),
+            details=f"New account registered: {data.email}",
+        ))
 
         return TokenResponse(access_token=access_token, refresh_token=refresh_token)
     except HTTPException:
@@ -142,6 +166,7 @@ async def register(
 
 
 @router.post("/login", response_model=TokenResponse)
+@limiter.limit("600/minute")
 async def login(
     data: UserLogin,
     request: Request,
@@ -194,13 +219,21 @@ async def login(
 
         if not verify_password(data.password, user.hashed_password):
             user.failed_login_attempts += 1
-            if user.failed_login_attempts >= MAX_FAILED_ATTEMPTS:
+            locked = user.failed_login_attempts >= MAX_FAILED_ATTEMPTS
+            if locked:
                 user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=LOCKOUT_MINUTES)
                 user.status = UserStatus.LOCKED.value
             await _record_login_attempt(
                 db, email=data.email, user_id=user.id, ip=ip, ua=ua,
                 success=False, failure_reason="bad_password",
             )
+            db.add(AuditLog(
+                entity_type="auth", entity_id=user.id,
+                action="login_failed_locked" if locked else "login_failed",
+                user_id=user.id, ip_address=ip,
+                details=f"Failed login for {data.email} (attempt {user.failed_login_attempts})"
+                + (f" — account locked for {LOCKOUT_MINUTES}m" if locked else ""),
+            ))
             await db.commit()
             raise HTTPException(status_code=401, detail="Invalid email or password")
 
@@ -223,7 +256,7 @@ async def login(
             if mfa_device:
                 # Return partial token that requires MFA verification
                 mfa_token = create_access_token(
-                    {"sub": str(user.id), "role": user.role.value, "mfa_pending": True},
+                    {"sub": str(user.id), "role": user.role.value, "email": user.email, "mfa_pending": True},
                     expires_delta=timedelta(minutes=5),
                 )
                 await _record_login_attempt(
@@ -237,15 +270,22 @@ async def login(
                 )
 
         jti = _generate_jti()
+        refresh_jti = _generate_jti()
         access_token = create_access_token(
-            {"sub": str(user.id), "role": user.role.value}, jti=jti,
+            {"sub": str(user.id), "role": user.role.value, "email": user.email}, jti=jti,
         )
-        refresh_token = create_refresh_token({"sub": str(user.id)})
+        refresh_token = create_refresh_token({"sub": str(user.id)}, jti=refresh_jti)
 
-        await _create_session(db, user, jti, request)
+        await _create_session(db, user, jti, request, refresh_jti=refresh_jti)
         await _record_login_attempt(
             db, email=data.email, user_id=user.id, ip=ip, ua=ua, success=True,
         )
+
+        db.add(AuditLog(
+            entity_type="auth", entity_id=user.id, action="login",
+            user_id=user.id, ip_address=ip,
+            details=f"Login successful: {user.email}",
+        ))
 
         resp = TokenResponse(access_token=access_token, refresh_token=refresh_token)
         if user.must_change_password:
@@ -262,6 +302,7 @@ async def login(
 
 
 @router.post("/mfa/verify", response_model=TokenResponse)
+@limiter.limit("10/minute")
 async def mfa_verify(
     data: MFAVerifyRequest,
     request: Request,
@@ -302,11 +343,18 @@ async def mfa_verify(
         device.last_used_at = datetime.now(timezone.utc)
 
         jti = _generate_jti()
+        refresh_jti = _generate_jti()
         access_token = create_access_token(
-            {"sub": str(user.id), "role": user.role.value}, jti=jti,
+            {"sub": str(user.id), "role": user.role.value, "email": user.email}, jti=jti,
         )
-        refresh_token = create_refresh_token({"sub": str(user.id)})
-        await _create_session(db, user, jti, request)
+        refresh_token = create_refresh_token({"sub": str(user.id)}, jti=refresh_jti)
+        await _create_session(db, user, jti, request, refresh_jti=refresh_jti)
+
+        db.add(AuditLog(
+            entity_type="auth", entity_id=user.id, action="mfa_verified",
+            user_id=user.id, ip_address=_client_ip(request),
+            details=f"MFA verified for {user.email}",
+        ))
 
         return TokenResponse(access_token=access_token, refresh_token=refresh_token)
     except HTTPException:
@@ -359,7 +407,6 @@ async def mfa_setup(
         )
 
         return MFASetupResponse(
-            secret=secret,
             provisioning_uri=provisioning_uri,
             device_id=device.id,
         )
@@ -429,30 +476,61 @@ async def mfa_disable(
 
 
 @router.post("/refresh", response_model=TokenResponse)
+@limiter.limit("600/minute")
 async def refresh_token(
     data: RefreshRequest,
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    """Exchange a refresh token for a new access + refresh token pair."""
+    """Exchange a refresh token for a new access + refresh token pair.
+
+    Implements refresh token rotation: the old refresh token is invalidated
+    and a new one is issued. If a revoked token is reused, all sessions for
+    that user are revoked (stolen token detection).
+    """
     try:
         payload = decode_token(data.refresh_token)
         if payload.get("type") != "refresh":
             raise HTTPException(status_code=401, detail="Invalid refresh token")
 
         user_id = int(payload["sub"])
+        old_refresh_jti = payload.get("jti")
+
         result = await db.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
         if not user or not user.is_active:
             raise HTTPException(status_code=401, detail="User not found or inactive")
 
-        jti = _generate_jti()
-        access_token = create_access_token(
-            {"sub": str(user.id), "role": user.role.value}, jti=jti,
-        )
-        new_refresh = create_refresh_token({"sub": str(user.id)})
+        # Token rotation: verify the refresh token JTI is still active
+        if old_refresh_jti:
+            sess_result = await db.execute(
+                select(UserSession).where(
+                    UserSession.refresh_token_jti == old_refresh_jti,
+                    UserSession.is_active.is_(True),
+                )
+            )
+            old_session = sess_result.scalar_one_or_none()
+            if old_session is None:
+                # Possible token reuse attack — revoke all sessions for this user
+                logger.warning("Refresh token reuse detected for user %s — revoking all sessions", user_id)
+                await db.execute(
+                    update(UserSession).where(
+                        UserSession.user_id == user_id,
+                        UserSession.is_active.is_(True),
+                    ).values(is_active=False)
+                )
+                raise HTTPException(status_code=401, detail="Refresh token has been revoked")
+            # Invalidate the old session
+            old_session.is_active = False
 
-        await _create_session(db, user, jti, request)
+        jti = _generate_jti()
+        refresh_jti = _generate_jti()
+        access_token = create_access_token(
+            {"sub": str(user.id), "role": user.role.value, "email": user.email}, jti=jti,
+        )
+        new_refresh = create_refresh_token({"sub": str(user.id)}, jti=refresh_jti)
+
+        await _create_session(db, user, jti, request, refresh_jti=refresh_jti)
 
         return TokenResponse(access_token=access_token, refresh_token=new_refresh)
     except HTTPException:
@@ -477,6 +555,11 @@ async def logout(
             UserSession.is_active.is_(True),
         ).values(is_active=False)
     )
+    db.add(AuditLog(
+        entity_type="auth", entity_id=current_user.id, action="logout",
+        user_id=current_user.id,
+        details=f"User {current_user.email} logged out",
+    ))
     return {"status": "ok", "message": "Logged out"}
 
 
@@ -566,22 +649,20 @@ async def revoke_session(
 
 @router.post("/change-password")
 async def change_password(
-    data: dict,
+    data: ChangePasswordRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Change the current user's password."""
     try:
-        old_password = data.get("old_password", "")
-        new_password = data.get("new_password", "")
+        pwd_error = validate_password_strength(data.new_password)
+        if pwd_error:
+            raise HTTPException(status_code=400, detail=pwd_error)
 
-        if len(new_password) < 8:
-            raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
-
-        if not verify_password(old_password, current_user.hashed_password):
+        if not verify_password(data.old_password, current_user.hashed_password):
             raise HTTPException(status_code=401, detail="Current password is incorrect")
 
-        current_user.hashed_password = hash_password(new_password)
+        current_user.hashed_password = hash_password(data.new_password)
         current_user.password_changed_at = datetime.now(timezone.utc)
         current_user.must_change_password = False
 
@@ -592,6 +673,12 @@ async def change_password(
                 UserSession.is_active.is_(True),
             ).values(is_active=False)
         )
+
+        db.add(AuditLog(
+            entity_type="auth", entity_id=current_user.id, action="password_changed",
+            user_id=current_user.id,
+            details=f"Password changed by {current_user.email}",
+        ))
 
         return {"status": "ok", "message": "Password changed. All sessions revoked."}
     except HTTPException:

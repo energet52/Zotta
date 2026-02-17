@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { Fragment, useEffect, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { BookOpen, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronRight, Calendar, DollarSign, AlertTriangle, X } from 'lucide-react';
 import Card from '../../../components/ui/Card';
@@ -254,9 +254,8 @@ export default function LoanBook() {
             </thead>
             <tbody>
               {displayed.map(loan => (
-                <>
+                <Fragment key={loan.id}>
                   <tr
-                    key={loan.id}
                     className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface-hover)] cursor-pointer transition-colors"
                   >
                     <td className="px-2 py-3 text-center">
@@ -382,7 +381,7 @@ export default function LoanBook() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
               {displayed.length === 0 && (
                 <tr>

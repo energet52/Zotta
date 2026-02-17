@@ -9,6 +9,7 @@ from typing import Optional
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.loan import LoanApplication, LoanStatus, ApplicantProfile
 from app.models.decision import Decision, DecisionOutcome, DecisionRulesConfig
@@ -36,9 +37,11 @@ async def run_decision_engine(
     5. Create and save Decision record
     6. Update application status
     """
-    # 1. Load application
+    # 1. Load application (with credit product for rate)
     result = await db.execute(
-        select(LoanApplication).where(LoanApplication.id == application_id)
+        select(LoanApplication)
+        .where(LoanApplication.id == application_id)
+        .options(selectinload(LoanApplication.credit_product))
     )
     application = result.scalar_one_or_none()
     if not application:
@@ -209,11 +212,17 @@ async def run_decision_engine(
     # 6. Update application status based on outcome
     if rules_output.outcome == "auto_approve":
         application.status = LoanStatus.APPROVED
-        application.interest_rate = rules_output.suggested_rate
+        # Rate priority: credit product > decision engine > default
+        cp = application.credit_product
+        if cp and cp.interest_rate is not None:
+            application.interest_rate = float(cp.interest_rate)
+        elif rules_output.suggested_rate is not None:
+            application.interest_rate = rules_output.suggested_rate
         application.amount_approved = float(application.amount_requested)
         # Calculate monthly payment (simple amortization)
-        if rules_output.suggested_rate and application.term_months:
-            r = rules_output.suggested_rate / 100 / 12
+        effective_rate = float(application.interest_rate) if application.interest_rate else None
+        if effective_rate and application.term_months:
+            r = effective_rate / 100 / 12
             n = application.term_months
             pmt = float(application.amount_requested) * (r * (1 + r) ** n) / ((1 + r) ** n - 1)
             application.monthly_payment = round(pmt, 2)

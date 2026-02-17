@@ -48,6 +48,7 @@ from app.models.catalog import (
     CreditProduct,
     ProductScoreRange,
     ProductFee,
+    ProductRateTier,
 )
 from app.models.sector_analysis import (
     SectorPolicy,
@@ -66,6 +67,37 @@ from app.models.scorecard import (
     Scorecard, ScorecardStatus, ScorecardCharacteristic, ScorecardBin,
     BinType, ScoreResult, ScorecardChangeLog, ScorecardChangeStatus,
     ScorecardPerformanceSnapshot, ScorecardAlert,
+)
+from app.models.collection_sequence import (
+    CollectionSequence,
+    SequenceStep,
+    MessageTemplate,
+    SequenceEnrollment,
+    StepExecution,
+    SequenceStatus,
+    StepActionType,
+    StepChannel,
+    TemplateTone,
+    TemplateCategory,
+    DeliveryStatus,
+)
+from app.models.queue import (
+    QueueConfig,
+    QueueEntry,
+    QueueStage,
+    StaffQueueProfile,
+    QueueEvent,
+    QueueException,
+    AssignmentMode,
+    SLAMode,
+    QueueEntryStatus,
+    ExceptionStatus,
+)
+from app.models.pre_approval import (
+    PreApproval,
+    PreApprovalOTP,
+    PreApprovalOutcome,
+    PreApprovalStatus,
 )
 from app.models.gl import (
     Currency,
@@ -142,6 +174,7 @@ __all__ = [
     "CreditProduct",
     "ProductScoreRange",
     "ProductFee",
+    "ProductRateTier",
     "BankStatementAnalysis",
     "CreditBureauAlert",
     "AlertType",
@@ -172,6 +205,34 @@ __all__ = [
     "ScorecardChangeStatus",
     "ScorecardPerformanceSnapshot",
     "ScorecardAlert",
+    # Collection Sequences
+    "CollectionSequence",
+    "SequenceStep",
+    "MessageTemplate",
+    "SequenceEnrollment",
+    "StepExecution",
+    "SequenceStatus",
+    "StepActionType",
+    "StepChannel",
+    "TemplateTone",
+    "TemplateCategory",
+    "DeliveryStatus",
+    # Queue Management
+    "QueueConfig",
+    "QueueEntry",
+    "QueueStage",
+    "StaffQueueProfile",
+    "QueueEvent",
+    "QueueException",
+    "AssignmentMode",
+    "SLAMode",
+    "QueueEntryStatus",
+    "ExceptionStatus",
+    # Pre-Approval
+    "PreApproval",
+    "PreApprovalOTP",
+    "PreApprovalOutcome",
+    "PreApprovalStatus",
     # General Ledger
     "Currency",
     "GLAccount",

@@ -18,9 +18,10 @@ interface Application {
   submitted_at: string | null;
   created_at: string;
   assigned_underwriter_id: number | null;
+  assigned_underwriter_name: string | null;
 }
 
-type SortKey = 'reference_number' | 'applicant_name' | 'amount_requested' | 'term_months' | 'purpose' | 'status' | 'created_at';
+type SortKey = 'reference_number' | 'applicant_name' | 'amount_requested' | 'term_months' | 'purpose' | 'status' | 'assigned_underwriter_name' | 'created_at';
 type SortDir = 'asc' | 'desc';
 
 const STATUS_FILTERS = [
@@ -48,6 +49,7 @@ const COLUMNS: { key: SortKey; label: string }[] = [
   { key: 'amount_requested', label: 'Amount' },
   { key: 'term_months', label: 'Term' },
   { key: 'status', label: 'Status' },
+  { key: 'assigned_underwriter_name', label: 'Assigned To' },
   { key: 'created_at', label: 'Date' },
 ];
 
@@ -148,6 +150,10 @@ export default function Applications() {
           aVal = a.status;
           bVal = b.status;
           break;
+        case 'assigned_underwriter_name':
+          aVal = (a.assigned_underwriter_name || '').toLowerCase();
+          bVal = (b.assigned_underwriter_name || '').toLowerCase();
+          break;
         case 'created_at':
           aVal = a.created_at || '';
           bVal = b.created_at || '';
@@ -244,6 +250,16 @@ export default function Applications() {
                     <td className="py-3 px-4 text-[var(--color-text)] font-medium">TTD {app.amount_requested.toLocaleString()}</td>
                     <td className="py-3 px-4 text-[var(--color-text-muted)]">{app.term_months}m</td>
                     <td className="py-3 px-4">{getStatusBadge(app.status)}</td>
+                    <td className="py-3 px-4 text-[var(--color-text-muted)]">
+                      {app.assigned_underwriter_name ? (
+                        <span className="inline-flex items-center gap-1 text-xs">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+                          {app.assigned_underwriter_name}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-[var(--color-text-muted)] opacity-40">Unassigned</span>
+                      )}
+                    </td>
                     <td className="py-3 px-4 text-[var(--color-text-muted)]">
                       {new Date(app.created_at).toLocaleDateString()}
                     </td>

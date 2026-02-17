@@ -18,6 +18,7 @@ from app.database import get_db
 from app.auth_utils import require_roles
 from app.models.user import User, UserRole
 from app.models.loan import LoanApplication, ApplicantProfile
+from app.models.audit import AuditLog
 from app.models.scorecard import (
     Scorecard, ScorecardStatus, ScorecardCharacteristic, ScorecardBin,
     BinType, ScoreResult, ScorecardChangeLog, ScorecardChangeStatus,
@@ -236,6 +237,12 @@ async def create_scorecard(
 
     db.add(sc)
     await db.flush()
+    db.add(AuditLog(
+        entity_type="scorecard", entity_id=sc.id, action="created",
+        user_id=current_user.id,
+        new_values={"name": sc.name, "version": version},
+        details=f"Scorecard '{sc.name}' v{version} created",
+    ))
     await db.refresh(sc, attribute_names=["characteristics"])
     return _scorecard_detail(sc)
 
@@ -701,6 +708,11 @@ async def promote_to_champion(
         proposed_by=current_user.id, status=ScorecardChangeStatus.APPLIED,
     )
     db.add(log)
+    db.add(AuditLog(
+        entity_type="scorecard", entity_id=scorecard_id, action="promoted_to_champion",
+        user_id=current_user.id,
+        details=f"Scorecard '{sc.name}' promoted to champion. Justification: {data.justification}",
+    ))
     await db.flush()
     return {"status": "ok", "scorecard_status": sc.status.value}
 
@@ -727,6 +739,11 @@ async def kill_switch(
         proposed_by=current_user.id, status=ScorecardChangeStatus.APPLIED,
     )
     db.add(log)
+    db.add(AuditLog(
+        entity_type="scorecard", entity_id=scorecard_id, action="kill_switch",
+        user_id=current_user.id,
+        details=f"Emergency kill switch activated on scorecard '{sc.name}'",
+    ))
     await db.flush()
     return {"status": "ok", "scorecard_status": "shadow"}
 
@@ -745,6 +762,11 @@ async def retire_scorecard(
     sc.retired_at = datetime.now(timezone.utc)
     sc.traffic_pct = 0
     sc.is_decisioning = False
+    db.add(AuditLog(
+        entity_type="scorecard", entity_id=scorecard_id, action="retired",
+        user_id=current_user.id,
+        details=f"Scorecard '{sc.name}' retired",
+    ))
     await db.flush()
     return {"status": "ok"}
 
@@ -767,6 +789,12 @@ async def update_traffic_allocation(
             continue
         sc.traffic_pct = alloc.traffic_pct
 
+    db.add(AuditLog(
+        entity_type="scorecard", entity_id=0, action="traffic_allocation_updated",
+        user_id=current_user.id,
+        new_values={str(a.scorecard_id): a.traffic_pct for a in allocations},
+        details=f"Traffic allocation updated (total: {total}%)",
+    ))
     await db.flush()
     return {"status": "ok", "total_allocated": total}
 

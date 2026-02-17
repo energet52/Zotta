@@ -46,6 +46,8 @@ export const loanApi = {
   // Offer
   acceptOffer: (id: number) => api.post(`/loans/${id}/accept-offer`),
   declineOffer: (id: number) => api.post(`/loans/${id}/decline-offer`),
+  // Cancel
+  cancel: (id: number, reason?: string) => api.post(`/loans/${id}/cancel`, { reason }),
   // Contract
   signContract: (id: number, data: { signature_data: string; typed_name: string; agreed: boolean }) =>
     api.post(`/loans/${id}/sign-contract`, data),
@@ -109,6 +111,9 @@ export const underwriterApi = {
     api.post(`/underwriter/applications/${id}/disburse`, data),
   getDisbursement: (id: number) =>
     api.get(`/underwriter/applications/${id}/disbursement`),
+  // Void
+  voidApplication: (id: number, reason: string) =>
+    api.post(`/underwriter/applications/${id}/void`, { reason }),
   // Loan Book
   getLoanBook: (status?: string) =>
     api.get('/underwriter/loans', { params: status ? { status } : {} }),
@@ -340,12 +345,48 @@ export const adminApi = {
   ) => api.put(`/admin/fees/${id}`, data),
   deleteFee: (id: number) => api.delete(`/admin/fees/${id}`),
 
+  // Rate Tiers (Risk-Based Pricing)
+  createRateTier: (
+    productId: number,
+    data: { tier_name: string; min_score: number; max_score: number; interest_rate: number; max_ltv_pct?: number; max_dti_pct?: number; is_active?: boolean },
+  ) => api.post(`/admin/products/${productId}/rate-tiers`, data),
+  updateRateTier: (
+    id: number,
+    data: { tier_name?: string; min_score?: number; max_score?: number; interest_rate?: number; max_ltv_pct?: number; max_dti_pct?: number; is_active?: boolean },
+  ) => api.put(`/admin/rate-tiers/${id}`, data),
+  deleteRateTier: (id: number) => api.delete(`/admin/rate-tiers/${id}`),
+
+  // Product Cloning
+  cloneProduct: (id: number) => api.post(`/admin/products/${id}/clone`),
+
+  // Product Analytics & AI
+  getProductAnalytics: (id: number) => api.get(`/admin/products/${id}/analytics`),
+  getPortfolioOverview: () => api.get('/admin/products/portfolio/overview'),
+  productAdvisor: (data: { product_id?: number; question: string; conversation_history?: Array<Record<string, string>> }) =>
+    api.post('/admin/products/ai/advisor', data),
+  productSimulate: (data: { product_id: number; changes: Record<string, unknown> }) =>
+    api.post('/admin/products/ai/simulate', data),
+  productGenerate: (data: { description: string }) =>
+    api.post('/admin/products/ai/generate', data),
+  productCompare: (data: { product_ids: number[] }) =>
+    api.post('/admin/products/ai/compare', data),
+
   // Rules management
   getRules: () => api.get('/admin/rules'),
   updateRules: (data: { rules: Array<Record<string, unknown>> }) => api.put('/admin/rules', data),
   deleteRule: (ruleId: string) => api.delete(`/admin/rules/${ruleId}`),
   generateRule: (data: { prompt: string; conversation_history?: Array<Record<string, string>> }) =>
     api.post('/admin/rules/generate', data),
+
+  // Rules history, stats & AI analysis
+  getRulesHistory: (params?: { limit?: number; offset?: number }) =>
+    api.get('/admin/rules/history', { params }),
+  getRulesStats: () => api.get('/admin/rules/stats'),
+  analyzeRules: () => api.post('/admin/rules/ai/analyze'),
+
+  // Audit Trail
+  getAuditTrail: (params?: Record<string, string | number | undefined>) =>
+    api.get('/admin/audit-trail', { params }),
 };
 
 // ── Conversations (Customer Support) ─────────────
@@ -461,6 +502,9 @@ export const userApi = {
   getRole: (id: number) => api.get(`/users/roles/${id}`),
   createRole: (data: Record<string, unknown>) => api.post('/users/roles', data),
   updateRole: (id: number, data: Record<string, unknown>) => api.patch(`/users/roles/${id}`, data),
+  deleteRole: (id: number, reassignToRoleId: number) =>
+    api.delete(`/users/roles/${id}?reassign_to_role_id=${reassignToRoleId}`),
+  deleteUser: (id: number) => api.delete(`/users/${id}`),
   listPermissions: () => api.get('/users/permissions/all'),
   // Sessions
   getUserSessions: (userId: number) => api.get(`/users/${userId}/sessions`),
@@ -483,6 +527,71 @@ export const userApi = {
     api.post('/auth/change-password', data),
 };
 
+// ── Collection Sequences ────────────────────────
+export const sequencesApi = {
+  // Sequences
+  listSequences: (params?: Record<string, unknown>) =>
+    api.get('/admin/collection-sequences/sequences', { params }),
+  createSequence: (data: Record<string, unknown>) =>
+    api.post('/admin/collection-sequences/sequences', data),
+  getSequence: (id: number) =>
+    api.get(`/admin/collection-sequences/sequences/${id}`),
+  updateSequence: (id: number, data: Record<string, unknown>) =>
+    api.put(`/admin/collection-sequences/sequences/${id}`, data),
+  deleteSequence: (id: number) =>
+    api.delete(`/admin/collection-sequences/sequences/${id}`),
+  duplicateSequence: (id: number) =>
+    api.post(`/admin/collection-sequences/sequences/${id}/duplicate`),
+
+  // Steps
+  addStep: (sequenceId: number, data: Record<string, unknown>) =>
+    api.post(`/admin/collection-sequences/sequences/${sequenceId}/steps`, data),
+  updateStep: (stepId: number, data: Record<string, unknown>) =>
+    api.put(`/admin/collection-sequences/steps/${stepId}`, data),
+  deleteStep: (stepId: number) =>
+    api.delete(`/admin/collection-sequences/steps/${stepId}`),
+  reorderSteps: (sequenceId: number, data: { step_ids: number[] }) =>
+    api.put(`/admin/collection-sequences/sequences/${sequenceId}/reorder-steps`, data),
+
+  // Templates
+  listTemplates: (params?: Record<string, unknown>) =>
+    api.get('/admin/collection-sequences/templates', { params }),
+  createTemplate: (data: Record<string, unknown>) =>
+    api.post('/admin/collection-sequences/templates', data),
+  updateTemplate: (id: number, data: Record<string, unknown>) =>
+    api.put(`/admin/collection-sequences/templates/${id}`, data),
+  deleteTemplate: (id: number) =>
+    api.delete(`/admin/collection-sequences/templates/${id}`),
+
+  // Enrollments
+  listEnrollments: (params?: Record<string, unknown>) =>
+    api.get('/admin/collection-sequences/enrollments', { params }),
+  createEnrollment: (data: { case_id: number; sequence_id: number }) =>
+    api.post('/admin/collection-sequences/enrollments', data),
+  updateEnrollment: (id: number, data: Record<string, unknown>) =>
+    api.patch(`/admin/collection-sequences/enrollments/${id}`, data),
+  autoEnroll: () =>
+    api.post('/admin/collection-sequences/enrollments/auto-enroll'),
+  getEnrollmentTimeline: (id: number) =>
+    api.get(`/admin/collection-sequences/enrollments/${id}/timeline`),
+
+  // AI
+  generateSequence: (data: { description: string; delinquency_stage: string }) =>
+    api.post('/admin/collection-sequences/ai/generate-sequence', data),
+  optimizeSequence: (data: { sequence_id: number }) =>
+    api.post('/admin/collection-sequences/ai/optimize-sequence', data),
+  generateTemplate: (data: { channel: string; tone: string; category: string; context?: string }) =>
+    api.post('/admin/collection-sequences/ai/generate-template', data),
+  previewMessage: (data: { body: string; context?: Record<string, string> }) =>
+    api.post('/admin/collection-sequences/ai/preview-message', data),
+
+  // Analytics
+  getAnalytics: () =>
+    api.get('/admin/collection-sequences/analytics'),
+  getSequenceAnalytics: (id: number) =>
+    api.get(`/admin/collection-sequences/sequences/${id}/analytics`),
+};
+
 // ── Consumer Catalog ────────────────────────────
 export const catalogApi = {
   getMerchants: () => api.get('/catalog/merchants'),
@@ -492,4 +601,77 @@ export const catalogApi = {
     api.get('/catalog/products', { params: { merchant_id: merchantId, amount } }),
   calculate: (data: { product_id: number; total_amount: number; term_months: number }) =>
     api.post('/catalog/calculate', data),
+};
+
+// ── Queue Management ──────────────────────────────
+export const queueApi = {
+  // Core queue
+  getSharedQueue: (params?: Record<string, unknown>) => api.get('/queue/shared', { params }),
+  getMyQueue: () => api.get('/queue/my-queue'),
+  getWaiting: () => api.get('/queue/waiting'),
+  claimEntry: (entryId: number) => api.post(`/queue/${entryId}/claim`),
+  releaseEntry: (entryId: number) => api.post(`/queue/${entryId}/release`),
+  returnToBorrower: (entryId: number, data: { reason: string }) => api.post(`/queue/${entryId}/return-to-borrower`, data),
+  borrowerResponded: (entryId: number) => api.post(`/queue/${entryId}/borrower-responded`),
+  explainPriority: (entryId: number) => api.get(`/queue/${entryId}/explain`),
+  getTimeline: (entryId: number) => api.get(`/queue/${entryId}/timeline`),
+  getAwareness: () => api.get('/queue/awareness'),
+
+  // Stages
+  advanceStage: (entryId: number, data?: { stage_slug?: string }) => api.post(`/queue/${entryId}/advance`, data || {}),
+  returnToStage: (entryId: number, data: { stage_slug: string; reason: string }) => api.post(`/queue/${entryId}/return-to-stage`, data),
+  getPipeline: () => api.get('/queue/pipeline'),
+
+  // Assignment
+  assignEntry: (entryId: number, userId: number) => api.post(`/queue/${entryId}/assign/${userId}`),
+  reassignEntry: (entryId: number, userId: number) => api.post(`/queue/${entryId}/reassign/${userId}`),
+  deferEntry: (entryId: number) => api.post(`/queue/${entryId}/defer`),
+  triggerRebalance: () => api.post('/queue/rebalance'),
+  explainAssignment: (entryId: number) => api.get(`/queue/${entryId}/explain-assignment`),
+
+  // Staff
+  listStaff: () => api.get('/queue/staff'),
+  updateStaffProfile: (userId: number, data: Record<string, unknown>) => api.put(`/queue/staff/${userId}/profile`, data),
+  needHelp: (userId: number) => api.post(`/queue/staff/${userId}/need-help`),
+
+  // Config
+  getConfig: () => api.get('/queue/config'),
+  updateConfig: (data: Record<string, unknown>) => api.put('/queue/config', data),
+  listStages: () => api.get('/queue/config/stages'),
+  createStage: (data: Record<string, unknown>) => api.post('/queue/config/stages', data),
+  updateStage: (stageId: number, data: Record<string, unknown>) => api.put(`/queue/config/stages/${stageId}`, data),
+  deleteStage: (stageId: number) => api.delete(`/queue/config/stages/${stageId}`),
+
+  // Exceptions
+  listExceptions: (params?: Record<string, unknown>) => api.get('/queue/exceptions', { params }),
+  createException: (entryId: number, data: Record<string, unknown>) => api.post('/queue/exceptions', data, { params: { entry_id: entryId } }),
+  resolveException: (exceptionId: number, data: { status: string; notes?: string }) => api.post(`/queue/exceptions/${exceptionId}/resolve`, data),
+  getExceptionPrecedent: (exceptionId: number) => api.get(`/queue/exceptions/${exceptionId}/precedent`),
+
+  // Analytics
+  getAmbientAnalytics: () => api.get('/queue/analytics/ambient'),
+  getThroughputAnalytics: (days?: number) => api.get('/queue/analytics/throughput', { params: days ? { days } : {} }),
+  getTeamAnalytics: () => api.get('/queue/analytics/team'),
+  getInsights: () => api.get('/queue/analytics/insights'),
+};
+
+// ── Pre-Approval ────────────────────────────────────────────────
+export const preApprovalApi = {
+  parsePriceTag: (formData: FormData) => api.post('/pre-approval/parse-price-tag', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  searchMerchants: (q?: string) => api.get('/pre-approval/merchants', { params: { q: q || '' } }),
+  getMerchantBranches: (merchantId: number) => api.get(`/pre-approval/merchants/${merchantId}/branches`),
+  checkLimits: (amount: number, merchantId?: number) => api.get('/pre-approval/products/check-limits', { params: { amount, merchant_id: merchantId } }),
+  start: (data: Record<string, unknown>) => api.post('/pre-approval/start', data),
+  sendOTP: (ref: string) => api.post(`/pre-approval/${ref}/send-otp`),
+  verifyOTP: (ref: string, code: string) => api.post(`/pre-approval/${ref}/verify-otp`, { code }),
+  getStatus: (ref: string, phone: string) => api.get(`/pre-approval/${ref}/status`, { params: { phone } }),
+  getDocumentChecklist: (ref: string) => api.get(`/pre-approval/${ref}/document-checklist`),
+  checkLowerAmount: (ref: string, amount: number) => api.post(`/pre-approval/${ref}/check-lower-amount`, { amount }),
+  convert: (ref: string) => api.post(`/pre-approval/${ref}/convert`),
+  // Admin
+  adminList: (params?: Record<string, unknown>) => api.get('/pre-approval/admin/list', { params }),
+  adminAnalytics: (days?: number) => api.get('/pre-approval/admin/analytics', { params: { days: days || 30 } }),
+  adminReferred: () => api.get('/pre-approval/admin/referred'),
+  adminDetail: (ref: string) => api.get(`/pre-approval/admin/${ref}`),
+  adminDecide: (ref: string, data: { outcome: string; reason?: string }) => api.post(`/pre-approval/admin/${ref}/decide`, data),
 };
