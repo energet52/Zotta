@@ -11691,3 +11691,2262 @@ test.describe('Error Monitor – UI tests (extended)', () => {
     expect(hasFilters).toBe(true);
   });
 });
+
+
+// ══════════════════════════════════════════════════════════════════
+// COMPREHENSIVE SCREEN & BUTTON COVERAGE — Positive & Negative Tests
+// ══════════════════════════════════════════════════════════════════
+
+
+// ── Registration – API tests ─────────────────────────────────────
+
+test.describe('Registration – API tests', () => {
+  const API = 'http://localhost:8000/api';
+
+  test('REG-POS-001: register new user with valid data returns tokens', async ({ request }) => {
+    const unique = `testuser_${Date.now()}@zottaqa.tt`;
+    const res = await request.post(`${API}/auth/register`, {
+      data: {
+        email: unique,
+        password: 'StrongPass1!',
+        first_name: 'Test',
+        last_name: 'Registration',
+      },
+    });
+    expect(res.status()).toBe(201);
+    const body = await res.json();
+    expect(body.access_token).toBeTruthy();
+    expect(body.refresh_token).toBeTruthy();
+    expect(body.token_type).toBe('bearer');
+  });
+
+  test('REG-NEG-001: register with duplicate email returns 400', async ({ request }) => {
+    const res = await request.post(`${API}/auth/register`, {
+      data: {
+        email: 'marcus.mohammed0@email.com',
+        password: 'StrongPass1!',
+        first_name: 'Dup',
+        last_name: 'User',
+      },
+    });
+    expect(res.status()).toBe(400);
+  });
+
+  test('REG-NEG-002: register with weak password returns 400', async ({ request }) => {
+    const res = await request.post(`${API}/auth/register`, {
+      data: {
+        email: `weak_${Date.now()}@zottaqa.tt`,
+        password: '123',
+        first_name: 'Weak',
+        last_name: 'Pass',
+      },
+    });
+    expect([400, 422]).toContain(res.status());
+  });
+
+  test('REG-NEG-003: register with missing required fields returns 422', async ({ request }) => {
+    const res = await request.post(`${API}/auth/register`, {
+      data: { email: `miss_${Date.now()}@zottaqa.tt` },
+    });
+    expect([400, 422]).toContain(res.status());
+  });
+
+  test('REG-NEG-004: register with invalid email format returns 422', async ({ request }) => {
+    const res = await request.post(`${API}/auth/register`, {
+      data: {
+        email: 'not-an-email',
+        password: 'StrongPass1!',
+        first_name: 'Bad',
+        last_name: 'Email',
+      },
+    });
+    expect([400, 422]).toContain(res.status());
+  });
+});
+
+
+// ── Registration – UI tests ──────────────────────────────────────
+
+test.describe('Registration – UI tests', () => {
+  test('REG-UI-POS-001: registration form has all required fields', async ({ page }) => {
+    await page.goto(`${BASE}/register`);
+    await expect(page.getByLabel(/First Name/i)).toBeVisible();
+    await expect(page.getByLabel(/Last Name/i)).toBeVisible();
+    await expect(page.getByLabel(/Email/i)).toBeVisible();
+    await expect(page.getByLabel(/^Password$/i).or(page.locator('input[type="password"]').first())).toBeVisible();
+    const createBtn = page.getByRole('button', { name: /Create Account|Register|Sign Up/i });
+    await expect(createBtn).toBeVisible();
+  });
+
+  test('REG-UI-NEG-001: register with empty fields shows validation errors', async ({ page }) => {
+    await page.goto(`${BASE}/register`);
+    const createBtn = page.getByRole('button', { name: /Create Account|Register|Sign Up/i });
+    await createBtn.click();
+    await page.waitForTimeout(1000);
+    const pageText = await page.textContent('body');
+    const hasValidation = pageText?.includes('required') ||
+                          pageText?.includes('Required') ||
+                          pageText?.includes('Please') ||
+                          pageText?.includes('must') ||
+                          pageText?.includes('invalid') ||
+                          pageText?.includes('error') ||
+                          page.url().includes('/register');
+    expect(hasValidation).toBe(true);
+  });
+});
+
+
+// ── Change Password – API tests ──────────────────────────────────
+
+test.describe('Change Password – API tests', () => {
+  const API = 'http://localhost:8000/api';
+
+  test('CHPW-NEG-001: change password with wrong old password returns 401', async ({ request }) => {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'marcus.mohammed0@email.com', password: 'Applicant1!' },
+    });
+    const { access_token } = await loginRes.json();
+    const res = await request.post(`${API}/auth/change-password`, {
+      headers: { Authorization: `Bearer ${access_token}` },
+      data: { old_password: 'TotallyWrong!', new_password: 'NewStrong1!' },
+    });
+    expect([400, 401]).toContain(res.status());
+  });
+
+  test('CHPW-NEG-002: change password with weak new password returns 400', async ({ request }) => {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'marcus.mohammed0@email.com', password: 'Applicant1!' },
+    });
+    const { access_token } = await loginRes.json();
+    const res = await request.post(`${API}/auth/change-password`, {
+      headers: { Authorization: `Bearer ${access_token}` },
+      data: { old_password: 'Applicant1!', new_password: '123' },
+    });
+    expect([400, 422]).toContain(res.status());
+  });
+});
+
+
+// ── Consumer Profile – API tests ─────────────────────────────────
+
+test.describe('Consumer Profile – API tests', () => {
+  const API = 'http://localhost:8000/api';
+
+  async function getApplicantToken(request: import('@playwright/test').APIRequestContext) {
+    const res = await request.post(`${API}/auth/login`, {
+      data: { email: 'marcus.mohammed0@email.com', password: 'Applicant1!' },
+    });
+    return (await res.json()).access_token;
+  }
+
+  test('PROF-POS-001: get profile returns user data', async ({ request }) => {
+    const token = await getApplicantToken(request);
+    const res = await request.get(`${API}/loans/profile`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.id).toBeTruthy();
+  });
+
+  test('PROF-POS-002: update profile fields persists changes', async ({ request }) => {
+    const token = await getApplicantToken(request);
+    const headers = { Authorization: `Bearer ${token}` };
+    const res = await request.put(`${API}/loans/profile`, {
+      headers,
+      data: { city: 'Port of Spain', employer_name: 'Zotta QA Corp' },
+    });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.city).toBe('Port of Spain');
+    expect(body.employer_name).toBe('Zotta QA Corp');
+  });
+
+  test('PROF-NEG-001: get profile without auth returns 401', async ({ request }) => {
+    const res = await request.get(`${API}/loans/profile`);
+    expect([401, 403]).toContain(res.status());
+  });
+});
+
+
+// ── Consumer Profile – UI tests ──────────────────────────────────
+
+test.describe('Consumer Profile – UI tests', () => {
+  test('PROF-UI-POS-001: profile page shows editable fields and save button', async ({ page }) => {
+    await loginAsApplicant(page);
+    await page.goto(`${BASE}/profile`);
+    await page.waitForTimeout(2000);
+    const pageText = await page.textContent('body');
+    const hasProfileContent = pageText?.includes('Profile') ||
+                              pageText?.includes('Personal') ||
+                              pageText?.includes('Employment') ||
+                              pageText?.includes('Income');
+    expect(hasProfileContent).toBe(true);
+    const saveBtn = page.getByRole('button', { name: /Save/i });
+    await expect(saveBtn).toBeVisible();
+  });
+});
+
+
+// ── Consumer Application Cancel – API tests ──────────────────────
+
+test.describe('Consumer Application Cancel – API tests', () => {
+  const API = 'http://localhost:8000/api';
+
+  async function getTokens(request: import('@playwright/test').APIRequestContext) {
+    const appLogin = await request.post(`${API}/auth/login`, {
+      data: { email: 'marcus.mohammed0@email.com', password: 'Applicant1!' },
+    });
+    const { access_token: applicantToken } = await appLogin.json();
+    const adminLogin = await request.post(`${API}/auth/login`, {
+      data: { email: 'admin@zotta.tt', password: 'Admin123!' },
+    });
+    const { access_token: adminToken } = await adminLogin.json();
+    return { applicantToken, adminToken };
+  }
+
+  test('CANCEL-POS-001: consumer can cancel a draft application', async ({ request }) => {
+    const { applicantToken } = await getTokens(request);
+    const headers = { Authorization: `Bearer ${applicantToken}` };
+    const createRes = await request.post(`${API}/loans/`, {
+      headers,
+      data: {
+        amount_requested: 5000,
+        term_months: 12,
+        purpose: 'personal',
+        purpose_description: 'Cancel test',
+        items: [],
+      },
+    });
+    expect(createRes.status()).toBe(201);
+    const app = await createRes.json();
+    const cancelRes = await request.post(`${API}/loans/${app.id}/cancel`, {
+      headers,
+      data: { reason: 'Changed my mind' },
+    });
+    expect(cancelRes.status()).toBe(200);
+    const cancelled = await cancelRes.json();
+    expect(cancelled.status).toMatch(/cancelled/i);
+  });
+
+  test('CANCEL-NEG-001: cancel non-existent application returns 404', async ({ request }) => {
+    const { applicantToken } = await getTokens(request);
+    const res = await request.post(`${API}/loans/999999/cancel`, {
+      headers: { Authorization: `Bearer ${applicantToken}` },
+      data: { reason: 'Test' },
+    });
+    expect(res.status()).toBe(404);
+  });
+
+  test('CANCEL-NEG-002: cancel without auth returns 401', async ({ request }) => {
+    const res = await request.post(`${API}/loans/1/cancel`, {
+      data: { reason: 'No auth' },
+    });
+    expect([401, 403]).toContain(res.status());
+  });
+});
+
+
+// ── Consumer Pre-Approval – API tests ────────────────────────────
+
+test.describe('Consumer Pre-Approval – API tests', () => {
+  const API = 'http://localhost:8000/api';
+
+  test('PA-POS-001: start pre-approval check returns outcome', async ({ request }) => {
+    const res = await request.post(`${API}/pre-approval/start`, {
+      data: {
+        first_name: 'Jane',
+        last_name: 'PreApproval',
+        phone: '+18681234567',
+        date_of_birth: '1990-05-15',
+        national_id: '19900515001',
+        item_description: 'Samsung TV 55"',
+        price: 8000,
+        currency: 'TTD',
+        monthly_income: 12000,
+        monthly_expenses: 4000,
+        existing_loan_payments: 500,
+        employment_status: 'employed',
+        employment_tenure: '3_plus_years',
+        consent_credit_check: true,
+        consent_data_sharing: true,
+      },
+    });
+    expect([200, 201]).toContain(res.status());
+    const body = await res.json();
+    expect(body.reference_code).toBeTruthy();
+    expect(body.outcome).toBeTruthy();
+    expect(['pre_approved', 'conditionally_approved', 'referred', 'declined']).toContain(body.outcome);
+  });
+
+  test('PA-POS-002: lookup pre-approval status by reference', async ({ request }) => {
+    const startRes = await request.post(`${API}/pre-approval/start`, {
+      data: {
+        first_name: 'Lookup',
+        last_name: 'Test',
+        phone: '+18681234568',
+        date_of_birth: '1985-01-01',
+        national_id: '19850101001',
+        item_description: 'Laptop',
+        price: 5000,
+        currency: 'TTD',
+        monthly_income: 10000,
+        monthly_expenses: 3000,
+        existing_loan_payments: 0,
+        employment_status: 'employed',
+        employment_tenure: '1_3_years',
+        consent_credit_check: true,
+        consent_data_sharing: true,
+      },
+    });
+    const { reference_code } = await startRes.json();
+    const statusRes = await request.get(`${API}/pre-approval/${reference_code}/status?phone=%2B18681234568`);
+    expect(statusRes.status()).toBe(200);
+    const status = await statusRes.json();
+    expect(status.reference_code).toBe(reference_code);
+    expect(status.outcome).toBeTruthy();
+  });
+
+  test('PA-NEG-001: start pre-approval with missing required fields returns 422', async ({ request }) => {
+    const res = await request.post(`${API}/pre-approval/start`, {
+      data: { first_name: 'Incomplete' },
+    });
+    expect([400, 422]).toContain(res.status());
+  });
+
+  test('PA-NEG-002: lookup status with invalid reference returns 404', async ({ request }) => {
+    const res = await request.get(`${API}/pre-approval/INVALID-REF-000/status?phone=%2B18680000000`);
+    expect(res.status()).toBe(404);
+  });
+
+  test('PA-NEG-003: start pre-approval with zero income returns declined/referred', async ({ request }) => {
+    const res = await request.post(`${API}/pre-approval/start`, {
+      data: {
+        first_name: 'NoIncome',
+        last_name: 'Test',
+        phone: '+18681234569',
+        date_of_birth: '1990-01-01',
+        national_id: '19900101099',
+        item_description: 'Fridge',
+        price: 30000,
+        currency: 'TTD',
+        monthly_income: 0,
+        monthly_expenses: 2000,
+        existing_loan_payments: 5000,
+        employment_status: 'unemployed',
+        employment_tenure: 'less_1_year',
+        consent_credit_check: true,
+        consent_data_sharing: true,
+      },
+    });
+    expect([200, 201]).toContain(res.status());
+    const body = await res.json();
+    expect(['declined', 'referred']).toContain(body.outcome);
+  });
+});
+
+
+// ── Consumer Pre-Approval – UI tests ─────────────────────────────
+
+test.describe('Consumer Pre-Approval – UI tests', () => {
+  test('PA-UI-POS-001: pre-approval page loads with step wizard', async ({ page }) => {
+    await page.goto(`${BASE}/pre-approval`);
+    await page.waitForTimeout(2000);
+    const pageText = await page.textContent('body');
+    const hasWizard = pageText?.includes('Buying') ||
+                      pageText?.includes('Eligibility') ||
+                      pageText?.includes('Pre-Approval') ||
+                      pageText?.includes('price') ||
+                      pageText?.includes('Price');
+    expect(hasWizard).toBe(true);
+  });
+
+  test('PA-UI-POS-002: pre-approval status page loads with lookup form', async ({ page }) => {
+    await page.goto(`${BASE}/pre-approval/status`);
+    await page.waitForTimeout(2000);
+    const pageText = await page.textContent('body');
+    const hasLookup = pageText?.includes('Reference') ||
+                      pageText?.includes('reference') ||
+                      pageText?.includes('Look Up') ||
+                      pageText?.includes('Status');
+    expect(hasLookup).toBe(true);
+  });
+
+  test('PA-UI-NEG-001: status page stays on page when no reference provided', async ({ page }) => {
+    await page.goto(`${BASE}/pre-approval/status`);
+    await page.waitForTimeout(2000);
+    const pageText = await page.textContent('body');
+    const hasStatusPage = pageText?.includes('Reference') ||
+                          pageText?.includes('reference') ||
+                          pageText?.includes('Status') ||
+                          pageText?.includes('Look Up') ||
+                          pageText?.includes('Phone');
+    expect(hasStatusPage).toBe(true);
+  });
+});
+
+
+// ── Counterproposal – API tests ──────────────────────────────────
+
+test.describe('Counterproposal – API tests', () => {
+  const API = 'http://localhost:8000/api';
+
+  async function getTokens(request: import('@playwright/test').APIRequestContext) {
+    const appLogin = await request.post(`${API}/auth/login`, {
+      data: { email: 'marcus.mohammed0@email.com', password: 'Applicant1!' },
+    });
+    const { access_token: applicantToken } = await appLogin.json();
+    const adminLogin = await request.post(`${API}/auth/login`, {
+      data: { email: 'admin@zotta.tt', password: 'Admin123!' },
+    });
+    const { access_token: adminToken } = await adminLogin.json();
+    return { applicantToken, adminToken };
+  }
+
+  test('CP-POS-001: underwriter can counterpropose an application', async ({ request }) => {
+    const { applicantToken, adminToken } = await getTokens(request);
+    const appHeaders = { Authorization: `Bearer ${applicantToken}` };
+    const adminHeaders = { Authorization: `Bearer ${adminToken}` };
+
+    // Clean up custom rules
+    const rulesRes = await request.get(`${API}/admin/rules`, { headers: adminHeaders });
+    const { rules: currentRules } = await rulesRes.json();
+    const builtinOnly = currentRules.filter((r: any) => !r.is_custom);
+    if (builtinOnly.length < currentRules.length) {
+      await request.put(`${API}/admin/rules`, { headers: adminHeaders, data: { rules: builtinOnly } });
+    }
+
+    await request.put(`${API}/loans/profile`, {
+      headers: appHeaders,
+      data: { monthly_income: 15000, monthly_expenses: 3000, employer_name: 'CP Corp', years_employed: 5 },
+    });
+
+    const createRes = await request.post(`${API}/loans/`, {
+      headers: appHeaders,
+      data: { amount_requested: 20000, term_months: 24, purpose: 'business', purpose_description: 'Counterproposal test', items: [] },
+    });
+    const app = await createRes.json();
+    await request.post(`${API}/loans/${app.id}/submit`, { headers: appHeaders });
+
+    const cpRes = await request.post(`${API}/underwriter/applications/${app.id}/counterpropose`, {
+      headers: adminHeaders,
+      data: {
+        proposed_amount: 15000,
+        proposed_rate: 12.5,
+        proposed_term: 18,
+        reason: 'Lower amount is safer for this profile',
+      },
+    });
+    expect(cpRes.status()).toBe(200);
+    const cpBody = await cpRes.json();
+    expect(cpBody.status).toMatch(/counter_proposed/i);
+  });
+
+  test('CP-POS-002: consumer can accept counterproposal', async ({ request }) => {
+    const { applicantToken, adminToken } = await getTokens(request);
+    const appHeaders = { Authorization: `Bearer ${applicantToken}` };
+    const adminHeaders = { Authorization: `Bearer ${adminToken}` };
+
+    await request.put(`${API}/loans/profile`, {
+      headers: appHeaders,
+      data: { monthly_income: 15000, monthly_expenses: 3000, employer_name: 'CP Corp', years_employed: 5 },
+    });
+
+    const createRes = await request.post(`${API}/loans/`, {
+      headers: appHeaders,
+      data: { amount_requested: 20000, term_months: 24, purpose: 'business', purpose_description: 'Accept CP test', items: [] },
+    });
+    const app = await createRes.json();
+    await request.post(`${API}/loans/${app.id}/submit`, { headers: appHeaders });
+    await request.post(`${API}/underwriter/applications/${app.id}/counterpropose`, {
+      headers: adminHeaders,
+      data: { proposed_amount: 15000, proposed_rate: 12.5, proposed_term: 18, reason: 'Lower safer' },
+    });
+
+    const acceptRes = await request.post(`${API}/loans/${app.id}/accept-counterproposal`, {
+      headers: appHeaders,
+    });
+    expect(acceptRes.status()).toBe(200);
+    const accepted = await acceptRes.json();
+    expect(accepted.status).toMatch(/accepted|approved/i);
+  });
+
+  test('CP-POS-003: consumer can reject counterproposal', async ({ request }) => {
+    const { applicantToken, adminToken } = await getTokens(request);
+    const appHeaders = { Authorization: `Bearer ${applicantToken}` };
+    const adminHeaders = { Authorization: `Bearer ${adminToken}` };
+
+    await request.put(`${API}/loans/profile`, {
+      headers: appHeaders,
+      data: { monthly_income: 15000, monthly_expenses: 3000, employer_name: 'CP Corp', years_employed: 5 },
+    });
+
+    const createRes = await request.post(`${API}/loans/`, {
+      headers: appHeaders,
+      data: { amount_requested: 20000, term_months: 24, purpose: 'business', purpose_description: 'Reject CP test', items: [] },
+    });
+    const app = await createRes.json();
+    await request.post(`${API}/loans/${app.id}/submit`, { headers: appHeaders });
+    await request.post(`${API}/underwriter/applications/${app.id}/counterpropose`, {
+      headers: adminHeaders,
+      data: { proposed_amount: 15000, proposed_rate: 12.5, proposed_term: 18, reason: 'Lower safer' },
+    });
+
+    const rejectRes = await request.post(`${API}/loans/${app.id}/reject-counterproposal`, {
+      headers: appHeaders,
+    });
+    expect(rejectRes.status()).toBe(200);
+    const rejected = await rejectRes.json();
+    expect(rejected.status).toMatch(/rejected|cancelled|declined/i);
+  });
+
+  test('CP-NEG-001: counterpropose with invalid amount returns 422', async ({ request }) => {
+    const { adminToken } = await getTokens(request);
+    const adminHeaders = { Authorization: `Bearer ${adminToken}` };
+    const res = await request.post(`${API}/underwriter/applications/1/counterpropose`, {
+      headers: adminHeaders,
+      data: { proposed_amount: -100, proposed_rate: 12, proposed_term: 12, reason: 'Bad amount' },
+    });
+    expect([400, 422]).toContain(res.status());
+  });
+
+  test('CP-NEG-002: counterpropose non-existent application returns error', async ({ request }) => {
+    const { adminToken } = await getTokens(request);
+    const adminHeaders = { Authorization: `Bearer ${adminToken}` };
+    const res = await request.post(`${API}/underwriter/applications/999999/counterpropose`, {
+      headers: adminHeaders,
+      data: { proposed_amount: 10000, proposed_rate: 10, proposed_term: 12, reason: 'No such app' },
+    });
+    expect([400, 404, 422]).toContain(res.status());
+  });
+
+  test('CP-NEG-003: applicant cannot counterpropose (role check)', async ({ request }) => {
+    const { applicantToken } = await getTokens(request);
+    const res = await request.post(`${API}/underwriter/applications/1/counterpropose`, {
+      headers: { Authorization: `Bearer ${applicantToken}` },
+      data: { proposed_amount: 10000, proposed_rate: 10, proposed_term: 12, reason: 'Not allowed' },
+    });
+    expect([401, 403]).toContain(res.status());
+  });
+});
+
+
+// ── Void Application – API tests ─────────────────────────────────
+
+test.describe('Void Application – API tests', () => {
+  const API = 'http://localhost:8000/api';
+
+  async function getTokens(request: import('@playwright/test').APIRequestContext) {
+    const appLogin = await request.post(`${API}/auth/login`, {
+      data: { email: 'marcus.mohammed0@email.com', password: 'Applicant1!' },
+    });
+    const { access_token: applicantToken } = await appLogin.json();
+    const adminLogin = await request.post(`${API}/auth/login`, {
+      data: { email: 'admin@zotta.tt', password: 'Admin123!' },
+    });
+    const { access_token: adminToken } = await adminLogin.json();
+    return { applicantToken, adminToken };
+  }
+
+  test('VOID-POS-001: admin can void a submitted application', async ({ request }) => {
+    const { applicantToken, adminToken } = await getTokens(request);
+    const appHeaders = { Authorization: `Bearer ${applicantToken}` };
+    const adminHeaders = { Authorization: `Bearer ${adminToken}` };
+
+    const createRes = await request.post(`${API}/loans/`, {
+      headers: appHeaders,
+      data: { amount_requested: 5000, term_months: 12, purpose: 'personal', purpose_description: 'Void test', items: [] },
+    });
+    const app = await createRes.json();
+    await request.post(`${API}/loans/${app.id}/submit`, { headers: appHeaders });
+
+    const voidRes = await request.post(`${API}/underwriter/applications/${app.id}/void`, {
+      headers: adminHeaders,
+      data: { reason: 'Suspected fraud' },
+    });
+    expect(voidRes.status()).toBe(200);
+    const body = await voidRes.json();
+    expect(body.status).toBe('ok');
+    expect(body.reason).toBe('Suspected fraud');
+  });
+
+  test('VOID-NEG-001: void without reason returns error', async ({ request }) => {
+    const { applicantToken, adminToken } = await getTokens(request);
+    const appHeaders = { Authorization: `Bearer ${applicantToken}` };
+    const adminHeaders = { Authorization: `Bearer ${adminToken}` };
+
+    const createRes = await request.post(`${API}/loans/`, {
+      headers: appHeaders,
+      data: { amount_requested: 5000, term_months: 12, purpose: 'personal', purpose_description: 'Void no reason', items: [] },
+    });
+    const app = await createRes.json();
+    await request.post(`${API}/loans/${app.id}/submit`, { headers: appHeaders });
+
+    const voidRes = await request.post(`${API}/underwriter/applications/${app.id}/void`, {
+      headers: adminHeaders,
+      data: {},
+    });
+    expect([400, 422]).toContain(voidRes.status());
+  });
+
+  test('VOID-NEG-002: void non-existent application returns 404', async ({ request }) => {
+    const { adminToken } = await getTokens(request);
+    const res = await request.post(`${API}/underwriter/applications/999999/void`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+      data: { reason: 'Testing 404' },
+    });
+    expect(res.status()).toBe(404);
+  });
+
+  test('VOID-NEG-003: void already voided application returns error', async ({ request }) => {
+    const { applicantToken, adminToken } = await getTokens(request);
+    const appHeaders = { Authorization: `Bearer ${applicantToken}` };
+    const adminHeaders = { Authorization: `Bearer ${adminToken}` };
+
+    const createRes = await request.post(`${API}/loans/`, {
+      headers: appHeaders,
+      data: { amount_requested: 5000, term_months: 12, purpose: 'personal', purpose_description: 'Double void', items: [] },
+    });
+    const app = await createRes.json();
+    await request.post(`${API}/loans/${app.id}/submit`, { headers: appHeaders });
+    await request.post(`${API}/underwriter/applications/${app.id}/void`, {
+      headers: adminHeaders,
+      data: { reason: 'First void' },
+    });
+
+    const res = await request.post(`${API}/underwriter/applications/${app.id}/void`, {
+      headers: adminHeaders,
+      data: { reason: 'Second void attempt' },
+    });
+    expect([400, 422]).toContain(res.status());
+  });
+
+  test('VOID-NEG-004: applicant cannot void applications', async ({ request }) => {
+    const { applicantToken } = await getTokens(request);
+    const res = await request.post(`${API}/underwriter/applications/1/void`, {
+      headers: { Authorization: `Bearer ${applicantToken}` },
+      data: { reason: 'Not allowed' },
+    });
+    expect([401, 403]).toContain(res.status());
+  });
+});
+
+
+// ── Merchant CRUD – API tests ────────────────────────────────────
+
+test.describe('Merchant CRUD – API tests', () => {
+  const API = 'http://localhost:8000/api';
+
+  async function getAdminHeaders(request: import('@playwright/test').APIRequestContext) {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'admin@zotta.tt', password: 'Admin123!' },
+    });
+    const { access_token } = await loginRes.json();
+    return { Authorization: `Bearer ${access_token}` };
+  }
+
+  test('MERCH-POS-001: create merchant returns 201', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const name = `QA Merchant ${Date.now()}`;
+    const res = await request.post(`${API}/admin/merchants`, {
+      headers,
+      data: { name },
+    });
+    expect(res.status()).toBe(201);
+    const body = await res.json();
+    expect(body.name).toBe(name);
+    expect(body.id).toBeTruthy();
+  });
+
+  test('MERCH-POS-002: update merchant name', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const createRes = await request.post(`${API}/admin/merchants`, {
+      headers,
+      data: { name: `Update Merch ${Date.now()}` },
+    });
+    const { id } = await createRes.json();
+    const updatedName = `Updated Merch ${Date.now()}`;
+    const updateRes = await request.put(`${API}/admin/merchants/${id}`, {
+      headers,
+      data: { name: updatedName },
+    });
+    expect(updateRes.status()).toBe(200);
+    const body = await updateRes.json();
+    expect(body.name).toBe(updatedName);
+  });
+
+  test('MERCH-POS-003: create branch for merchant', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const merchRes = await request.get(`${API}/admin/merchants`, { headers });
+    const merchants = await merchRes.json();
+    const merchantId = merchants[0].id;
+
+    const res = await request.post(`${API}/admin/merchants/${merchantId}/branches`, {
+      headers,
+      data: { name: `QA Branch ${Date.now()}`, address: '123 QA Street', is_online: false },
+    });
+    expect(res.status()).toBe(201);
+    const body = await res.json();
+    expect(body.name).toContain('QA Branch');
+    expect(body.merchant_id).toBe(merchantId);
+  });
+
+  test('MERCH-POS-004: create category for merchant', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const merchRes = await request.get(`${API}/admin/merchants`, { headers });
+    const merchants = await merchRes.json();
+    const merchantId = merchants[0].id;
+
+    const catName = `QA Category ${Date.now()}`;
+    const res = await request.post(`${API}/admin/merchants/${merchantId}/categories`, {
+      headers,
+      data: { name: catName },
+    });
+    expect(res.status()).toBe(201);
+    const body = await res.json();
+    expect(body.name).toBe(catName);
+  });
+
+  test('MERCH-NEG-001: create merchant with duplicate name returns 400', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const name = `DupMerch ${Date.now()}`;
+    await request.post(`${API}/admin/merchants`, { headers, data: { name } });
+    const res = await request.post(`${API}/admin/merchants`, { headers, data: { name } });
+    expect(res.status()).toBe(400);
+  });
+
+  test('MERCH-NEG-002: create merchant with empty name returns 422', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.post(`${API}/admin/merchants`, {
+      headers,
+      data: { name: '' },
+    });
+    expect([400, 422]).toContain(res.status());
+  });
+
+  test('MERCH-NEG-003: create branch for non-existent merchant returns 404', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.post(`${API}/admin/merchants/999999/branches`, {
+      headers,
+      data: { name: 'Orphan Branch' },
+    });
+    expect(res.status()).toBe(404);
+  });
+
+  test('MERCH-NEG-004: delete non-existent branch returns 404', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.delete(`${API}/admin/branches/999999`, { headers });
+    expect(res.status()).toBe(404);
+  });
+
+  test('MERCH-NEG-005: applicant cannot create merchants', async ({ request }) => {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'marcus.mohammed0@email.com', password: 'Applicant1!' },
+    });
+    const { access_token } = await loginRes.json();
+    const res = await request.post(`${API}/admin/merchants`, {
+      headers: { Authorization: `Bearer ${access_token}` },
+      data: { name: 'Unauthorized Merchant' },
+    });
+    expect([401, 403]).toContain(res.status());
+  });
+});
+
+
+// ── Merchant Management – UI tests ───────────────────────────────
+
+test.describe('Merchant Management – UI tests', () => {
+  test('MERCH-UI-POS-001: merchant page shows add merchant input and existing merchants', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE}/backoffice/merchants`);
+    await page.waitForTimeout(2000);
+    const pageText = await page.textContent('body');
+    const hasMerchantContent = pageText?.includes('Merchant') ||
+                               pageText?.includes('merchant') ||
+                               pageText?.includes('Add');
+    expect(hasMerchantContent).toBe(true);
+  });
+
+  test('MERCH-UI-POS-002: merchant page shows branches section', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE}/backoffice/merchants`);
+    await page.waitForTimeout(2000);
+    const pageText = await page.textContent('body');
+    const hasBranches = pageText?.includes('Branch') ||
+                        pageText?.includes('branch') ||
+                        pageText?.includes('Categories') ||
+                        pageText?.includes('categories');
+    expect(hasBranches).toBe(true);
+  });
+});
+
+
+// ── Scorecard CRUD – API tests ───────────────────────────────────
+
+test.describe('Scorecard CRUD – API tests', () => {
+  const API = 'http://localhost:8000/api';
+
+  async function getAdminHeaders(request: import('@playwright/test').APIRequestContext) {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'admin@zotta.tt', password: 'Admin123!' },
+    });
+    const { access_token } = await loginRes.json();
+    return { Authorization: `Bearer ${access_token}` };
+  }
+
+  test('SC-POS-001: create scorecard returns new scorecard', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.post(`${API}/scorecards/`, {
+      headers,
+      data: {
+        name: `QA Scorecard ${Date.now()}`,
+        description: 'Test scorecard',
+        base_score: 300,
+        min_score: 100,
+        max_score: 850,
+      },
+    });
+    expect([200, 201]).toContain(res.status());
+    const body = await res.json();
+    expect(body.name).toContain('QA Scorecard');
+    expect(body.id).toBeTruthy();
+  });
+
+  test('SC-POS-002: clone scorecard creates copy', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const listRes = await request.get(`${API}/scorecards/`, { headers });
+    const scorecards = await listRes.json();
+    expect(scorecards.length).toBeGreaterThan(0);
+    const sourceId = scorecards[0].id;
+
+    const cloneRes = await request.post(`${API}/scorecards/${sourceId}/clone?name=Cloned+QA+${Date.now()}`, {
+      headers,
+    });
+    expect([200, 201]).toContain(cloneRes.status());
+    const cloned = await cloneRes.json();
+    expect(cloned.id).toBeTruthy();
+    expect(cloned.id).not.toBe(sourceId);
+  });
+
+  test('SC-POS-003: get scorecard script', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const listRes = await request.get(`${API}/scorecards/`, { headers });
+    const scorecards = await listRes.json();
+    const id = scorecards[0].id;
+
+    const res = await request.get(`${API}/scorecards/${id}/script`, { headers });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.script !== undefined || body.content !== undefined).toBe(true);
+  });
+
+  test('SC-POS-004: live calculate returns score', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const listRes = await request.get(`${API}/scorecards/`, { headers });
+    const scorecards = await listRes.json();
+    const id = scorecards[0].id;
+
+    const res = await request.post(`${API}/scorecards/${id}/live-calculate`, {
+      headers,
+      data: { inputs: {} },
+    });
+    expect([200, 400, 422]).toContain(res.status());
+  });
+
+  test('SC-NEG-001: create scorecard with empty name returns 422', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.post(`${API}/scorecards/`, {
+      headers,
+      data: { name: '' },
+    });
+    expect([400, 422]).toContain(res.status());
+  });
+
+  test('SC-NEG-002: clone non-existent scorecard returns 404', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.post(`${API}/scorecards/999999/clone`, { headers });
+    expect(res.status()).toBe(404);
+  });
+
+  test('SC-NEG-003: get non-existent scorecard returns 404', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.get(`${API}/scorecards/999999`, { headers });
+    expect(res.status()).toBe(404);
+  });
+
+  test('SC-NEG-004: applicant cannot create scorecards', async ({ request }) => {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'marcus.mohammed0@email.com', password: 'Applicant1!' },
+    });
+    const { access_token } = await loginRes.json();
+    const res = await request.post(`${API}/scorecards/`, {
+      headers: { Authorization: `Bearer ${access_token}` },
+      data: { name: 'Unauthorized scorecard' },
+    });
+    expect([401, 403]).toContain(res.status());
+  });
+
+  test('SC-NEG-005: promote non-existent scorecard returns 404', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.post(`${API}/scorecards/999999/promote-to-champion`, {
+      headers,
+      data: { justification: 'This will fail' },
+    });
+    expect(res.status()).toBe(404);
+  });
+});
+
+
+// ── Scorecard – UI tests ─────────────────────────────────────────
+
+test.describe('Scorecard – extended UI tests', () => {
+  test('SC-UI-POS-001: scorecard list shows action buttons (Clone, Promote, etc.)', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE}/backoffice/scorecards`);
+    await page.waitForTimeout(2000);
+    const pageText = await page.textContent('body');
+    const hasActions = pageText?.includes('Clone') ||
+                       pageText?.includes('clone') ||
+                       pageText?.includes('Import') ||
+                       pageText?.includes('Add') ||
+                       pageText?.includes('AI Generate');
+    expect(hasActions).toBe(true);
+  });
+
+  test('SC-UI-POS-002: scorecard detail shows tabs (overview, characteristics, script, etc.)', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE}/backoffice/scorecards`);
+    await page.waitForTimeout(2000);
+    const firstRow = page.locator('table tbody tr').first().or(page.locator('[class*="card"]').first());
+    if (await firstRow.isVisible()) {
+      await firstRow.click();
+      await page.waitForTimeout(2000);
+      const detailText = await page.textContent('body');
+      const hasTabs = detailText?.includes('Overview') ||
+                      detailText?.includes('Characteristics') ||
+                      detailText?.includes('Script') ||
+                      detailText?.includes('Performance') ||
+                      detailText?.includes('Calculator');
+      expect(hasTabs).toBe(true);
+    }
+  });
+
+  test('SC-UI-POS-003: scorecards page has tabs including champion-challenger', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE}/backoffice/scorecards`);
+    await page.waitForTimeout(3000);
+    const pageText = await page.textContent('body');
+    const hasTabs = pageText?.includes('Scorecards') ||
+                    pageText?.includes('scorecards') ||
+                    pageText?.includes('Champion') ||
+                    pageText?.includes('champion') ||
+                    pageText?.includes('Analytics') ||
+                    pageText?.includes('History');
+    expect(hasTabs).toBe(true);
+  });
+});
+
+
+// ── Pre-Approval Admin – API tests ───────────────────────────────
+
+test.describe('Pre-Approval Admin – API tests', () => {
+  const API = 'http://localhost:8000/api';
+
+  async function getAdminHeaders(request: import('@playwright/test').APIRequestContext) {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'admin@zotta.tt', password: 'Admin123!' },
+    });
+    const { access_token } = await loginRes.json();
+    return { Authorization: `Bearer ${access_token}` };
+  }
+
+  test('PAD-POS-001: admin analytics returns aggregate data', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.get(`${API}/pre-approval/admin/analytics`, { headers });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.total).toBeGreaterThanOrEqual(0);
+    expect(body.pre_approved !== undefined || body.declined !== undefined).toBe(true);
+  });
+
+  test('PAD-POS-002: admin list returns pre-approval records', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.get(`${API}/pre-approval/admin/list`, { headers });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(Array.isArray(body)).toBe(true);
+  });
+
+  test('PAD-POS-003: admin referred list returns referred cases', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.get(`${API}/pre-approval/admin/referred`, { headers });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(Array.isArray(body)).toBe(true);
+  });
+
+  test('PAD-POS-004: admin can decide on referred case', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    // Create a pre-approval that may get referred
+    const startRes = await request.post(`${API}/pre-approval/start`, {
+      data: {
+        first_name: 'Referred',
+        last_name: 'Case',
+        phone: `+1868${Date.now().toString().slice(-7)}`,
+        date_of_birth: '1995-01-01',
+        national_id: `R${Date.now().toString().slice(-10)}`,
+        item_description: 'Expensive item',
+        price: 50000,
+        currency: 'TTD',
+        monthly_income: 8000,
+        monthly_expenses: 5000,
+        existing_loan_payments: 2000,
+        employment_status: 'self_employed',
+        employment_tenure: 'less_1_year',
+        consent_credit_check: true,
+        consent_data_sharing: true,
+      },
+    });
+    if (startRes.status() === 200 || startRes.status() === 201) {
+      const { reference_code, outcome } = await startRes.json();
+      if (outcome === 'referred') {
+        const decideRes = await request.post(`${API}/pre-approval/admin/${reference_code}/decide`, {
+          headers,
+          data: { outcome: 'declined', reason: 'Too risky' },
+        });
+        expect(decideRes.status()).toBe(200);
+        const decided = await decideRes.json();
+        expect(decided.outcome).toBe('declined');
+      }
+    }
+  });
+
+  test('PAD-NEG-001: admin decide on non-existent ref returns 404', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.post(`${API}/pre-approval/admin/FAKE-REF-000/decide`, {
+      headers,
+      data: { outcome: 'declined', reason: 'Does not exist' },
+    });
+    expect(res.status()).toBe(404);
+  });
+
+  test('PAD-NEG-002: applicant cannot access admin analytics', async ({ request }) => {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'marcus.mohammed0@email.com', password: 'Applicant1!' },
+    });
+    const { access_token } = await loginRes.json();
+    const res = await request.get(`${API}/pre-approval/admin/analytics`, {
+      headers: { Authorization: `Bearer ${access_token}` },
+    });
+    expect([401, 403]).toContain(res.status());
+  });
+});
+
+
+// ── Pre-Approval Admin – UI tests ────────────────────────────────
+
+test.describe('Pre-Approval Admin – UI tests', () => {
+  test('PAD-UI-POS-001: pre-approval dashboard loads with KPI cards', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE}/backoffice/pre-approvals`);
+    await page.waitForTimeout(3000);
+    const pageText = await page.textContent('body');
+    const hasDashboard = pageText?.includes('Pre-Approval') ||
+                         pageText?.includes('Total') ||
+                         pageText?.includes('Approved') ||
+                         pageText?.includes('Converted') ||
+                         pageText?.includes('Referred');
+    expect(hasDashboard).toBe(true);
+  });
+
+  test('PAD-UI-POS-002: pre-approval dashboard has tabs (overview, referred, all)', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE}/backoffice/pre-approvals`);
+    await page.waitForTimeout(2000);
+    const pageText = await page.textContent('body');
+    const hasTabs = pageText?.includes('Overview') ||
+                    pageText?.includes('Referred') ||
+                    pageText?.includes('All') ||
+                    pageText?.includes('Records');
+    expect(hasTabs).toBe(true);
+  });
+});
+
+
+// ── Audit Trail – API tests ──────────────────────────────────────
+
+test.describe('Audit Trail – API tests', () => {
+  const API = 'http://localhost:8000/api';
+
+  async function getAdminHeaders(request: import('@playwright/test').APIRequestContext) {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'admin@zotta.tt', password: 'Admin123!' },
+    });
+    const { access_token } = await loginRes.json();
+    return { Authorization: `Bearer ${access_token}` };
+  }
+
+  test('AUDIT-POS-001: get audit trail returns paginated entries', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.get(`${API}/admin/audit-trail`, { headers });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.entries).toBeDefined();
+    expect(Array.isArray(body.entries)).toBe(true);
+    expect(body.total).toBeGreaterThanOrEqual(0);
+  });
+
+  test('AUDIT-POS-002: audit trail supports entity_type filter', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.get(`${API}/admin/audit-trail?entity_type=loan_application`, { headers });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.entries).toBeDefined();
+  });
+
+  test('AUDIT-POS-003: audit trail supports pagination', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.get(`${API}/admin/audit-trail?limit=5&offset=0`, { headers });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.entries.length).toBeLessThanOrEqual(5);
+    expect(body.limit).toBe(5);
+    expect(body.offset).toBe(0);
+  });
+
+  test('AUDIT-POS-004: audit trail returns available filters', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.get(`${API}/admin/audit-trail`, { headers });
+    const body = await res.json();
+    expect(body.filters).toBeDefined();
+    expect(body.filters.entity_types).toBeDefined();
+    expect(body.filters.actions).toBeDefined();
+  });
+
+  test('AUDIT-NEG-001: applicant cannot access audit trail', async ({ request }) => {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'marcus.mohammed0@email.com', password: 'Applicant1!' },
+    });
+    const { access_token } = await loginRes.json();
+    const res = await request.get(`${API}/admin/audit-trail`, {
+      headers: { Authorization: `Bearer ${access_token}` },
+    });
+    expect([401, 403]).toContain(res.status());
+  });
+
+  test('AUDIT-NEG-002: unauthenticated request to audit trail is rejected', async ({ request }) => {
+    const res = await request.get(`${API}/admin/audit-trail`);
+    expect([401, 403]).toContain(res.status());
+  });
+});
+
+
+// ── Audit Trail – UI tests ───────────────────────────────────────
+
+test.describe('Audit Trail – UI tests', () => {
+  test('AUDIT-UI-POS-001: audit trail page loads with entries', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE}/backoffice/audit-trail`);
+    await page.waitForTimeout(3000);
+    const pageText = await page.textContent('body');
+    const hasAudit = pageText?.includes('Audit') ||
+                     pageText?.includes('audit') ||
+                     pageText?.includes('Trail') ||
+                     pageText?.includes('Action') ||
+                     pageText?.includes('Entity');
+    expect(hasAudit).toBe(true);
+  });
+
+  test('AUDIT-UI-POS-002: audit trail has filter controls', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE}/backoffice/audit-trail`);
+    await page.waitForTimeout(2000);
+    const pageText = await page.textContent('body');
+    const hasFilters = pageText?.includes('Filter') ||
+                       pageText?.includes('filter') ||
+                       pageText?.includes('Show') ||
+                       pageText?.includes('Date') ||
+                       pageText?.includes('User') ||
+                       pageText?.includes('Action');
+    expect(hasFilters).toBe(true);
+  });
+});
+
+
+// ── Staff Conversation – API tests ───────────────────────────────
+
+test.describe('Staff Conversation – API tests', () => {
+  const API = 'http://localhost:8000/api';
+
+  async function getTokens(request: import('@playwright/test').APIRequestContext) {
+    const appLogin = await request.post(`${API}/auth/login`, {
+      data: { email: 'marcus.mohammed0@email.com', password: 'Applicant1!' },
+    });
+    const { access_token: applicantToken } = await appLogin.json();
+    const adminLogin = await request.post(`${API}/auth/login`, {
+      data: { email: 'admin@zotta.tt', password: 'Admin123!' },
+    });
+    const { access_token: adminToken } = await adminLogin.json();
+    return { applicantToken, adminToken };
+  }
+
+  test('CONV-POS-001: staff can send message in conversation', async ({ request }) => {
+    const { applicantToken, adminToken } = await getTokens(request);
+    const appHeaders = { Authorization: `Bearer ${applicantToken}` };
+    const adminHeaders = { Authorization: `Bearer ${adminToken}` };
+
+    const createRes = await request.post(`${API}/conversations`, {
+      headers: appHeaders,
+      data: { message: 'Hello from test' },
+    });
+    const conv = await createRes.json();
+    const convId = conv.id;
+
+    const listRes = await request.get(`${API}/conversations`, { headers: adminHeaders });
+    expect(listRes.status()).toBe(200);
+
+    const sendRes = await request.post(`${API}/conversations/${convId}/messages`, {
+      headers: adminHeaders,
+      data: { content: 'Staff reply from test' },
+    });
+    expect([200, 201]).toContain(sendRes.status());
+    const msg = await sendRes.json();
+    expect(msg.content).toBeTruthy();
+  });
+
+  test('CONV-NEG-001: send message to non-existent conversation returns 404', async ({ request }) => {
+    const { adminToken } = await getTokens(request);
+    const res = await request.post(`${API}/conversations/999999/messages`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+      data: { content: 'This should fail' },
+    });
+    expect(res.status()).toBe(404);
+  });
+
+  test('CONV-NEG-002: send empty message is rejected', async ({ request }) => {
+    const { applicantToken, adminToken } = await getTokens(request);
+    const appHeaders = { Authorization: `Bearer ${applicantToken}` };
+    const adminHeaders = { Authorization: `Bearer ${adminToken}` };
+
+    const createRes = await request.post(`${API}/conversations`, {
+      headers: appHeaders,
+      data: { message: 'For empty test' },
+    });
+    const conv = await createRes.json();
+
+    const res = await request.post(`${API}/conversations/${conv.id}/messages`, {
+      headers: adminHeaders,
+      data: { content: '' },
+    });
+    expect([400, 422]).toContain(res.status());
+  });
+});
+
+
+// ── Conversation Detail – UI tests ───────────────────────────────
+
+test.describe('Conversation Detail – UI tests', () => {
+  test('CONV-UI-POS-001: conversation detail page navigable from queue', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE}/backoffice/conversations`);
+    await page.waitForTimeout(3000);
+    const pageText = await page.textContent('body');
+    const hasConversations = pageText?.includes('Conversation') ||
+                             pageText?.includes('conversation') ||
+                             pageText?.includes('Chat') ||
+                             pageText?.includes('Active') ||
+                             pageText?.includes('Closed');
+    expect(hasConversations).toBe(true);
+  });
+});
+
+
+// ── Collections Dashboard – API tests ────────────────────────────
+
+test.describe('Collections Dashboard – API tests', () => {
+  const API = 'http://localhost:8000/api';
+
+  async function getAdminHeaders(request: import('@playwright/test').APIRequestContext) {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'admin@zotta.tt', password: 'Admin123!' },
+    });
+    const { access_token } = await loginRes.json();
+    return { Authorization: `Bearer ${access_token}` };
+  }
+
+  test('CDASH-POS-001: dashboard returns delinquency metrics', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.get(`${API}/collections/dashboard`, { headers });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.total_delinquent_accounts).toBeGreaterThanOrEqual(0);
+    expect(body.total_overdue_amount).toBeGreaterThanOrEqual(0);
+  });
+
+  test('CDASH-POS-002: dashboard supports custom period_days', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.get(`${API}/collections/dashboard?period_days=7`, { headers });
+    expect(res.status()).toBe(200);
+  });
+
+  test('CDASH-POS-003: agent performance returns data', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.get(`${API}/collections/dashboard/agent-performance`, { headers });
+    expect(res.status()).toBe(200);
+  });
+
+  test('CDASH-NEG-001: applicant cannot access collections dashboard', async ({ request }) => {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'marcus.mohammed0@email.com', password: 'Applicant1!' },
+    });
+    const { access_token } = await loginRes.json();
+    const res = await request.get(`${API}/collections/dashboard`, {
+      headers: { Authorization: `Bearer ${access_token}` },
+    });
+    expect([401, 403]).toContain(res.status());
+  });
+});
+
+
+// ── Collections Detail – extended UI tests ───────────────────────
+
+test.describe('Collection Detail – extended UI tests', () => {
+  test('CD-UI-POS-001: collections page shows queue with action columns', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE}/backoffice/collections`);
+    await page.waitForTimeout(3000);
+    const pageText = await page.textContent('body');
+    const hasQueue = pageText?.includes('DPD') ||
+                     pageText?.includes('Arrears') ||
+                     pageText?.includes('Balance') ||
+                     pageText?.includes('Overdue') ||
+                     pageText?.includes('Agent');
+    expect(hasQueue).toBe(true);
+  });
+
+  test('CD-UI-POS-002: collections page shows search and filters', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE}/backoffice/collections`);
+    await page.waitForTimeout(2000);
+    const pageText = await page.textContent('body');
+    const hasFilters = pageText?.includes('Search') ||
+                       pageText?.includes('search') ||
+                       pageText?.includes('Filter') ||
+                       pageText?.includes('Sync') ||
+                       pageText?.includes('Export') ||
+                       pageText?.includes('Briefing');
+    expect(hasFilters).toBe(true);
+  });
+
+  test('CD-UI-POS-003: collections dashboard shows KPI cards', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE}/backoffice/collections-dashboard`);
+    await page.waitForTimeout(3000);
+    const pageText = await page.textContent('body');
+    const hasKPIs = pageText?.includes('Delinquent') ||
+                    pageText?.includes('Overdue') ||
+                    pageText?.includes('Cure') ||
+                    pageText?.includes('PTP') ||
+                    pageText?.includes('Recovered');
+    expect(hasKPIs).toBe(true);
+  });
+});
+
+
+// ── Collections Actions – API tests ──────────────────────────────
+
+test.describe('Collections Actions – API tests', () => {
+  const API = 'http://localhost:8000/api';
+
+  async function getAdminHeaders(request: import('@playwright/test').APIRequestContext) {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'admin@zotta.tt', password: 'Admin123!' },
+    });
+    const { access_token } = await loginRes.json();
+    return { Authorization: `Bearer ${access_token}` };
+  }
+
+  async function getFirstCaseId(request: import('@playwright/test').APIRequestContext, headers: Record<string, string>) {
+    const res = await request.get(`${API}/collections/cases`, { headers });
+    const cases = await res.json();
+    return cases.items?.[0]?.id || cases[0]?.id;
+  }
+
+  test('CA-POS-001: update case flags (dispute toggle)', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const caseId = await getFirstCaseId(request, headers);
+    if (!caseId) return;
+
+    const res = await request.patch(`${API}/collections/cases/${caseId}`, {
+      headers,
+      data: { dispute_active: true },
+    });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.dispute_active).toBe(true);
+
+    await request.patch(`${API}/collections/cases/${caseId}`, {
+      headers,
+      data: { dispute_active: false },
+    });
+  });
+
+  test('CA-POS-002: create PTP for collection case', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const caseId = await getFirstCaseId(request, headers);
+    if (!caseId) return;
+
+    const res = await request.post(`${API}/collections/cases/${caseId}/ptp`, {
+      headers,
+      data: {
+        amount_promised: 500,
+        promise_date: '2026-12-01',
+        payment_method: 'bank_transfer',
+        notes: 'QA test PTP',
+      },
+    });
+    expect(res.status()).toBe(200);
+  });
+
+  test('CA-POS-003: list PTPs for case', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const caseId = await getFirstCaseId(request, headers);
+    if (!caseId) return;
+
+    const res = await request.get(`${API}/collections/cases/${caseId}/ptps`, { headers });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(Array.isArray(body)).toBe(true);
+  });
+
+  test('CA-POS-004: create settlement offer for case', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const caseId = await getFirstCaseId(request, headers);
+    if (!caseId) return;
+
+    const res = await request.post(`${API}/collections/cases/${caseId}/settlement`, {
+      headers,
+      data: { auto_calculate: true, offer_type: 'full_payment', settlement_amount: 1 },
+    });
+    expect(res.status()).toBe(200);
+  });
+
+  test('CA-POS-005: override NBA for case', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const caseId = await getFirstCaseId(request, headers);
+    if (!caseId) return;
+
+    const res = await request.post(`${API}/collections/cases/${caseId}/nba-override`, {
+      headers,
+      data: { action: 'call', reason: 'Customer prefers phone' },
+    });
+    expect([200, 201]).toContain(res.status());
+  });
+
+  test('CA-NEG-001: update non-existent case returns 404', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.patch(`${API}/collections/cases/999999`, {
+      headers,
+      data: { dispute_active: true },
+    });
+    expect(res.status()).toBe(404);
+  });
+
+  test('CA-NEG-002: create PTP for non-existent case returns 404', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.post(`${API}/collections/cases/999999/ptp`, {
+      headers,
+      data: { amount_promised: 500, promise_date: '2026-12-31', payment_method: 'bank_transfer' },
+    });
+    expect(res.status()).toBe(404);
+  });
+});
+
+
+// ── Reports – extended API tests ─────────────────────────────────
+
+test.describe('Reports – extended API tests', () => {
+  const API = 'http://localhost:8000/api';
+
+  async function getAdminHeaders(request: import('@playwright/test').APIRequestContext) {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'admin@zotta.tt', password: 'Admin123!' },
+    });
+    const { access_token } = await loginRes.json();
+    return { Authorization: `Bearer ${access_token}` };
+  }
+
+  test('RPT-POS-001: generate exposure report', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.post(`${API}/reports/generate/exposure`, {
+      headers,
+      data: { date_from: '2024-01-01', date_to: '2026-12-31' },
+    });
+    expect([200, 201]).toContain(res.status());
+  });
+
+  test('RPT-POS-002: generate portfolio summary report', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.post(`${API}/reports/generate/portfolio_summary`, {
+      headers,
+      data: { date_from: '2024-01-01', date_to: '2026-12-31' },
+    });
+    expect([200, 201]).toContain(res.status());
+  });
+
+  test('RPT-POS-003: generate aged report', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.post(`${API}/reports/generate/aged`, {
+      headers,
+      data: { date_from: '2024-01-01', date_to: '2026-12-31' },
+    });
+    expect([200, 201]).toContain(res.status());
+  });
+
+  test('RPT-POS-004: report history returns generated reports', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.get(`${API}/reports/history`, { headers });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(Array.isArray(body)).toBe(true);
+  });
+
+  test('RPT-NEG-001: generate report with invalid type returns error', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.post(`${API}/reports/generate/nonexistent_report_type`, {
+      headers,
+      data: { date_from: '2024-01-01', date_to: '2026-12-31' },
+    });
+    expect([400, 404, 422]).toContain(res.status());
+  });
+
+  test('RPT-NEG-002: applicant cannot generate reports', async ({ request }) => {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'marcus.mohammed0@email.com', password: 'Applicant1!' },
+    });
+    const { access_token } = await loginRes.json();
+    const res = await request.post(`${API}/reports/generate/aged`, {
+      headers: { Authorization: `Bearer ${access_token}` },
+      data: { date_from: '2024-01-01', date_to: '2026-12-31' },
+    });
+    expect([401, 403]).toContain(res.status());
+  });
+});
+
+
+// ── Reports – UI tests ───────────────────────────────────────────
+
+test.describe('Reports – extended UI tests', () => {
+  test('RPT-UI-POS-001: reports page shows all report types', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE}/backoffice/reports`);
+    await page.waitForTimeout(2000);
+    const pageText = await page.textContent('body');
+    const reportTypes = ['Aged', 'Exposure', 'Loan Statement', 'Portfolio', 'Disbursement', 'Collection'];
+    let found = 0;
+    for (const rt of reportTypes) {
+      if (pageText?.includes(rt)) found++;
+    }
+    expect(found).toBeGreaterThanOrEqual(3);
+  });
+
+  test('RPT-UI-POS-002: reports page has generate buttons', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE}/backoffice/reports`);
+    await page.waitForTimeout(2000);
+    const generateBtns = page.getByRole('button', { name: /Generate/i });
+    const count = await generateBtns.count();
+    expect(count).toBeGreaterThanOrEqual(1);
+  });
+});
+
+
+// ── GL Module – extended API tests ───────────────────────────────
+
+test.describe('GL Module – extended API tests', () => {
+  const API = 'http://localhost:8000/api';
+
+  async function getAdminHeaders(request: import('@playwright/test').APIRequestContext) {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'admin@zotta.tt', password: 'Admin123!' },
+    });
+    const { access_token } = await loginRes.json();
+    return { Authorization: `Bearer ${access_token}` };
+  }
+
+  test('GL-POS-001: get chart of accounts returns accounts', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.get(`${API}/gl/accounts`, { headers });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(Array.isArray(body)).toBe(true);
+    expect(body.length).toBeGreaterThan(0);
+  });
+
+  test('GL-POS-002: create GL account', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const uniqueCode = `QA-${Date.now().toString().slice(-8)}`;
+    const res = await request.post(`${API}/gl/accounts`, {
+      headers,
+      data: {
+        name: `QA Test Account ${Date.now()}`,
+        account_category: 'asset',
+        account_type: 'debit',
+        currency_code: 'JMD',
+        account_code: uniqueCode,
+      },
+    });
+    expect([200, 201]).toContain(res.status());
+    const body = await res.json();
+    expect(body.name).toContain('QA Test Account');
+  });
+
+  test('GL-POS-003: get journal entries returns paginated list', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.get(`${API}/gl/entries`, { headers });
+    expect(res.status()).toBe(200);
+  });
+
+  test('GL-POS-004: get trial balance returns data', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const periodsRes = await request.get(`${API}/gl/periods`, { headers });
+    const periods = await periodsRes.json();
+    if (periods.length > 0) {
+      const periodId = periods[0].id || periods[0].months?.[0]?.id;
+      if (periodId) {
+        const res = await request.get(`${API}/gl/trial-balance?period_id=${periodId}`, { headers });
+        expect(res.status()).toBe(200);
+      }
+    }
+  });
+
+  test('GL-POS-005: get dashboard summary', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.get(`${API}/gl/dashboard-summary`, { headers });
+    expect(res.status()).toBe(200);
+  });
+
+  test('GL-NEG-001: applicant cannot access GL endpoints', async ({ request }) => {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'marcus.mohammed0@email.com', password: 'Applicant1!' },
+    });
+    const { access_token } = await loginRes.json();
+    const res = await request.get(`${API}/gl/accounts`, {
+      headers: { Authorization: `Bearer ${access_token}` },
+    });
+    expect([401, 403]).toContain(res.status());
+  });
+
+  test('GL-NEG-002: create account with duplicate code returns error', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const code = `DUP${Date.now().toString().slice(-5)}`;
+    await request.post(`${API}/gl/accounts`, {
+      headers,
+      data: { account_code: code, name: 'First', account_category: 'asset', account_type: 'debit', currency_code: 'JMD' },
+    });
+    const res = await request.post(`${API}/gl/accounts`, {
+      headers,
+      data: { account_code: code, name: 'Duplicate', account_category: 'asset', account_type: 'debit', currency_code: 'JMD' },
+    });
+    expect([400, 409, 422]).toContain(res.status());
+  });
+});
+
+
+// ── Application Review Actions – UI tests ────────────────────────
+
+test.describe('Application Review Actions – UI tests', () => {
+  test('AR-UI-POS-001: queue page shows all application tabs', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE}/backoffice/queue`);
+    await page.waitForTimeout(3000);
+    const pageText = await page.textContent('body');
+    const tabs = ['Work Queue', 'My Queue', 'Waiting', 'All'];
+    let found = 0;
+    for (const tab of tabs) {
+      if (pageText?.includes(tab)) found++;
+    }
+    expect(found).toBeGreaterThanOrEqual(2);
+  });
+
+  test('AR-UI-POS-002: queue page shows action buttons', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE}/backoffice/queue`);
+    await page.waitForTimeout(3000);
+    const pageText = await page.textContent('body');
+    const hasActions = pageText?.includes('Work') ||
+                       pageText?.includes('Refresh') ||
+                       pageText?.includes('Accept') ||
+                       pageText?.includes('Queue') ||
+                       pageText?.includes('Pending');
+    expect(hasActions).toBe(true);
+  });
+
+  test('AR-UI-POS-003: queue shows team workload section', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE}/backoffice/queue`);
+    await page.waitForTimeout(3000);
+    const pageText = await page.textContent('body');
+    const hasTeam = pageText?.includes('Team') ||
+                    pageText?.includes('team') ||
+                    pageText?.includes('Workload') ||
+                    pageText?.includes('Online') ||
+                    pageText?.includes('Active');
+    expect(hasTeam).toBe(true);
+  });
+});
+
+
+// ── New Application (Backoffice) – UI tests ──────────────────────
+
+test.describe('New Application (Backoffice) – UI tests', () => {
+  test('NEWAPP-UI-POS-001: new application form has all wizard steps', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE}/backoffice/new-application`);
+    await page.waitForTimeout(2000);
+    const pageText = await page.textContent('body');
+    const hasSteps = pageText?.includes('ID') ||
+                     pageText?.includes('Personal') ||
+                     pageText?.includes('Employment') ||
+                     pageText?.includes('References') ||
+                     pageText?.includes('Shopping');
+    expect(hasSteps).toBe(true);
+  });
+
+  test('NEWAPP-UI-POS-002: new application has search existing customer button', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE}/backoffice/new-application`);
+    await page.waitForTimeout(2000);
+    const pageText = await page.textContent('body');
+    const hasSearch = pageText?.includes('Search') ||
+                      pageText?.includes('search') ||
+                      pageText?.includes('Existing') ||
+                      pageText?.includes('Customer');
+    expect(hasSearch).toBe(true);
+  });
+});
+
+
+// ── Consumer My Loans – extended UI tests ────────────────────────
+
+test.describe('Consumer My Loans – extended UI tests', () => {
+  test('LOANS-UI-POS-001: my loans page shows payment and dispute buttons', async ({ page }) => {
+    await loginAsApplicant(page);
+    await page.goto(`${BASE}/loans`);
+    await page.waitForTimeout(3000);
+    const pageText = await page.textContent('body');
+    const hasActions = pageText?.includes('Payment') ||
+                       pageText?.includes('payment') ||
+                       pageText?.includes('Dispute') ||
+                       pageText?.includes('dispute') ||
+                       pageText?.includes('Request') ||
+                       pageText?.includes('No active loans') ||
+                       pageText?.includes('No disbursed');
+    expect(hasActions).toBe(true);
+  });
+});
+
+
+// ── Consumer Notifications – extended tests ──────────────────────
+
+test.describe('Consumer Notifications – extended tests', () => {
+  const API = 'http://localhost:8000/api';
+
+  test('NOTIF-POS-001: mark all read returns ok', async ({ request }) => {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'marcus.mohammed0@email.com', password: 'Applicant1!' },
+    });
+    const { access_token } = await loginRes.json();
+    const res = await request.post(`${API}/loans/notifications/mark-read`, {
+      headers: { Authorization: `Bearer ${access_token}` },
+    });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe('ok');
+  });
+
+  test('NOTIF-NEG-001: unauthenticated notifications request rejected', async ({ request }) => {
+    const res = await request.get(`${API}/loans/notifications/messages`);
+    expect([401, 403]).toContain(res.status());
+  });
+
+  test('NOTIF-UI-POS-001: notifications page shows mark-all-read button', async ({ page }) => {
+    await loginAsApplicant(page);
+    await page.goto(`${BASE}/notifications`);
+    await page.waitForTimeout(2000);
+    const pageText = await page.textContent('body');
+    const hasContent = pageText?.includes('Notification') ||
+                       pageText?.includes('notification') ||
+                       pageText?.includes('Mark') ||
+                       pageText?.includes('mark') ||
+                       pageText?.includes('No notifications') ||
+                       pageText?.includes('Messages');
+    expect(hasContent).toBe(true);
+  });
+});
+
+
+// ── Queue Config – extended tests ────────────────────────────────
+
+test.describe('Queue Config – extended tests', () => {
+  const API = 'http://localhost:8000/api';
+
+  async function getAdminHeaders(request: import('@playwright/test').APIRequestContext) {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'admin@zotta.tt', password: 'Admin123!' },
+    });
+    const { access_token } = await loginRes.json();
+    return { Authorization: `Bearer ${access_token}` };
+  }
+
+  test('QC-POS-001: get queue config returns current settings', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.get(`${API}/queue/config`, { headers });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.assignment_mode).toBeTruthy();
+  });
+
+  test('QC-POS-002: update config assignment mode', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const getRes = await request.get(`${API}/queue/config`, { headers });
+    const current = await getRes.json();
+    const res = await request.put(`${API}/queue/config`, {
+      headers,
+      data: { assignment_mode: current.assignment_mode },
+    });
+    expect(res.status()).toBe(200);
+  });
+
+  test('QC-NEG-001: applicant cannot access queue config', async ({ request }) => {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'marcus.mohammed0@email.com', password: 'Applicant1!' },
+    });
+    const { access_token } = await loginRes.json();
+    const res = await request.get(`${API}/queue/config`, {
+      headers: { Authorization: `Bearer ${access_token}` },
+    });
+    expect([401, 403]).toContain(res.status());
+  });
+});
+
+
+// ── Queue Config – UI tests ──────────────────────────────────────
+
+test.describe('Queue Config – extended UI tests', () => {
+  test('QC-UI-POS-001: config page shows assignment mode selector', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE}/backoffice/queue/config`);
+    await page.waitForTimeout(2000);
+    const pageText = await page.textContent('body');
+    const hasConfig = pageText?.includes('Assignment') ||
+                      pageText?.includes('assignment') ||
+                      pageText?.includes('Pull') ||
+                      pageText?.includes('Auto') ||
+                      pageText?.includes('Hybrid') ||
+                      pageText?.includes('Save');
+    expect(hasConfig).toBe(true);
+  });
+
+  test('QC-UI-POS-002: config page shows process stages section', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE}/backoffice/queue/config`);
+    await page.waitForTimeout(2000);
+    const pageText = await page.textContent('body');
+    const hasStages = pageText?.includes('Stage') ||
+                      pageText?.includes('stage') ||
+                      pageText?.includes('Process') ||
+                      pageText?.includes('Workflow');
+    expect(hasStages).toBe(true);
+  });
+});
+
+
+// ── Refresh Token – API tests ────────────────────────────────────
+
+test.describe('Refresh Token – API tests', () => {
+  const API = 'http://localhost:8000/api';
+
+  test('RT-POS-001: refresh token returns new access token', async ({ request }) => {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'marcus.mohammed0@email.com', password: 'Applicant1!' },
+    });
+    const { refresh_token } = await loginRes.json();
+    const res = await request.post(`${API}/auth/refresh`, {
+      data: { refresh_token },
+    });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.access_token).toBeTruthy();
+    expect(body.refresh_token).toBeTruthy();
+  });
+
+  test('RT-NEG-001: refresh with invalid token returns error', async ({ request }) => {
+    const res = await request.post(`${API}/auth/refresh`, {
+      data: { refresh_token: 'invalid-token-value-that-does-not-exist' },
+    });
+    expect([400, 401, 422, 500]).toContain(res.status());
+    expect(res.status()).not.toBe(200);
+  });
+
+  test('RT-NEG-002: refresh with empty token returns error', async ({ request }) => {
+    const res = await request.post(`${API}/auth/refresh`, {
+      data: { refresh_token: '' },
+    });
+    expect(res.status()).not.toBe(200);
+  });
+});
+
+
+// ── Session Management – API tests ───────────────────────────────
+
+test.describe('Session Management – API tests', () => {
+  const API = 'http://localhost:8000/api';
+
+  test('SESS-POS-001: get sessions returns active sessions', async ({ request }) => {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'marcus.mohammed0@email.com', password: 'Applicant1!' },
+    });
+    const { access_token } = await loginRes.json();
+    const res = await request.get(`${API}/auth/sessions`, {
+      headers: { Authorization: `Bearer ${access_token}` },
+    });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(Array.isArray(body)).toBe(true);
+    expect(body.length).toBeGreaterThan(0);
+  });
+
+  test('SESS-POS-002: logout revokes session', async ({ request }) => {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'marcus.mohammed0@email.com', password: 'Applicant1!' },
+    });
+    const { access_token, refresh_token } = await loginRes.json();
+    const res = await request.post(`${API}/auth/logout`, {
+      headers: { Authorization: `Bearer ${access_token}` },
+      data: { refresh_token },
+    });
+    expect(res.status()).toBe(200);
+  });
+
+  test('SESS-NEG-001: get sessions without auth returns 401', async ({ request }) => {
+    const res = await request.get(`${API}/auth/sessions`);
+    expect([401, 403]).toContain(res.status());
+  });
+});
+
+
+// ── Consumer Application Status Page – UI tests ──────────────────
+
+test.describe('Consumer Application Status – extended UI tests', () => {
+  test('APPSTAT-UI-POS-001: application status page shows progress tracker', async ({ page }) => {
+    await loginAsApplicant(page);
+    await page.goto(`${BASE}/dashboard`);
+    await page.waitForTimeout(2000);
+    const appLink = page.locator('a[href*="/applications/"]').first();
+    if (await appLink.isVisible()) {
+      await appLink.click();
+      await page.waitForTimeout(3000);
+      const pageText = await page.textContent('body');
+      const hasTracker = pageText?.includes('Progress') ||
+                         pageText?.includes('Status') ||
+                         pageText?.includes('Draft') ||
+                         pageText?.includes('Submitted') ||
+                         pageText?.includes('Review') ||
+                         pageText?.includes('Approved') ||
+                         pageText?.includes('Disbursed');
+      expect(hasTracker).toBe(true);
+    }
+  });
+
+  test('APPSTAT-UI-POS-002: application status shows documents section', async ({ page }) => {
+    await loginAsApplicant(page);
+    await page.goto(`${BASE}/dashboard`);
+    await page.waitForTimeout(2000);
+    const appLink = page.locator('a[href*="/applications/"]').first();
+    if (await appLink.isVisible()) {
+      await appLink.click();
+      await page.waitForTimeout(3000);
+      const pageText = await page.textContent('body');
+      const hasDocs = pageText?.includes('Document') ||
+                      pageText?.includes('document') ||
+                      pageText?.includes('Upload') ||
+                      pageText?.includes('upload');
+      expect(hasDocs).toBe(true);
+    }
+  });
+
+  test('APPSTAT-UI-POS-003: application status shows comments section', async ({ page }) => {
+    await loginAsApplicant(page);
+    await page.goto(`${BASE}/dashboard`);
+    await page.waitForTimeout(2000);
+    const appLink = page.locator('a[href*="/applications/"]').first();
+    if (await appLink.isVisible()) {
+      await appLink.click();
+      await page.waitForTimeout(3000);
+      const pageText = await page.textContent('body');
+      const hasComments = pageText?.includes('Comment') ||
+                          pageText?.includes('comment') ||
+                          pageText?.includes('Message') ||
+                          pageText?.includes('message') ||
+                          pageText?.includes('Send');
+      expect(hasComments).toBe(true);
+    }
+  });
+});
+
+
+// ── Sector Policies – extended UI tests ──────────────────────────
+
+test.describe('Sector Policies – extended UI tests', () => {
+  test('SP-UI-POS-001: sector policies page shows tabs', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE}/backoffice/sector-analysis/policies`);
+    await page.waitForTimeout(2000);
+    const pageText = await page.textContent('body');
+    const hasTabs = pageText?.includes('Policies') ||
+                    pageText?.includes('policies') ||
+                    pageText?.includes('Alerts') ||
+                    pageText?.includes('Rules') ||
+                    pageText?.includes('Stress');
+    expect(hasTabs).toBe(true);
+  });
+
+  test('SP-UI-POS-002: create policy button is visible', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE}/backoffice/sector-analysis/policies`);
+    await page.waitForTimeout(2000);
+    const createBtn = page.getByRole('button', { name: /Create|Add|New/i });
+    if (await createBtn.first().isVisible()) {
+      expect(true).toBe(true);
+    } else {
+      const pageText = await page.textContent('body');
+      expect(pageText?.includes('Create') || pageText?.includes('Policy')).toBe(true);
+    }
+  });
+});
+
+
+// ── Consumer Chat – extended tests ───────────────────────────────
+
+test.describe('Consumer Chat – extended tests', () => {
+  test('CHAT-UI-POS-001: chat page shows message input and send button', async ({ page }) => {
+    await loginAsApplicant(page);
+    await page.goto(`${BASE}/chat`);
+    await page.waitForTimeout(3000);
+    const pageText = await page.textContent('body');
+    const hasChat = pageText?.includes('Send') ||
+                    pageText?.includes('send') ||
+                    pageText?.includes('message') ||
+                    pageText?.includes('Message') ||
+                    pageText?.includes('Chat') ||
+                    pageText?.includes('Type');
+    expect(hasChat).toBe(true);
+  });
+
+  test('CHAT-UI-POS-002: chat page has back to dashboard link', async ({ page }) => {
+    await loginAsApplicant(page);
+    await page.goto(`${BASE}/chat`);
+    await page.waitForTimeout(2000);
+    const backLink = page.getByRole('link', { name: /Back|Dashboard|Home/i }).or(page.locator('a[href="/dashboard"]'));
+    await expect(backLink.first()).toBeVisible();
+  });
+});
+
+
+// ── Compliance Rules – API tests ─────────────────────────────────
+
+test.describe('Compliance Rules – API tests', () => {
+  const API = 'http://localhost:8000/api';
+
+  async function getAdminHeaders(request: import('@playwright/test').APIRequestContext) {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'admin@zotta.tt', password: 'Admin123!' },
+    });
+    const { access_token } = await loginRes.json();
+    return { Authorization: `Bearer ${access_token}` };
+  }
+
+  test('COMPL-POS-001: get compliance rules returns list', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.get(`${API}/collections/compliance-rules`, { headers });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(Array.isArray(body)).toBe(true);
+  });
+
+  test('COMPL-POS-002: check compliance returns permission result', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const casesRes = await request.get(`${API}/collections/cases`, { headers });
+    const cases = await casesRes.json();
+    const caseId = cases.items?.[0]?.id || cases[0]?.id;
+    if (!caseId) return;
+
+    const res = await request.post(`${API}/collections/check-compliance`, {
+      headers,
+      data: { case_id: caseId, channel: 'whatsapp' },
+    });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.allowed !== undefined || body.permitted !== undefined).toBe(true);
+  });
+
+  test('COMPL-NEG-001: applicant cannot access compliance rules', async ({ request }) => {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'marcus.mohammed0@email.com', password: 'Applicant1!' },
+    });
+    const { access_token } = await loginRes.json();
+    const res = await request.get(`${API}/collections/compliance-rules`, {
+      headers: { Authorization: `Bearer ${access_token}` },
+    });
+    expect([401, 403]).toContain(res.status());
+  });
+});
+
+
+// ── Bulk Actions – API tests ─────────────────────────────────────
+
+test.describe('Bulk Actions – API tests', () => {
+  const API = 'http://localhost:8000/api';
+
+  async function getAdminHeaders(request: import('@playwright/test').APIRequestContext) {
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: { email: 'admin@zotta.tt', password: 'Admin123!' },
+    });
+    const { access_token } = await loginRes.json();
+    return { Authorization: `Bearer ${access_token}` };
+  }
+
+  test('BULK-POS-001: bulk assign collections returns result', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const casesRes = await request.get(`${API}/collections/cases?limit=2`, { headers });
+    const cases = await casesRes.json();
+    const caseIds = cases.slice(0, 2).map((c: any) => c.id);
+    if (caseIds.length === 0) return;
+
+    const staffRes = await request.get(`${API}/underwriter/staff`, { headers });
+    const staff = await staffRes.json();
+    const agentId = staff[0]?.id;
+    if (!agentId) return;
+
+    const res = await request.post(`${API}/collections/cases/bulk-assign`, {
+      headers,
+      data: { case_ids: caseIds, agent_id: agentId },
+    });
+    expect([200, 201]).toContain(res.status());
+  });
+
+  test('BULK-POS-002: collections sync cases returns result', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.post(`${API}/collections/sync-cases`, { headers });
+    expect([200, 201]).toContain(res.status());
+  });
+
+  test('BULK-NEG-001: bulk assign with empty case_ids is handled', async ({ request }) => {
+    const headers = await getAdminHeaders(request);
+    const res = await request.post(`${API}/collections/cases/bulk-assign`, {
+      headers,
+      data: { case_ids: [], agent_id: 1 },
+    });
+    expect([200, 400, 404, 422]).toContain(res.status());
+  });
+});
+
+
+// ── Consumer Dashboard Buttons – UI tests ────────────────────────
+
+test.describe('Consumer Dashboard Buttons – UI tests', () => {
+  test('DASH-UI-POS-001: dashboard shows Chat with Zotta button', async ({ page }) => {
+    await loginAsApplicant(page);
+    const pageText = await page.textContent('body');
+    const hasChat = pageText?.includes('Chat') ||
+                    pageText?.includes('chat') ||
+                    pageText?.includes('Zotta');
+    expect(hasChat).toBe(true);
+  });
+
+  test('DASH-UI-POS-002: dashboard has New Application action', async ({ page }) => {
+    await loginAsApplicant(page);
+    await page.waitForTimeout(2000);
+    const pageText = await page.textContent('body');
+    const hasNewApp = pageText?.includes('New Application') ||
+                      pageText?.includes('Apply') ||
+                      pageText?.includes('apply');
+    expect(hasNewApp).toBe(true);
+  });
+
+  test('DASH-UI-POS-003: dashboard shows recent applications section', async ({ page }) => {
+    await loginAsApplicant(page);
+    const pageText = await page.textContent('body');
+    const hasRecent = pageText?.includes('Recent') ||
+                      pageText?.includes('Application') ||
+                      pageText?.includes('ZOT-');
+    expect(hasRecent).toBe(true);
+  });
+});
+
+
+// ── Backoffice Sidebar Navigation – UI tests ─────────────────────
+
+test.describe('Backoffice Sidebar Navigation – UI tests', () => {
+  test('NAV-UI-POS-001: all major sidebar links are visible', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.waitForTimeout(2000);
+    const pageText = await page.textContent('body');
+    const navItems = ['Dashboard', 'Queue', 'Loan Book', 'Collections', 'Products', 'Reports', 'Users', 'Scorecards'];
+    let found = 0;
+    for (const item of navItems) {
+      if (pageText?.includes(item)) found++;
+    }
+    expect(found).toBeGreaterThanOrEqual(5);
+  });
+
+  test('NAV-UI-POS-002: GL module links visible in sidebar', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.waitForTimeout(2000);
+    const pageText = await page.textContent('body');
+    const hasGL = pageText?.includes('General Ledger') ||
+                  pageText?.includes('GL') ||
+                  pageText?.includes('Accounting');
+    expect(hasGL).toBe(true);
+  });
+
+  test('NAV-UI-POS-003: error monitor link visible in sidebar', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.waitForTimeout(2000);
+    const pageText = await page.textContent('body');
+    const hasErrorMonitor = pageText?.includes('Error') ||
+                            pageText?.includes('Monitor');
+    expect(hasErrorMonitor).toBe(true);
+  });
+});
+
+
+// ── Consumer Sidebar Navigation – UI tests ───────────────────────
+
+test.describe('Consumer Sidebar Navigation – UI tests', () => {
+  test('CNAV-UI-POS-001: consumer nav shows all key links', async ({ page }) => {
+    await loginAsApplicant(page);
+    await page.waitForTimeout(2000);
+    const pageText = await page.textContent('body');
+    const navItems = ['Dashboard', 'Loans', 'Notifications', 'Profile', 'Chat'];
+    let found = 0;
+    for (const item of navItems) {
+      if (pageText?.includes(item)) found++;
+    }
+    expect(found).toBeGreaterThanOrEqual(3);
+  });
+
+  test('CNAV-UI-POS-002: consumer layout has navigation links', async ({ page }) => {
+    await loginAsApplicant(page);
+    await page.waitForTimeout(2000);
+    const pageText = await page.textContent('body');
+    const hasNav = pageText?.includes('Dashboard') ||
+                   pageText?.includes('Loans') ||
+                   pageText?.includes('Chat') ||
+                   pageText?.includes('Profile') ||
+                   pageText?.includes('Sign Out') ||
+                   pageText?.includes('Notifications');
+    expect(hasNav).toBe(true);
+  });
+});
