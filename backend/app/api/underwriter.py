@@ -203,6 +203,12 @@ async def get_full_application(
         if not application:
             raise HTTPException(status_code=404, detail="Application not found")
 
+        # Applicant user (for name)
+        applicant_user_result = await db.execute(
+            select(User).where(User.id == application.applicant_id)
+        )
+        applicant_user = applicant_user_result.scalar_one_or_none()
+
         # Profile
         profile_result = await db.execute(
             select(ApplicantProfile).where(ApplicantProfile.user_id == application.applicant_id)
@@ -275,11 +281,15 @@ async def get_full_application(
             )
             for it in (application.items or [])
         ]
+        _applicant_name = None
+        if applicant_user:
+            _applicant_name = f"{applicant_user.first_name or ''} {applicant_user.last_name or ''}".strip() or None
+
         app_response = LoanApplicationResponse(
             id=application.id,
             reference_number=application.reference_number,
             applicant_id=application.applicant_id,
-            applicant_name=None,
+            applicant_name=_applicant_name,
             amount_requested=float(application.amount_requested),
             term_months=application.term_months,
             purpose=application.purpose.value if hasattr(application.purpose, "value") else str(application.purpose),
@@ -318,6 +328,8 @@ async def get_full_application(
             decisions=decisions,
             audit_log=audit_entries,
             contract=contract,
+            applicant_phone=applicant_user.phone if applicant_user else None,
+            applicant_email=applicant_user.email if applicant_user else None,
         )
     except HTTPException:
         raise
@@ -1538,6 +1550,93 @@ async def download_credit_report(
     except Exception as e:
         await log_error(e, db=db, module="api.underwriter", function_name="download_credit_report")
         raise
+
+
+# ── AV Knowles Web Bureau Inquiry ──────────────────────
+
+from pydantic import BaseModel as _BaseModel
+
+class AVKnowlesInquiryRequest(_BaseModel):
+    first_name: str
+    last_name: str
+    middle_name: str = ""
+    date_of_birth: str = ""
+    gender: str = ""
+    marital_status: str = ""
+    national_id: str = ""
+    drivers_permit: str = ""
+    passport: str = ""
+    address1: str = ""
+    address2: str = ""
+    city: str = ""
+    country: str = "223"
+    phone: str = ""
+    cell: str = ""
+    employer: str = ""
+    occupation: str = ""
+    amount: float = 0
+    purpose: str = "personal"
+
+
+@router.post("/applications/{application_id}/av-knowles-inquiry")
+async def run_av_knowles_inquiry(
+    application_id: int,
+    body: AVKnowlesInquiryRequest,
+    current_user: User = Depends(require_roles(*UNDERWRITER_ROLES)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Run a live AV Knowles credit bureau web inquiry for an application."""
+    try:
+        # Verify application exists
+        result = await db.execute(
+            select(LoanApplication).where(LoanApplication.id == application_id)
+        )
+        app = result.scalar_one_or_none()
+        if not app:
+            raise HTTPException(status_code=404, detail="Application not found")
+
+        from app.services.credit_bureau.av_knowles import AVKnowlesWebAdapter
+        adapter = AVKnowlesWebAdapter()
+
+        inquiry_result = await adapter.run_web_inquiry(
+            first_name=body.first_name,
+            last_name=body.last_name,
+            middle_name=body.middle_name,
+            date_of_birth=body.date_of_birth,
+            gender=body.gender,
+            marital_status=body.marital_status,
+            national_id=body.national_id,
+            drivers_permit=body.drivers_permit,
+            passport=body.passport,
+            address1=body.address1,
+            address2=body.address2,
+            city=body.city,
+            country=body.country,
+            phone=body.phone,
+            cell=body.cell,
+            employer=body.employer,
+            occupation=body.occupation,
+            amount=body.amount,
+            purpose=body.purpose,
+        )
+
+        # Log an audit entry
+        audit = AuditLog(
+            entity_type="loan_application",
+            entity_id=application_id,
+            action="av_knowles_inquiry",
+            user_id=current_user.id,
+            details=f"AV Knowles bureau inquiry: {inquiry_result.get('entries_found', 0)} entries found",
+        )
+        db.add(audit)
+        await db.commit()
+
+        return inquiry_result
+    except HTTPException:
+        raise
+    except Exception as e:
+        await log_error(e, db=db, module="api.underwriter", function_name="run_av_knowles_inquiry")
+        raise HTTPException(status_code=500, detail=f"Bureau inquiry failed: {str(e)}")
 
 
 # ── ID Parsing (OCR) ─────────────────────────────────

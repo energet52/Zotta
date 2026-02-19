@@ -121,6 +121,9 @@ export const underwriterApi = {
   getCreditReport: (id: number) => api.get(`/underwriter/applications/${id}/credit-report`),
   downloadCreditReport: (id: number) =>
     api.get(`/underwriter/applications/${id}/credit-report/download`, { responseType: 'blob' }),
+  // AV Knowles Bureau (live web inquiry)
+  runAVKnowlesInquiry: (id: number, data: Record<string, unknown>) =>
+    api.post(`/underwriter/applications/${id}/av-knowles-inquiry`, data, { timeout: 120_000 }),
   // Generate contract PDF
   generateContract: (id: number) =>
     api.get(`/underwriter/applications/${id}/generate-contract`, { responseType: 'blob' }),

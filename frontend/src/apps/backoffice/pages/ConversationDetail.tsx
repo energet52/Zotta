@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, MessageCircle, FileText, Send, Loader2 } from 'lucide-react';
+import { ArrowLeft, MessageCircle, FileText, Send, Loader2, User, Phone, Mail, ExternalLink } from 'lucide-react';
 import Card from '../../../components/ui/Card';
 import { conversationsApi, customerApi } from '../../../api/endpoints';
 
@@ -32,6 +32,9 @@ interface ConversationDetail {
     amount_requested: number;
     term_months: number;
   };
+  participant_name?: string | null;
+  participant_phone?: string | null;
+  participant_email?: string | null;
 }
 
 export default function ConversationDetail() {
@@ -52,6 +55,14 @@ export default function ConversationDetail() {
   useEffect(() => {
     if (!id) return;
     fetchConversation(parseInt(id, 10)).finally(() => setLoading(false));
+  }, [id]);
+
+  /* Auto-refresh for new messages (poll every 5s) */
+  useEffect(() => {
+    if (!id) return;
+    const convId = parseInt(id, 10);
+    const interval = setInterval(() => fetchConversation(convId), 5000);
+    return () => clearInterval(interval);
   }, [id]);
 
   useEffect(() => {
@@ -191,7 +202,48 @@ export default function ConversationDetail() {
           </Card>
         </div>
 
-        <div>
+        <div className="space-y-4">
+          {/* Customer Card */}
+          {conv.participant_user_id && (
+            <Card>
+              <h3 className="font-semibold text-[var(--color-text)] mb-3 flex items-center">
+                <User size={14} className="mr-2 text-[var(--color-primary)]" />
+                Customer
+              </h3>
+              <div className="space-y-2">
+                {conv.participant_name && (
+                  <p className="text-sm font-medium text-[var(--color-text)]">
+                    {conv.participant_name}
+                  </p>
+                )}
+                {conv.participant_phone && (
+                  <a
+                    href={`tel:${conv.participant_phone}`}
+                    className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors"
+                  >
+                    <Phone size={12} /> {conv.participant_phone}
+                  </a>
+                )}
+                {conv.participant_email && (
+                  <a
+                    href={`mailto:${conv.participant_email}`}
+                    className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors"
+                  >
+                    <Mail size={12} /> {conv.participant_email}
+                  </a>
+                )}
+                <Link
+                  to={`/backoffice/customers/${conv.participant_user_id}`}
+                  className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--color-primary)]/10 text-[var(--color-primary)] hover:bg-[var(--color-primary)]/20 transition-colors"
+                >
+                  <ExternalLink size={12} />
+                  View Customer 360
+                </Link>
+              </div>
+            </Card>
+          )}
+
+          {/* Summary Card */}
           <Card>
             <h3 className="font-semibold text-[var(--color-text)] mb-4">Summary</h3>
             <dl className="space-y-2 text-sm">

@@ -1,9 +1,8 @@
 """WhatsApp webhook handler for Twilio integration.
 
-Routes inbound messages to the Collections chat when the sender has an active
-collection case, so agents can see borrower replies in the collection detail view.
-
-The Customer Support chat is web-only — WhatsApp inbound messages are NOT forwarded to it.
+Routes inbound messages to:
+1. Customer Support conversations (if the sender has an active WhatsApp conversation)
+2. Collections chat (if the sender has an active collection case with prior outbound messages)
 """
 
 import logging
@@ -18,6 +17,10 @@ from app.models.user import User
 from app.models.loan import LoanApplication, LoanStatus
 from app.models.collection import (
     CollectionChat, ChatDirection, ChatMessageStatus,
+)
+from app.models.conversation import (
+    Conversation, ConversationChannel, ConversationMessage,
+    ConversationState, MessageRole,
 )
 from app.services.error_logger import log_error
 from fastapi import HTTPException
@@ -36,15 +39,84 @@ def _verify_twilio_signature(request: Request, body_params: dict) -> bool:
         from twilio.request_validator import RequestValidator
         validator = RequestValidator(settings.twilio_auth_token)
         signature = request.headers.get("X-Twilio-Signature", "")
-        url = str(request.url)
+
+        # Twilio signs against the public URL it sent the request to, but behind
+        # ngrok / reverse-proxy the internal request.url differs. Reconstruct the
+        # original URL from X-Forwarded-* headers when present.
+        proto = request.headers.get("X-Forwarded-Proto", request.url.scheme)
+        host = request.headers.get("X-Forwarded-Host",
+                                   request.headers.get("Host", request.url.netloc))
+        url = f"{proto}://{host}{request.url.path}"
+        if request.url.query:
+            url += f"?{request.url.query}"
+
         return validator.validate(url, body_params, signature)
     except Exception:
-        logger.warning("Twilio signature verification failed")
+        logger.warning("Twilio signature verification failed", exc_info=True)
         return False
 
 
+async def _route_to_conversations(phone: str, body: str, db: AsyncSession) -> bool:
+    """Deliver the inbound message to any active Customer Support conversations
+    that match this phone number (directly or via user).
+
+    Returns True if at least one message was stored.
+    """
+    # Closed/terminal states where we should NOT append new messages
+    _CLOSED_STATES = {
+        ConversationState.EXPIRED,
+        ConversationState.WITHDRAWN,
+        ConversationState.DECLINED,
+    }
+
+    # Find conversations by participant_phone
+    conv_result = await db.execute(
+        select(Conversation).where(
+            Conversation.channel == ConversationChannel.WHATSAPP,
+            Conversation.participant_phone == phone,
+            Conversation.current_state.notin_(_CLOSED_STATES),
+        ).order_by(Conversation.last_activity_at.desc())
+    )
+    conversations = list(conv_result.scalars().all())
+
+    # Also try matching via user phone → participant_user_id
+    if not conversations:
+        user_result = await db.execute(
+            select(User.id).where(User.phone == phone)
+        )
+        user_ids = [row[0] for row in user_result.all()]
+        if user_ids:
+            conv_result2 = await db.execute(
+                select(Conversation).where(
+                    Conversation.channel == ConversationChannel.WHATSAPP,
+                    Conversation.participant_user_id.in_(user_ids),
+                    Conversation.current_state.notin_(_CLOSED_STATES),
+                ).order_by(Conversation.last_activity_at.desc())
+            )
+            conversations = list(conv_result2.scalars().all())
+
+    if not conversations:
+        return False
+
+    for conv in conversations:
+        msg = ConversationMessage(
+            conversation_id=conv.id,
+            role=MessageRole.USER,
+            content=body,
+        )
+        db.add(msg)
+        logger.info(
+            "WhatsApp inbound routed to conversation %s from %s",
+            conv.id, phone,
+        )
+
+    await db.flush()
+    return True
+
+
 async def _route_to_collections(phone: str, body: str, db: AsyncSession) -> bool:
-    """If this phone has any active collection chat, store the inbound message.
+    """Store the inbound message in CollectionChat for any disbursed loan
+    belonging to this phone number, so it appears in the collection timeline.
 
     Returns True if at least one CollectionChat record was created.
     """
@@ -67,21 +139,7 @@ async def _route_to_collections(phone: str, body: str, db: AsyncSession) -> bool
     if not loan_ids:
         return False
 
-    # Only add to loans that already have outbound collection chats
-    chat_result = await db.execute(
-        select(CollectionChat.loan_application_id)
-        .where(
-            CollectionChat.loan_application_id.in_(loan_ids),
-            CollectionChat.direction == ChatDirection.OUTBOUND,
-        )
-        .group_by(CollectionChat.loan_application_id)
-    )
-    active_loan_ids = [row[0] for row in chat_result.all()]
-
-    if not active_loan_ids:
-        return False
-
-    for loan_id in active_loan_ids:
+    for loan_id in loan_ids:
         inbound = CollectionChat(
             loan_application_id=loan_id,
             agent_id=None,
@@ -104,19 +162,23 @@ async def _route_to_collections(phone: str, body: str, db: AsyncSession) -> bool
 @router.post("/webhook")
 async def whatsapp_webhook(
     request: Request,
-    Body: str = Form(""),
-    From: str = Form(""),
-    To: str = Form(""),
     db: AsyncSession = Depends(get_db),
 ):
     """Handle incoming WhatsApp messages from Twilio.
 
-    Routes to Collections chat if the sender has an active collection case.
-    Otherwise acknowledges the message silently (no auto-reply).
+    Routes to Customer Support conversations and/or Collections chat.
     """
     try:
-        # Verify Twilio signature to prevent message injection
-        if not _verify_twilio_signature(request, {"Body": Body, "From": From, "To": To}):
+        # Parse ALL form parameters — Twilio signs over every field it sends
+        form_data = await request.form()
+        body_params: dict[str, str] = {k: str(v) for k, v in form_data.items()}
+
+        Body = body_params.get("Body", "")
+        From = body_params.get("From", "")
+        To = body_params.get("To", "")
+
+        # Verify Twilio signature using ALL form params
+        if not _verify_twilio_signature(request, body_params):
             raise HTTPException(status_code=403, detail="Invalid request signature")
 
         phone_number = From.replace("whatsapp:", "").strip()
@@ -124,13 +186,21 @@ async def whatsapp_webhook(
         if phone_number and not phone_number.startswith("+"):
             phone_number = "+" + phone_number.lstrip()
 
-        # ── Collections routing ───────────────────────────────────────
-        routed = await _route_to_collections(phone_number, Body, db)
+        # ── Conversation routing (Customer Support chat) ───────────────
+        conv_routed = await _route_to_conversations(phone_number, Body, db)
 
-        if routed:
-            logger.info("Inbound WhatsApp from %s routed to collections", phone_number)
+        # ── Collections routing ───────────────────────────────────────
+        coll_routed = await _route_to_collections(phone_number, Body, db)
+
+        if conv_routed or coll_routed:
+            targets = []
+            if conv_routed:
+                targets.append("conversations")
+            if coll_routed:
+                targets.append("collections")
+            logger.info("Inbound WhatsApp from %s routed to %s", phone_number, " + ".join(targets))
         else:
-            logger.info("Inbound WhatsApp from %s — no active collection case, message acknowledged", phone_number)
+            logger.info("Inbound WhatsApp from %s — no matching conversation or collection, message acknowledged", phone_number)
 
         await db.commit()
 

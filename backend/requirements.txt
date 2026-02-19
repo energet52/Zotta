@@ -43,6 +43,9 @@ pdfplumber==0.11.4
 # Rate Limiting
 slowapi==0.1.9
 
+# Browser Automation (AV Knowles credit bureau scraping)
+playwright==1.49.1
+
 # Utilities
 python-dateutil==2.9.0
 pyyaml==6.0.2

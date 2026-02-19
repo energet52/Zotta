@@ -707,6 +707,8 @@ class FullApplicationResponse(BaseModel):
     decisions: list[DecisionResponse] = []
     audit_log: list[AuditLogResponse] = []
     contract: Optional[ContractResponse] = None
+    applicant_phone: Optional[str] = None
+    applicant_email: Optional[str] = None
 
 
 # ── Application Edit ─────────────────────────────────
@@ -1274,6 +1276,9 @@ class ConversationMessageResponse(BaseModel):
 class ConversationDetailResponse(ConversationResponse):
     messages: list[ConversationMessageResponse] = []
     application_summary: Optional[dict] = None
+    participant_name: Optional[str] = None
+    participant_phone: Optional[str] = None
+    participant_email: Optional[str] = None
 class SendMessageRequest(BaseModel):
     content: str = Field(..., min_length=1, max_length=4000)
 

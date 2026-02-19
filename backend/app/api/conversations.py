@@ -175,7 +175,15 @@ async def get_conversation(
             if conv.participant_user_id is not None:
                 raise HTTPException(status_code=401, detail="Authentication required")
 
-        return _to_detail(conv)
+        # Fetch participant info for the summary sidebar
+        participant = None
+        if conv.participant_user_id:
+            p_result = await db.execute(
+                select(User).where(User.id == conv.participant_user_id)
+            )
+            participant = p_result.scalar_one_or_none()
+
+        return _to_detail(conv, participant=participant)
     except HTTPException:
         raise
     except Exception as e:
@@ -307,7 +315,10 @@ async def start_application_from_conversation(
         raise
 
 
-def _to_detail(conv: Conversation) -> ConversationDetailResponse:
+def _to_detail(
+    conv: Conversation,
+    participant: User | None = None,
+) -> ConversationDetailResponse:
     """Build ConversationDetailResponse from Conversation."""
     app_summary = None
     if conv.loan_application_id and conv.loan_application:
@@ -343,4 +354,7 @@ def _to_detail(conv: Conversation) -> ConversationDetailResponse:
             for m in (conv.messages or [])
         ],
         application_summary=app_summary,
+        participant_name=f"{participant.first_name} {participant.last_name}".strip() if participant else None,
+        participant_phone=participant.phone if participant else conv.participant_phone,
+        participant_email=participant.email if participant else None,
     )

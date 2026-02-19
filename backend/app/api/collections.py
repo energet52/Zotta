@@ -54,6 +54,9 @@ from app.models.collection import (
     CollectionRecord, CollectionChannel, CollectionOutcome,
     CollectionChat, ChatDirection, ChatMessageStatus,
 )
+from app.models.conversation import (
+    Conversation, ConversationChannel, ConversationMessage, MessageRole,
+)
 from app.models.collections_ext import (
     CollectionCase, CaseStatus, DelinquencyStage,
     PromiseToPay, PTPStatus,
@@ -660,7 +663,7 @@ async def get_case_full(
                 "created_at": r.created_at.isoformat() if r.created_at else None,
             })
 
-        # 8. WhatsApp chat
+        # 8. WhatsApp chat (collection chats + customer support conversation messages)
         chat_result = await db.execute(
             select(CollectionChat)
             .where(CollectionChat.loan_application_id == loan.id)
@@ -674,6 +677,38 @@ async def get_case_full(
             "status": _ev(c.status),
             "created_at": c.created_at.isoformat() if c.created_at else None,
         } for c in chats]
+
+        # Also pull in messages from Customer Support conversations for this borrower
+        conv_result = await db.execute(
+            select(Conversation).where(
+                Conversation.participant_user_id == loan.applicant_id,
+                Conversation.channel == ConversationChannel.WHATSAPP,
+            )
+        )
+        conversations = conv_result.scalars().all()
+        if conversations:
+            conv_ids = [cv.id for cv in conversations]
+            conv_msg_result = await db.execute(
+                select(ConversationMessage)
+                .where(ConversationMessage.conversation_id.in_(conv_ids))
+                .order_by(ConversationMessage.created_at.desc())
+                .limit(200)
+            )
+            conv_messages = conv_msg_result.scalars().all()
+            existing_timestamps = {c["created_at"] for c in chats_data}
+            for cm in conv_messages:
+                ts = cm.created_at.isoformat() if cm.created_at else None
+                if ts in existing_timestamps:
+                    continue
+                direction = "inbound" if cm.role == MessageRole.USER else "outbound"
+                chats_data.append({
+                    "id": f"conv-{cm.id}",
+                    "direction": direction,
+                    "message": cm.content,
+                    "status": "delivered",
+                    "created_at": ts,
+                })
+            chats_data.sort(key=lambda x: x.get("created_at") or "", reverse=True)
 
         # 9. PTPs
         ptp_result = await db.execute(

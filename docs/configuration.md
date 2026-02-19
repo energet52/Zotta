@@ -88,6 +88,9 @@ docker compose up --build     # or run backend/frontend directly
 | `CREDIT_BUREAU_PROVIDER` | `mock` | Which credit bureau to use. `mock` returns simulated data. Set to `avknowles` for live AV Knowles integration. | `.env` |
 | `AV_KNOWLES_API_URL` | *(empty)* | AV Knowles API base URL. Required only when `CREDIT_BUREAU_PROVIDER=avknowles`. | `.env` |
 | `AV_KNOWLES_API_KEY` | *(empty)* | AV Knowles API key. Required only when `CREDIT_BUREAU_PROVIDER=avknowles`. | `.env` |
+| `AV_KNOWLES_WEB_URL` | *(empty)* | AV Knowles web portal login URL. Used by the browser-based bureau inquiry. | `.env` |
+| `AV_KNOWLES_USERNAME` | *(empty)* | AV Knowles web portal username. Used by the browser-based bureau inquiry. | `.env` |
+| `AV_KNOWLES_PASSWORD` | *(empty)* | AV Knowles web portal password. Used by the browser-based bureau inquiry. | `.env` |
 
 ### ID Verification
 
@@ -249,3 +252,9 @@ Before deploying to production, ensure these variables are changed from their de
 3. Access it in code via `from app.config import settings` then `settings.your_variable`
 4. If it needs to be available inside Docker containers, it is automatically passed via `env_file: .env`
 5. If Docker Compose needs to override it (like DB host), add an `environment:` entry in `docker-compose.yml`
+
+
+AV Knowles credentials are stored in `.env` (never committed to git):
+- `AV_KNOWLES_WEB_URL` — Login page URL
+- `AV_KNOWLES_USERNAME` — Web portal username
+- `AV_KNOWLES_PASSWORD` — Web portal password

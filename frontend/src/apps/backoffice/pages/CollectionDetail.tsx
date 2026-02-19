@@ -124,7 +124,7 @@ interface InteractionItem {
 }
 
 interface ChatItem {
-  id: number;
+  id: number | string;
   direction: string;
   message: string;
   status: string;
@@ -457,29 +457,56 @@ export default function CollectionDetail() {
   }, [data]);
 
   /* ── Data Loading ── */
-  const loadData = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const casesRes = await collectionsApi.listCases({ limit: 1000 });
-      const caseEntry = (casesRes.data as CaseInfo[]).find(
-        (c) => c.loan_application_id === appId,
-      );
-      if (!caseEntry) {
-        setError('Collection case not found for this application.');
-        setLoading(false);
-        return;
-      }
-      const fullRes = await collectionsApi.getCaseFull(caseEntry.id);
-      setData(fullRes.data);
-    } catch {
-      setError('Failed to load case data.');
+  const caseIdRef = useRef<number | null>(null);
+  const aiRef = useRef<AiData | null>(null);
+
+  const loadData = async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+      setError(null);
     }
-    setLoading(false);
+    try {
+      let caseId = caseIdRef.current;
+      if (!caseId) {
+        const casesRes = await collectionsApi.listCases({ limit: 1000 });
+        const caseEntry = (casesRes.data as CaseInfo[]).find(
+          (c) => c.loan_application_id === appId,
+        );
+        if (!caseEntry) {
+          setError('Collection case not found for this application.');
+          if (!silent) setLoading(false);
+          return;
+        }
+        caseId = caseEntry.id;
+        caseIdRef.current = caseId;
+      }
+      const fullRes = await collectionsApi.getCaseFull(caseId);
+      const fresh = fullRes.data as CaseFullData;
+
+      if (!silent) {
+        aiRef.current = fresh.ai;
+        setData(fresh);
+      } else {
+        setData((prev) => ({
+          ...fresh,
+          ai: aiRef.current ?? prev?.ai ?? fresh.ai,
+        }));
+      }
+    } catch {
+      if (!silent) setError('Failed to load case data.');
+    }
+    if (!silent) setLoading(false);
   };
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appId]);
+
+  /* ── Auto-refresh for new messages (poll every 5s) ── */
+  useEffect(() => {
+    const interval = setInterval(() => loadData(true), 5000);
+    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appId]);
 
@@ -561,7 +588,7 @@ export default function CollectionDetail() {
   ) => {
     try {
       await collectionsApi.updateCase(d.case.id, { [flag]: value });
-      await loadData();
+      await loadData(true);
     } catch {
       /* ignore */
     }
@@ -580,7 +607,7 @@ export default function CollectionDetail() {
         message: whatsappMsg,
       });
       setWhatsappMsg('');
-      await loadData();
+      await loadData(true);
     } catch {
       /* ignore */
     }
@@ -598,7 +625,7 @@ export default function CollectionDetail() {
         outcome: 'other',
       });
       setNoteText('');
-      await loadData();
+      await loadData(true);
     } catch {
       /* ignore */
     }
@@ -623,7 +650,7 @@ export default function CollectionDetail() {
         payment_method: '',
         notes: '',
       });
-      await loadData();
+      await loadData(true);
     } catch {
       /* ignore */
     }
@@ -640,7 +667,7 @@ export default function CollectionDetail() {
       setShowOverride(false);
       setOverrideAction('');
       setOverrideReason('');
-      await loadData();
+      await loadData(true);
     } catch {
       /* ignore */
     }
@@ -673,7 +700,7 @@ export default function CollectionDetail() {
         offer_type: 'full_payment',
         settlement_amount: 1,
       });
-      await loadData();
+      await loadData(true);
     } catch {
       /* ignore */
     }
@@ -948,7 +975,7 @@ export default function CollectionDetail() {
               : 'No contact'}
           </div>
           <button
-            onClick={() => loadData()}
+            onClick={() => loadData(true)}
             className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg)] transition-colors"
             title="Refresh"
           >

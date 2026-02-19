@@ -3,7 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, Shield, AlertTriangle, CheckCircle, XCircle,
   FileText, Edit3, Save, X, Send, History, Calculator, Paperclip,
-  Banknote, Download, Trash2, Calendar, DollarSign, MessageSquare, Plus
+  Banknote, Download, Trash2, Calendar, DollarSign, MessageSquare, Plus,
+  Globe, Search, Loader2, ExternalLink, Camera
 } from 'lucide-react';
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
@@ -111,7 +112,7 @@ interface FullApp {
   contract: ContractInfo | null;
 }
 
-type TabKey = 'details' | 'decision' | 'credit_bureau' | 'bank_analysis' | 'references' | 'documents' | 'schedule' | 'transactions' | 'audit';
+type TabKey = 'details' | 'decision' | 'credit_bureau' | 'av_knowles' | 'bank_analysis' | 'references' | 'documents' | 'schedule' | 'transactions' | 'audit';
 
 // ── Helpers ──────────────────────────────────────
 function parseApiError(err: any, fallback = 'Operation failed'): string {
@@ -452,6 +453,7 @@ export default function ApplicationReview() {
     { key: 'details', label: 'Application Details', icon: FileText },
     { key: 'decision', label: 'Credit Analysis', icon: Shield },
     { key: 'credit_bureau', label: 'Credit Bureau', icon: Shield },
+    { key: 'av_knowles', label: 'AV Knowles Bureau', icon: Globe },
     { key: 'bank_analysis', label: 'Bank Analysis', icon: Banknote },
     { key: 'references', label: 'References', icon: Users },
     { key: 'documents', label: 'Documents & Contract', icon: Paperclip },
@@ -1428,6 +1430,17 @@ export default function ApplicationReview() {
           {/* Tab: Credit Bureau */}
           {activeTab === 'credit_bureau' && <CreditBureauTab applicationId={parseInt(id!)} />}
 
+          {/* Tab: AV Knowles Bureau */}
+          {activeTab === 'av_knowles' && (
+            <AVKnowlesTab
+              applicationId={parseInt(id!)}
+              profile={profile}
+              application={app}
+              applicantName={`${data.application.applicant_name || ''}`}
+              applicantPhone={(data as any).applicant_phone || ''}
+            />
+          )}
+
           {activeTab === 'bank_analysis' && (
             <BankStatementAnalysisTab
               applicationId={parseInt(id!)}
@@ -2052,6 +2065,619 @@ function BenchmarkBar({
       {!matchFound && (
         <p className="text-xs text-[var(--color-warning)] mt-1">Using default benchmark (no match for occupation)</p>
       )}
+    </div>
+  );
+}
+
+
+// ── AV Knowles Bureau Tab ──────────────────────────
+const AV_KNOWLES_PURPOSES: { value: string; label: string }[] = [
+  { value: '1', label: 'Debt Consolidation' },
+  { value: '2', label: 'Education' },
+  { value: '3', label: 'Furniture/Furnishings' },
+  { value: '4', label: 'Home Improvement/Renovation' },
+  { value: '5', label: 'Insurance & Repairs-Motor Vehicle' },
+  { value: '6', label: 'Investment' },
+  { value: '7', label: 'Medical' },
+  { value: '8', label: 'Mortgage' },
+  { value: '9', label: 'New Vehicle Purchase' },
+  { value: '10', label: 'Personal Expenses' },
+  { value: '11', label: 'Savings' },
+  { value: '12', label: 'Travel/Vacation' },
+  { value: '13', label: 'Used Vehicle Purchase' },
+  { value: '14', label: 'Wedding' },
+  { value: '15', label: 'Storage Fees' },
+  { value: '16', label: 'Other (specify other)' },
+];
+
+const AV_KNOWLES_STEPS = [
+  { icon: '🔌', text: 'Connecting to AV Knowles CDMS portal…' },
+  { icon: '🔐', text: 'Entering login credentials…' },
+  { icon: '📋', text: 'Opening Credit Bureau search form…' },
+  { icon: '✏️', text: 'Populating applicant details…' },
+  { icon: '🔍', text: 'Submitting inquiry to AV Knowles bureau…' },
+  { icon: '📊', text: 'Retrieving and parsing bureau results…' },
+  { icon: '📄', text: 'Opening detailed credit report…' },
+  { icon: '✅', text: 'Inquiry complete.' },
+];
+
+const PURPOSE_TO_AVK: Record<string, string> = {
+  personal: '10',
+  personal_expenses: '10',
+  debt_consolidation: '1',
+  education: '2',
+  furniture: '3',
+  home_improvement: '4',
+  vehicle_insurance: '5',
+  investment: '6',
+  medical: '7',
+  mortgage: '8',
+  new_vehicle: '9',
+  savings: '11',
+  travel: '12',
+  used_vehicle: '13',
+  wedding: '14',
+  storage: '15',
+  other: '16',
+  hire_purchase: '3',
+};
+
+interface AVKForm {
+  title: string;
+  first_name: string;
+  middle_name: string;
+  last_name: string;
+  date_of_birth: string;
+  gender: string;
+  marital_status: string;
+  national_id: string;
+  drivers_permit: string;
+  passport: string;
+  address1: string;
+  address2: string;
+  city: string;
+  country: string;
+  phone: string;
+  cell: string;
+  employer: string;
+  occupation: string;
+  amount: string;
+  purpose: string;
+}
+
+function AVKnowlesTab({
+  applicationId,
+  profile,
+  application,
+  applicantName,
+  applicantPhone,
+}: {
+  applicationId: number;
+  profile: any;
+  application: any;
+  applicantName: string;
+  applicantPhone: string;
+}) {
+  const nameParts = (applicantName || '').trim().split(/\s+/);
+  const guessedFirst = nameParts[0] || '';
+  const guessedLast = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+
+  const phone = profile?.home_phone || profile?.mobile_phone || applicantPhone || '';
+  const cell = profile?.mobile_phone || applicantPhone || '';
+
+  const [form, setForm] = useState<AVKForm>(() => ({
+    title: profile?.gender === 'female' ? 'ms' : 'mr',
+    first_name: guessedFirst,
+    middle_name: '',
+    last_name: guessedLast,
+    date_of_birth: profile?.date_of_birth || '',
+    gender: profile?.gender || 'male',
+    marital_status: profile?.marital_status || 'single',
+    national_id: profile?.national_id || '',
+    drivers_permit: '',
+    passport: '',
+    address1: profile?.address_line1 || '',
+    address2: profile?.address_line2 || '',
+    city: profile?.city || '',
+    country: '223',
+    phone,
+    cell,
+    employer: profile?.employer_name || '',
+    occupation: profile?.job_title || '',
+    amount: String(application?.amount_requested || 0),
+    purpose: PURPOSE_TO_AVK[application?.purpose?.toLowerCase()] || '10',
+  }));
+
+  const [loading, setLoading] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [stepStartTime, setStepStartTime] = useState(0);
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState('');
+
+  const updateField = (key: keyof AVKForm, value: string) =>
+    setForm(prev => ({ ...prev, [key]: value }));
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    setCurrentStep(0);
+    setStepStartTime(Date.now());
+    setError('');
+    setResult(null);
+
+    // Animate through steps while waiting for the API response
+    const stepInterval = setInterval(() => {
+      setCurrentStep(prev => {
+        if (prev < AV_KNOWLES_STEPS.length - 2) return prev + 1;
+        return prev;
+      });
+    }, 2500);
+
+    const minWait = new Promise(resolve => setTimeout(resolve, 5000));
+
+    try {
+      const [res] = await Promise.all([
+        underwriterApi.runAVKnowlesInquiry(applicationId, {
+          first_name: form.first_name,
+          last_name: form.last_name,
+          middle_name: form.middle_name,
+          date_of_birth: form.date_of_birth,
+          gender: form.gender,
+          marital_status: form.marital_status,
+          national_id: form.national_id,
+          drivers_permit: form.drivers_permit,
+          passport: form.passport,
+          address1: form.address1,
+          address2: form.address2,
+          city: form.city,
+          country: form.country,
+          phone: form.phone,
+          cell: form.cell,
+          employer: form.employer,
+          occupation: form.occupation,
+          amount: parseFloat(form.amount) || 0,
+          purpose: form.purpose,
+        }),
+        minWait,
+      ]);
+      clearInterval(stepInterval);
+      setCurrentStep(AV_KNOWLES_STEPS.length - 1);
+
+      if (res.data.error) {
+        setError(res.data.error);
+      }
+      setResult(res.data);
+    } catch (err: any) {
+      clearInterval(stepInterval);
+      setError(err?.response?.data?.detail || err?.message || 'Bureau inquiry failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const inputCls = "w-full px-3 py-2 text-sm rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text)] focus:ring-2 focus:ring-[var(--color-primary)]/40 focus:border-[var(--color-primary)] outline-none transition-all";
+  const labelCls = "block text-xs font-medium text-[var(--color-text-muted)] mb-1";
+
+  // ── Loading animation ────────────────────────────
+  if (loading) {
+    return (
+      <Card>
+        <div className="py-12 flex flex-col items-center">
+          <div className="relative mb-8">
+            <div className="w-20 h-20 rounded-full border-4 border-[var(--color-border)] border-t-[var(--color-primary)] animate-spin" />
+            <Globe className="absolute inset-0 m-auto text-[var(--color-primary)]" size={28} />
+          </div>
+          <h3 className="text-lg font-semibold text-[var(--color-text)] mb-2">
+            AV Knowles Bureau Inquiry
+          </h3>
+          <p className="text-sm text-[var(--color-text-muted)] mb-8">
+            Connecting to Trinidad & Tobago Credit Bureau…
+          </p>
+
+          <div className="w-full max-w-md space-y-3">
+            {AV_KNOWLES_STEPS.map((s, i) => {
+              const isActive = i === currentStep;
+              const isDone = i < currentStep;
+              const isPending = i > currentStep;
+              return (
+                <div
+                  key={i}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-500 ${
+                    isActive
+                      ? 'bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/30 scale-[1.02]'
+                      : isDone
+                      ? 'bg-emerald-500/10 border border-emerald-500/20'
+                      : 'bg-[var(--color-bg)] border border-[var(--color-border)] opacity-40'
+                  }`}
+                >
+                  <span className="text-lg w-7 text-center flex-shrink-0">
+                    {isDone ? '✓' : isActive ? s.icon : '○'}
+                  </span>
+                  <span className={`text-sm ${
+                    isActive ? 'text-[var(--color-primary)] font-medium' :
+                    isDone ? 'text-emerald-400' : 'text-[var(--color-text-muted)]'
+                  }`}>
+                    {s.text}
+                  </span>
+                  {isActive && (
+                    <Loader2 className="ml-auto animate-spin text-[var(--color-primary)]" size={16} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <p className="mt-8 text-xs text-[var(--color-text-muted)] animate-pulse">
+            This usually takes 10–20 seconds…
+          </p>
+        </div>
+      </Card>
+    );
+  }
+
+  // ── Results display ──────────────────────────────
+  if (result) {
+    return (
+      <div className="space-y-4">
+        {/* Summary header */}
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                result.error ? 'bg-[var(--color-danger)]/15' : result.entries_found > 0 ? 'bg-emerald-500/15' : 'bg-amber-500/15'
+              }`}>
+                {result.error ? <XCircle className="text-[var(--color-danger)]" size={20} /> :
+                 result.entries_found > 0 ? <CheckCircle className="text-emerald-400" size={20} /> :
+                 <AlertTriangle className="text-amber-400" size={20} />}
+              </div>
+              <div>
+                <h3 className="font-semibold text-[var(--color-text)]">AV Knowles Bureau Inquiry</h3>
+                <p className="text-xs text-[var(--color-text-muted)]">
+                  {result.inquiry_timestamp ? new Date(result.inquiry_timestamp).toLocaleString() : ''}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {result.results_url && (
+                <a
+                  href={result.results_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--color-primary)]/10 text-[var(--color-primary)] hover:bg-[var(--color-primary)]/20 transition-colors"
+                >
+                  <ExternalLink size={12} /> Open in AV Knowles
+                </a>
+              )}
+              <Button size="sm" variant="outline" onClick={() => { setResult(null); setError(''); }}>
+                New Inquiry
+              </Button>
+            </div>
+          </div>
+
+          {result.error && (
+            <div className="p-3 rounded-lg bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/30 text-sm text-[var(--color-danger)] mb-4">
+              {result.error}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] text-center">
+              <p className="text-xs text-[var(--color-text-muted)] mb-1">Entries Found</p>
+              <p className="text-3xl font-bold text-[var(--color-text)]">{result.entries_found ?? 0}</p>
+            </div>
+            <div className="p-4 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] text-center">
+              <p className="text-xs text-[var(--color-text-muted)] mb-1">Provider</p>
+              <p className="text-lg font-semibold text-[var(--color-text)]">AV Knowles T&T</p>
+            </div>
+            <div className="p-4 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] text-center">
+              <p className="text-xs text-[var(--color-text-muted)] mb-1">Status</p>
+              <Badge variant={result.error ? 'danger' : result.entries_found > 0 ? 'success' : 'warning'}>
+                {result.error ? 'Error' : result.entries_found > 0 ? 'Records Found' : 'No Records'}
+              </Badge>
+            </div>
+          </div>
+        </Card>
+
+        {/* Search criteria summary */}
+        {result.search_summary && Object.keys(result.search_summary).length > 0 && (
+          <Card>
+            <h4 className="font-semibold text-[var(--color-text)] mb-3">Search Criteria Summary</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2">
+              {Object.entries(result.search_summary).map(([key, val]) => (
+                <div key={key} className="flex justify-between py-1 border-b border-[var(--color-border)]/40">
+                  <span className="text-xs text-[var(--color-text-muted)]">{key}</span>
+                  <span className="text-sm text-[var(--color-text)] font-medium">{String(val)}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Result entries table */}
+        {result.result_entries && result.result_entries.length > 0 && (
+          <Card padding="none">
+            <div className="p-4 border-b border-[var(--color-border)]">
+              <h4 className="font-semibold text-[var(--color-text)]">Search Results ({result.result_entries.length})</h4>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs">
+                    {Object.keys(result.result_entries[0]).map((col: string) => (
+                      <th key={col} className="px-4 py-2 text-left">{col}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.result_entries.map((row: Record<string, string>, i: number) => (
+                    <tr key={i} className="border-b border-[var(--color-border)]">
+                      {Object.values(row).map((cell, j) => (
+                        <td key={j} className="px-4 py-2 text-[var(--color-text)]">{cell}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        )}
+
+        {/* Screenshot */}
+        {result.screenshot_base64 && (
+          <Card>
+            <div className="flex items-center gap-2 mb-3">
+              <Camera size={16} className="text-[var(--color-text-muted)]" />
+              <h4 className="font-semibold text-[var(--color-text)]">Bureau Screen Capture</h4>
+            </div>
+            <div className="rounded-lg overflow-hidden border border-[var(--color-border)] bg-white">
+              <img
+                src={`data:image/png;base64,${result.screenshot_base64}`}
+                alt="AV Knowles Results"
+                className="w-full h-auto"
+              />
+            </div>
+          </Card>
+        )}
+
+        {/* Detail page screenshot (when records exist) */}
+        {result.detail?.screenshot_base64 && (
+          <Card>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Camera size={16} className="text-[var(--color-text-muted)]" />
+                <h4 className="font-semibold text-[var(--color-text)]">Detailed Credit Report</h4>
+              </div>
+              {result.detail.url && (
+                <a
+                  href={result.detail.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-[var(--color-primary)] hover:underline"
+                >
+                  <ExternalLink size={12} /> Open Detail Page
+                </a>
+              )}
+            </div>
+            <div className="rounded-lg overflow-hidden border border-[var(--color-border)] bg-white">
+              <img
+                src={`data:image/png;base64,${result.detail.screenshot_base64}`}
+                alt="Detailed Credit Report"
+                className="w-full h-auto"
+              />
+            </div>
+            {result.detail.text && (
+              <details className="mt-3">
+                <summary className="text-xs text-[var(--color-text-muted)] cursor-pointer hover:text-[var(--color-text)]">
+                  Raw scraped text
+                </summary>
+                <pre className="mt-2 p-3 text-xs bg-[var(--color-bg)] rounded-lg border border-[var(--color-border)] overflow-x-auto whitespace-pre-wrap text-[var(--color-text-muted)] max-h-96 overflow-y-auto">
+                  {result.detail.text}
+                </pre>
+              </details>
+            )}
+          </Card>
+        )}
+
+        {/* Raw page text (collapsible) */}
+        {result.page_text && (
+          <Card>
+            <details>
+              <summary className="text-sm font-medium text-[var(--color-text)] cursor-pointer hover:text-[var(--color-primary)]">
+                Raw Bureau Response Text
+              </summary>
+              <pre className="mt-3 p-3 text-xs bg-[var(--color-bg)] rounded-lg border border-[var(--color-border)] overflow-x-auto whitespace-pre-wrap text-[var(--color-text-muted)] max-h-96 overflow-y-auto">
+                {result.page_text}
+              </pre>
+            </details>
+          </Card>
+        )}
+      </div>
+    );
+  }
+
+  // ── Form ─────────────────────────────────────────
+  return (
+    <div className="space-y-4">
+      <Card>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-full bg-[var(--color-primary)]/10 flex items-center justify-center">
+            <Globe className="text-[var(--color-primary)]" size={20} />
+          </div>
+          <div>
+            <h3 className="font-semibold text-[var(--color-text)]">AV Knowles Credit Bureau Inquiry</h3>
+            <p className="text-xs text-[var(--color-text-muted)]">
+              Trinidad & Tobago Credit & Debt Management System · Pre-populated from applicant profile
+            </p>
+          </div>
+        </div>
+
+        {error && (
+          <div className="mb-4 p-3 rounded-lg bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/30 text-sm text-[var(--color-danger)]">
+            {error}
+          </div>
+        )}
+
+        {/* APPLICANT INFO */}
+        <div className="mb-6">
+          <h4 className="text-sm font-semibold text-[var(--color-text)] mb-3 uppercase tracking-wide flex items-center gap-2">
+            <FileText size={14} /> Applicant Info
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
+            <div>
+              <label className={labelCls}>Title</label>
+              <div className="flex gap-3 py-2">
+                {['mr', 'mrs', 'ms', 'dr'].map(t => (
+                  <label key={t} className="flex items-center gap-1 text-sm text-[var(--color-text)]">
+                    <input type="radio" name="avk-title" checked={form.title === t} onChange={() => updateField('title', t)} className="accent-[var(--color-primary)]" />
+                    {t.charAt(0).toUpperCase() + t.slice(1)}.
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+            <div>
+              <label className={labelCls}>First Name<span className="text-[var(--color-danger)]"> *</span></label>
+              <input className={inputCls} value={form.first_name} onChange={e => updateField('first_name', e.target.value)} placeholder="First Name" disabled={loading} />
+            </div>
+            <div>
+              <label className={labelCls}>Middle Name</label>
+              <input className={inputCls} value={form.middle_name} onChange={e => updateField('middle_name', e.target.value)} placeholder="Middle Name" disabled={loading} />
+            </div>
+            <div>
+              <label className={labelCls}>Last Name<span className="text-[var(--color-danger)]"> *</span></label>
+              <input className={inputCls} value={form.last_name} onChange={e => updateField('last_name', e.target.value)} placeholder="Last Name" disabled={loading} />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+            <div>
+              <label className={labelCls}>Date of Birth<span className="text-[var(--color-danger)]"> *</span></label>
+              <input type="date" className={inputCls} value={form.date_of_birth} onChange={e => updateField('date_of_birth', e.target.value)} disabled={loading} />
+            </div>
+            <div>
+              <label className={labelCls}>Gender<span className="text-[var(--color-danger)]"> *</span></label>
+              <select className={inputCls} value={form.gender} onChange={e => updateField('gender', e.target.value)} disabled={loading}>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Marital Status<span className="text-[var(--color-danger)]"> *</span></label>
+              <select className={inputCls} value={form.marital_status} onChange={e => updateField('marital_status', e.target.value)} disabled={loading}>
+                <option value="single">Single</option>
+                <option value="married">Married</option>
+                <option value="divorced">Divorced</option>
+                <option value="widowed">Widowed</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+            <div>
+              <label className={labelCls}>Driver's Permit</label>
+              <input className={inputCls} value={form.drivers_permit} onChange={e => updateField('drivers_permit', e.target.value)} placeholder="Optional" disabled={loading} />
+            </div>
+            <div>
+              <label className={labelCls}>Passport</label>
+              <input className={inputCls} value={form.passport} onChange={e => updateField('passport', e.target.value)} placeholder="Optional" disabled={loading} />
+            </div>
+            <div>
+              <label className={labelCls}>National ID</label>
+              <input className={inputCls} value={form.national_id} onChange={e => updateField('national_id', e.target.value)} placeholder="National ID" disabled={loading} />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+            <div>
+              <label className={labelCls}>Address<span className="text-[var(--color-danger)]"> *</span></label>
+              <input className={inputCls} value={form.address1} onChange={e => updateField('address1', e.target.value)} placeholder="Address Line 1" disabled={loading} />
+            </div>
+            <div>
+              <label className={labelCls}>Address 2</label>
+              <input className={inputCls} value={form.address2} onChange={e => updateField('address2', e.target.value)} placeholder="Address Line 2" disabled={loading} />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+            <div>
+              <label className={labelCls}>City / Town</label>
+              <input className={inputCls} value={form.city} onChange={e => updateField('city', e.target.value)} placeholder="City" disabled={loading} />
+            </div>
+            <div>
+              <label className={labelCls}>Country<span className="text-[var(--color-danger)]"> *</span></label>
+              <select className={inputCls} value={form.country} onChange={e => updateField('country', e.target.value)} disabled={loading}>
+                <option value="223">Trinidad And Tobago</option>
+                <option value="19">Barbados</option>
+                <option value="84">Grenada</option>
+                <option value="94">Guyana</option>
+                <option value="108">Jamaica</option>
+                <option value="123">Saint Lucia</option>
+                <option value="189">Saint Vincent and the Grenadines</option>
+                <option value="115">Saint Kitts and Nevis</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Phone (Home)</label>
+              <input type="tel" className={inputCls} value={form.phone} onChange={e => updateField('phone', e.target.value)} placeholder="Home phone" disabled={loading} />
+            </div>
+            <div>
+              <label className={labelCls}>Phone (Mobile)</label>
+              <input type="tel" className={inputCls} value={form.cell} onChange={e => updateField('cell', e.target.value)} placeholder="Mobile phone" disabled={loading} />
+            </div>
+          </div>
+        </div>
+
+        {/* EMPLOYMENT DETAILS */}
+        <div className="mb-6">
+          <h4 className="text-sm font-semibold text-[var(--color-text)] mb-3 uppercase tracking-wide flex items-center gap-2">
+            <Users size={14} /> Employment Details
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Employer Name</label>
+              <input className={inputCls} value={form.employer} onChange={e => updateField('employer', e.target.value)} placeholder="Employer" disabled={loading} />
+            </div>
+            <div>
+              <label className={labelCls}>Occupation</label>
+              <input className={inputCls} value={form.occupation} onChange={e => updateField('occupation', e.target.value)} placeholder="Occupation / Job Title" disabled={loading} />
+            </div>
+          </div>
+        </div>
+
+        {/* LOAN DETAILS */}
+        <div className="mb-6">
+          <h4 className="text-sm font-semibold text-[var(--color-text)] mb-3 uppercase tracking-wide flex items-center gap-2">
+            <DollarSign size={14} /> Loan Details
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Credit Amount Applied For<span className="text-[var(--color-danger)]"> *</span></label>
+              <input type="number" className={inputCls} value={form.amount} onChange={e => updateField('amount', e.target.value)} placeholder="Amount" disabled={loading} />
+            </div>
+            <div>
+              <label className={labelCls}>Purpose of Request<span className="text-[var(--color-danger)]"> *</span></label>
+              <select className={inputCls} value={form.purpose} onChange={e => updateField('purpose', e.target.value)} disabled={loading}>
+                {AV_KNOWLES_PURPOSES.map(p => (
+                  <option key={p.value} value={p.value}>{p.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Submit */}
+        <div className="flex items-center justify-between pt-4 border-t border-[var(--color-border)]">
+          <p className="text-xs text-[var(--color-text-muted)]">
+            Fields marked with <span className="text-[var(--color-danger)]">*</span> are required by AV Knowles
+          </p>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={loading || !form.first_name || !form.last_name}
+            className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg bg-[var(--color-primary)] text-white hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Search size={16} className="mr-2" /> Submit Inquiry
+          </button>
+        </div>
+      </Card>
     </div>
   );
 }

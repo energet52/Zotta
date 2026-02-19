@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     credit_bureau_provider: str = Field(default="mock")
     av_knowles_api_url: str = Field(default="")
     av_knowles_api_key: str = Field(default="")
+    av_knowles_web_url: str = Field(default="")
+    av_knowles_username: str = Field(default="")
+    av_knowles_password: str = Field(default="")
 
     # ── ID Verification ──────────────────────────────────────
     id_verification_provider: str = Field(default="mock")

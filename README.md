@@ -324,6 +324,7 @@ See [docs/deployment.md](docs/deployment.md) for the full guide.
 - [Architecture](docs/architecture.md) — System design and component details
 - [Collections Module](docs/collections-module.md) — Collections module business requirements
 - [Customer 360 Requirements](docs/customer-360-business-requirements.md) — Customer 360 specification
+- [Landing Site](docs/landing-site.md) — zotta-lms.com deployment, AWS services, DNS, email setup
 - [API Reference](http://localhost:8000/docs) — Auto-generated OpenAPI docs (run backend first)
 - [User Guide](docs/user-guide.md) — How to use the consumer and back-office portals
 

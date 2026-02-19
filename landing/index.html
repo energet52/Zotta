@@ -1,0 +1,1305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zotta LMS — AI-First Loan Management System</title>
+<meta name="description" content="Zotta LMS is an AI-first loan management system covering the full lending lifecycle — origination, underwriting, collections, accounting, and more.">
+<script async src="https://plausible.io/js/pa-l7JOUAeeo4PdFCV5bwLmr.js"></script>
+<script>window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};plausible.init()</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#09090b;--bg-card:#18181b;--bg-card-hover:#1f1f23;
+  --border:#27272a;--border-hover:#3f3f46;
+  --text:#fafafa;--text-muted:#a1a1aa;--text-dim:#71717a;
+  --accent:#6d28d9;--accent-light:#8b5cf6;--accent-glow:rgba(139,92,246,.15);
+  --green:#10b981;--blue:#3b82f6;--amber:#f59e0b;--rose:#f43f5e;
+  --radius:16px;--radius-sm:8px;
+}
+html{scroll-behavior:smooth;font-size:16px}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
+a{color:var(--accent-light);text-decoration:none}
+a:hover{text-decoration:underline}
+img{max-width:100%;height:auto;display:block}
+
+.container{max-width:1200px;margin:0 auto;padding:0 24px}
+
+nav{position:fixed;top:0;left:0;right:0;z-index:100;backdrop-filter:blur(20px);background:rgba(9,9,11,.8);border-bottom:1px solid var(--border)}
+nav .container{display:flex;align-items:center;justify-content:space-between;height:64px}
+.logo{font-size:1.25rem;font-weight:800;letter-spacing:-.02em}
+.logo span{color:var(--accent-light)}
+.nav-links{display:flex;gap:32px;align-items:center}
+.nav-links a{color:var(--text-muted);font-size:.875rem;font-weight:500;text-decoration:none;transition:color .2s}
+.nav-links a:hover{color:var(--text)}
+.hamburger{display:none;background:none;border:none;cursor:pointer;padding:8px;color:var(--text)}
+.hamburger svg{display:block}
+.mobile-menu{display:none;position:fixed;top:64px;left:0;right:0;background:rgba(9,9,11,.97);border-bottom:1px solid var(--border);padding:16px 24px;flex-direction:column;gap:16px;backdrop-filter:blur(20px);z-index:99}
+.mobile-menu.open{display:flex}
+.mobile-menu a{color:var(--text-muted);font-size:1rem;font-weight:500;text-decoration:none;padding:8px 0}
+.mobile-menu a:hover{color:var(--text)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 24px;border-radius:var(--radius-sm);font-size:.875rem;font-weight:600;border:none;cursor:pointer;transition:all .2s;text-decoration:none}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-light);text-decoration:none}
+.btn-outline{background:transparent;color:var(--text);border:1px solid var(--border)}
+.btn-outline:hover{border-color:var(--accent-light);color:var(--accent-light);text-decoration:none}
+.btn-sm{padding:8px 16px;font-size:.8125rem}
+
+/* HERO */
+.hero{padding:160px 0 100px;text-align:center;position:relative}
+.hero::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:800px;height:600px;background:radial-gradient(ellipse,var(--accent-glow) 0%,transparent 70%);pointer-events:none}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 16px;border-radius:999px;background:var(--accent-glow);border:1px solid rgba(139,92,246,.3);font-size:.8125rem;font-weight:500;color:var(--accent-light);margin-bottom:24px}
+.hero-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.hero h1{font-size:clamp(2.5rem,6vw,4.5rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:24px}
+.hero h1 .gradient{background:linear-gradient(135deg,var(--accent-light),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero p{font-size:1.25rem;color:var(--text-muted);max-width:640px;margin:0 auto 40px;line-height:1.7}
+.hero-actions{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-radius:var(--radius);overflow:hidden;margin-top:80px}
+.stat{background:var(--bg-card);padding:32px;text-align:center}
+.stat-value{font-size:2rem;font-weight:800;letter-spacing:-.02em}
+.stat-value.purple{color:var(--accent-light)}
+.stat-value.green{color:var(--green)}
+.stat-value.blue{color:var(--blue)}
+.stat-value.amber{color:var(--amber)}
+.stat-label{font-size:.8125rem;color:var(--text-muted);margin-top:4px}
+
+/* SECTIONS */
+section{padding:100px 0}
+.section-label{font-size:.8125rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--accent-light);margin-bottom:12px}
+.section-title{font-size:2.5rem;font-weight:800;letter-spacing:-.02em;margin-bottom:16px}
+.section-desc{font-size:1.125rem;color:var(--text-muted);max-width:600px;line-height:1.7}
+.section-header{margin-bottom:64px}
+.section-header.center{text-align:center}
+.section-header.center .section-desc{margin:0 auto}
+
+/* BENEFITS */
+.benefits-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:24px}
+.benefit-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:40px;transition:all .3s}
+.benefit-card:hover{border-color:var(--border-hover);background:var(--bg-card-hover);transform:translateY(-2px)}
+.benefit-icon{width:48px;height:48px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:1.5rem;margin-bottom:20px}
+.benefit-icon.purple{background:rgba(139,92,246,.15)}
+.benefit-icon.green{background:rgba(16,185,129,.15)}
+.benefit-icon.blue{background:rgba(59,130,246,.15)}
+.benefit-icon.amber{background:rgba(245,158,11,.15)}
+.benefit-card h3{font-size:1.25rem;font-weight:700;margin-bottom:8px}
+.benefit-card p{color:var(--text-muted);font-size:.9375rem;line-height:1.7}
+
+/* FEATURE SHOWCASE */
+.feature-showcase{padding:80px 0}
+.feature-showcase:nth-child(even){background:var(--bg-card)}
+.feature-row{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center}
+.feature-row.reverse{direction:rtl}
+.feature-row.reverse > *{direction:ltr}
+.feature-text{display:flex;flex-direction:column;gap:16px}
+.feature-text .section-label{margin-bottom:0}
+.feature-text h3{font-size:1.75rem;font-weight:800;letter-spacing:-.02em}
+.feature-text p{color:var(--text-muted);font-size:1rem;line-height:1.7}
+.feature-list{list-style:none;display:flex;flex-direction:column;gap:12px;margin-top:8px}
+.feature-list li{display:flex;align-items:flex-start;gap:12px;color:var(--text-muted);font-size:.9375rem;line-height:1.6}
+.feature-list li::before{content:'';flex-shrink:0;width:20px;height:20px;margin-top:2px;border-radius:50%;background:var(--accent-glow);border:2px solid var(--accent-light);display:flex;align-items:center;justify-content:center}
+.feature-img{border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);box-shadow:0 20px 60px rgba(0,0,0,.4);transition:transform .3s}
+.feature-img:hover{transform:scale(1.02)}
+.feature-img img{width:100%;display:block}
+
+/* CAPABILITIES */
+.cap-section{background:linear-gradient(180deg,transparent,var(--accent-glow),transparent)}
+.cap-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+.cap-card{background:rgba(24,24,27,.8);border:1px solid rgba(139,92,246,.2);border-radius:var(--radius);padding:32px;backdrop-filter:blur(10px);transition:all .3s}
+.cap-card:hover{border-color:var(--accent-light);transform:translateY(-2px)}
+.cap-card .cap-icon{font-size:2rem;margin-bottom:16px}
+.cap-card h3{font-size:1rem;font-weight:700;margin-bottom:8px}
+.cap-card p{color:var(--text-muted);font-size:.875rem;line-height:1.6}
+
+/* HOW IT WORKS */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:40px;position:relative}
+.steps::before{content:'';position:absolute;top:40px;left:calc(16.66% + 20px);right:calc(16.66% + 20px);height:2px;background:linear-gradient(90deg,var(--accent),var(--blue))}
+.step{text-align:center;position:relative}
+.step-number{width:80px;height:80px;border-radius:50%;background:var(--bg-card);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:800;color:var(--accent-light);margin:0 auto 24px;position:relative;z-index:1}
+.step h3{font-size:1.125rem;font-weight:700;margin-bottom:8px}
+.step p{color:var(--text-muted);font-size:.875rem;line-height:1.6}
+
+/* CONTACT */
+.contact-section{background:var(--bg-card);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center}
+.contact-form{display:flex;flex-direction:column;gap:16px}
+.form-group label{display:block;font-size:.8125rem;font-weight:600;margin-bottom:6px;color:var(--text-muted)}
+.form-group input,.form-group textarea{width:100%;padding:12px 16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:inherit;font-size:.9375rem;transition:border-color .2s}
+.form-group input:focus,.form-group textarea:focus{outline:none;border-color:var(--accent-light)}
+.form-group textarea{resize:vertical;min-height:120px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.form-success{display:none;text-align:center;padding:40px;color:var(--green);font-weight:600}
+.form-success.show{display:block}
+.form-success .checkmark{font-size:3rem;margin-bottom:16px}
+
+footer{padding:48px 0;border-top:1px solid var(--border)}
+.footer-content{display:flex;justify-content:space-between;align-items:center}
+.footer-links{display:flex;gap:24px}
+.footer-links a{color:var(--text-dim);font-size:.875rem}
+.footer-links a:hover{color:var(--text)}
+.copyright{color:var(--text-dim);font-size:.875rem}
+
+/* PLATFORM TABS */
+.platform-section{border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg-card)}
+.tab-nav{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:40px;justify-content:center}
+.tab-btn{padding:8px 18px;border-radius:999px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-family:inherit;font-size:.8125rem;font-weight:500;cursor:pointer;transition:all .2s;white-space:nowrap}
+.tab-btn:hover{border-color:var(--border-hover);color:var(--text)}
+.tab-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.tab-panel{display:none;animation:fadeUp .3s ease}
+.tab-panel.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.tab-header{margin-bottom:32px}
+.tab-header h3{font-size:1.5rem;font-weight:800;letter-spacing:-.02em;margin-bottom:8px}
+.tab-header p{color:var(--text-muted);font-size:1rem;line-height:1.7;max-width:700px}
+.feat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.feat-item{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px 20px;transition:border-color .2s}
+.feat-item:hover{border-color:var(--border-hover)}
+.feat-item h4{font-size:.875rem;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.feat-item h4 .fi{flex-shrink:0;width:6px;height:6px;border-radius:50%;background:var(--accent-light)}
+.feat-item p{color:var(--text-dim);font-size:.8125rem;line-height:1.5}
+.feat-more{margin-top:20px;text-align:center}
+.feat-more button{background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-muted);font-family:inherit;font-size:.8125rem;font-weight:500;padding:8px 20px;cursor:pointer;transition:all .2s}
+.feat-more button:hover{border-color:var(--accent-light);color:var(--accent-light)}
+.feat-extra{display:none;margin-top:16px}
+.feat-extra.open{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;animation:fadeUp .3s ease}
+
+/* DECISIONING HIGHLIGHT */
+.decisioning-highlight{
+  background:linear-gradient(180deg,rgba(109,40,217,.06) 0%,var(--bg) 40%,var(--bg) 60%,rgba(109,40,217,.06) 100%);
+  border-top:1px solid rgba(139,92,246,.25);border-bottom:1px solid rgba(139,92,246,.25);
+  padding:100px 0;position:relative;overflow:hidden
+}
+.decisioning-highlight::before{content:'';position:absolute;top:-200px;left:50%;transform:translateX(-50%);width:900px;height:500px;background:radial-gradient(ellipse,rgba(139,92,246,.1) 0%,transparent 70%);pointer-events:none}
+.highlight-badge{display:inline-flex;align-items:center;gap:8px;padding:5px 14px;border-radius:999px;background:rgba(139,92,246,.15);border:1px solid rgba(139,92,246,.3);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--accent-light);margin-bottom:16px}
+.decisioning-highlight .section-header{margin-bottom:72px}
+.decisioning-highlight .feature-row+.feature-row{margin-top:80px}
+.decisioning-divider{display:flex;align-items:center;gap:20px;margin:80px 0}
+.decisioning-divider::before,.decisioning-divider::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(139,92,246,.3),transparent)}
+.decisioning-divider span{color:var(--accent-light);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;white-space:nowrap}
+
+/* AI CHAT WIDGET */
+.chat-fab{position:fixed;bottom:24px;right:24px;z-index:200;width:56px;height:56px;border-radius:50%;background:var(--accent);border:none;cursor:pointer;box-shadow:0 4px 24px rgba(109,40,217,.4);display:flex;align-items:center;justify-content:center;transition:all .2s;color:#fff}
+.chat-fab:hover{background:var(--accent-light);transform:scale(1.05)}
+.chat-fab svg{width:26px;height:26px;fill:currentColor}
+.chat-fab .chat-close{display:none}
+.chat-fab.active .chat-open{display:none}
+.chat-fab.active .chat-close{display:block}
+.chat-panel{position:fixed;bottom:92px;right:24px;z-index:199;width:380px;max-height:520px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 20px 60px rgba(0,0,0,.5);display:none;flex-direction:column;overflow:hidden}
+.chat-panel.open{display:flex}
+.chat-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.chat-head-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0}
+.chat-head-title{font-size:.875rem;font-weight:700}
+.chat-head-sub{font-size:.75rem;color:var(--text-dim)}
+.chat-body{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:12px;min-height:200px;max-height:320px}
+.chat-msg{max-width:85%;padding:10px 14px;border-radius:12px;font-size:.8125rem;line-height:1.5;word-break:break-word}
+.chat-msg.bot{background:var(--bg);border:1px solid var(--border);align-self:flex-start;border-bottom-left-radius:4px}
+.chat-msg.user{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+.chat-msg.typing{color:var(--text-dim);font-style:italic}
+.chat-quick{display:flex;flex-wrap:wrap;gap:6px;padding:0 20px 12px}
+.chat-quick button{background:transparent;border:1px solid var(--border);border-radius:999px;color:var(--text-muted);font-family:inherit;font-size:.75rem;padding:6px 14px;cursor:pointer;transition:all .2s;text-align:left;line-height:1.3}
+.chat-quick button:hover{border-color:var(--accent-light);color:var(--accent-light)}
+.chat-input{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);align-items:flex-end}
+.chat-input textarea{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:inherit;font-size:.8125rem;padding:10px 14px;resize:none;min-height:40px;max-height:80px;line-height:1.4}
+.chat-input textarea:focus{outline:none;border-color:var(--accent-light)}
+.chat-input button{background:var(--accent);border:none;border-radius:var(--radius-sm);color:#fff;cursor:pointer;padding:10px 14px;transition:background .2s;flex-shrink:0}
+.chat-input button:hover{background:var(--accent-light)}
+.chat-input button:disabled{opacity:.4;cursor:not-allowed}
+.chat-input button svg{width:16px;height:16px;fill:currentColor;display:block}
+
+/* MOBILE CAROUSEL */
+.carousel-scroll{display:none}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .nav-links{display:none}
+  .hamburger{display:block}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .benefits-grid{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;gap:16px;padding-bottom:12px;scrollbar-width:none}
+  .benefits-grid::-webkit-scrollbar{display:none}
+  .benefit-card{min-width:85vw;scroll-snap-align:start;flex-shrink:0}
+  .cap-grid{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;gap:16px;padding-bottom:12px;scrollbar-width:none}
+  .cap-grid::-webkit-scrollbar{display:none}
+  .cap-card{min-width:75vw;scroll-snap-align:start;flex-shrink:0}
+  .contact-grid{grid-template-columns:1fr}
+  .feature-row,.feature-row.reverse{grid-template-columns:1fr;gap:32px;direction:ltr}
+  .feature-img{order:1}
+  .feature-text{order:2}
+  .steps{grid-template-columns:1fr}
+  .steps::before{display:none}
+  .form-row{grid-template-columns:1fr}
+  .hero{padding:120px 0 60px}
+  .hero h1{font-size:2.25rem}
+  .hero p{font-size:1.05rem}
+  section{padding:60px 0}
+  .feature-showcase{padding:48px 0}
+  .decisioning-highlight{padding:60px 0}
+  .decisioning-highlight .feature-row+.feature-row{margin-top:48px}
+  .decisioning-divider{margin:48px 0}
+  .section-title{font-size:1.75rem}
+  .section-header{margin-bottom:40px}
+  .feature-text h3{font-size:1.375rem}
+  .feat-grid,.feat-extra.open{grid-template-columns:1fr}
+  .tab-nav{justify-content:flex-start;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;padding-bottom:8px}
+  .chat-panel{right:0;left:0;bottom:0;top:0;width:100%;max-height:100%;border-radius:0;border:none}
+  .chat-fab{bottom:16px;right:16px;width:52px;height:52px}
+  .chat-body{max-height:none;flex:1}
+  .carousel-scroll{display:flex;gap:8px;justify-content:center;padding:12px 0}
+  .carousel-scroll .dot{width:8px;height:8px;border-radius:50%;background:var(--border);transition:background .2s}
+  .carousel-scroll .dot.active{background:var(--accent-light)}
+  .footer-content{flex-direction:column;gap:16px;text-align:center}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="container">
+    <div class="logo">Zotta<span>LMS</span></div>
+    <div class="nav-links">
+      <a href="#benefits">Benefits</a>
+      <a href="#features">Features</a>
+      <a href="#platform">Full Platform</a>
+      <a href="#how-it-works">How It Works</a>
+      <a href="#contact" class="btn btn-primary btn-sm">Get in Touch</a>
+    </div>
+    <button class="hamburger" id="hamburgerBtn" aria-label="Menu">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="mobile-menu" id="mobileMenu">
+  <a href="#benefits">Benefits</a>
+  <a href="#features">Features</a>
+  <a href="#decisioning">Decisioning</a>
+  <a href="#platform">Full Platform</a>
+  <a href="#how-it-works">How It Works</a>
+  <a href="#contact" class="btn btn-primary" style="text-align:center;justify-content:center">Get in Touch</a>
+</div>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-badge"><span class="dot"></span> Next-Generation Lending Platform</div>
+    <h1>The <span class="gradient">AI-First</span> Loan<br>Management System</h1>
+    <p>End-to-end lending lifecycle management — from origination to collections to accounting — with AI-powered automation that helps your team work faster and make better decisions.</p>
+    <div class="hero-actions">
+      <a href="#contact" class="btn btn-primary">Request a Demo</a>
+      <a href="#features" class="btn btn-outline">Explore Features</a>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="stat-value purple">14+</div><div class="stat-label">Core Modules</div></div>
+      <div class="stat"><div class="stat-value green">AI</div><div class="stat-label">Powered Automation</div></div>
+      <div class="stat"><div class="stat-value blue">360°</div><div class="stat-label">Customer View</div></div>
+      <div class="stat"><div class="stat-value amber">100%</div><div class="stat-label">Lifecycle Coverage</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- BENEFITS -->
+<section id="benefits">
+  <div class="container">
+    <div class="section-header center">
+      <div class="section-label">Why Zotta</div>
+      <h2 class="section-title">Built Different from the Ground Up</h2>
+      <p class="section-desc">Not another legacy system with bolt-on features. Zotta was designed with AI-powered automation at its core — every workflow is optimized to save your team time.</p>
+    </div>
+    <div class="benefits-grid">
+      <div class="benefit-card">
+        <div class="benefit-icon purple">⚡</div>
+        <h3>AI-Powered Automation</h3>
+        <p>Automated underwriting decisions, AI-powered collection strategies, configurable risk scoring, and streamlined workflows that eliminate repetitive manual tasks across your operation.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon green">🔄</div>
+        <h3>End-to-End Lifecycle</h3>
+        <p>One unified platform covering origination, underwriting, disbursement, servicing, collections, and accounting. No more stitching together fragmented systems.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon blue">🧠</div>
+        <h3>Collections Intelligence</h3>
+        <p>Next Best Action recommendations, propensity-to-pay scoring, behavioral pattern analysis, and AI-powered settlement calculations — giving your agents the right strategy for every case.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon amber">🔒</div>
+        <h3>Enterprise-Grade Security</h3>
+        <p>Role-based access with 54 granular permissions, multi-factor authentication, session management, anomaly detection, maker-checker workflows, and full audit trails.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURE SHOWCASES -->
+<div id="features">
+
+  <!-- Loan Origination -->
+  <section id="origination" class="feature-showcase">
+    <div class="container">
+      <div class="feature-row">
+        <div class="feature-text">
+          <div class="section-label">Loan Origination</div>
+          <h3>Streamlined Application Processing</h3>
+          <p>Manage the entire application journey from submission to approval. A powerful queue system keeps your team organized, while automated document handling speeds up review times.</p>
+          <ul class="feature-list">
+            <li>Multi-channel application intake — web portal, walk-in, or agent-assisted</li>
+            <li>AI-powered document upload with automatic ID parsing and validation</li>
+            <li>Digital contract generation and electronic signature capture</li>
+            <li>Real-time application status tracking for borrowers and staff</li>
+            <li>Configurable priority queues with filters, search, and sorting</li>
+            <li>Staff-created applications for walk-in customers</li>
+          </ul>
+        </div>
+        <div class="feature-img">
+          <img src="mockup-origination.png" alt="Loan Origination — Application Queue" loading="lazy">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Credit Scoring -->
+  <section id="scoring" class="feature-showcase" style="background:var(--bg-card)">
+    <div class="container">
+      <div class="feature-row reverse">
+        <div class="feature-text">
+          <div class="section-label">Credit Scoring</div>
+          <h3>Champion-Challenger Scorecard Framework</h3>
+          <p>Run multiple scorecards simultaneously, compare their performance in real time, and promote the best-performing model with a single click. Full control over your scoring strategy.</p>
+          <ul class="feature-list">
+            <li>Create, edit, clone, and import scorecards from CSV</li>
+            <li>Side-by-side champion vs. challenger performance monitoring</li>
+            <li>Gini coefficient, KS statistic, AUC-ROC, and PSI metrics at a glance</li>
+            <li>Score distribution charts with configurable risk band thresholds</li>
+            <li>What-if analysis — simulate impact of changing applicant parameters</li>
+            <li>Batch scoring — upload CSV files for bulk scoring with summary stats</li>
+          </ul>
+        </div>
+        <div class="feature-img">
+          <img src="mockup-scoring.png" alt="Credit Scoring — Champion-Challenger Dashboard" loading="lazy">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DECISIONING HIGHLIGHT -->
+  <section id="decisioning" class="decisioning-highlight">
+    <div class="container">
+      <div class="section-header center">
+        <span class="highlight-badge">&#10038; Decisioning Highlight</span>
+        <h2 class="section-title">Champion-Challenger Decisioning</h2>
+        <p class="section-desc">The same framework the world's leading lenders use to continuously optimize credit policies — controlled experimentation, real performance data, zero borrower impact.</p>
+      </div>
+
+      <div class="feature-row">
+        <div class="feature-text">
+          <div class="section-label">Champion-Challenger Testing</div>
+          <h3>Run Two Strategies Side by Side on Live Traffic</h3>
+          <p>Your proven champion strategy makes every real decision while a challenger silently evaluates the same applications and records what it would have done. After enough volume, you see exactly where they agree, where they diverge, and which one performs better — backed by actual default rates, approval volumes, and projected revenue impact, not guesswork.</p>
+          <ul class="feature-list">
+            <li>Real decisions always made by your proven champion — zero risk to your portfolio during testing</li>
+            <li>Challenger evaluates every application in shadow mode and records its would-be decisions</li>
+            <li>Side-by-side comparison: agreement rate, default rates, approval volumes, and projected revenue</li>
+            <li>One-click promotion when data proves the challenger wins — or discard and try a new approach</li>
+            <li>Continuous, controlled experimentation that eliminates the risk of switching strategies blindly</li>
+            <li>Full audit trail of every test with start date, traffic volume, and outcome metrics</li>
+          </ul>
+        </div>
+        <div class="feature-img">
+          <img src="mockup-champion-challenger.png" alt="Champion-Challenger Decisioning Dashboard" loading="lazy">
+        </div>
+      </div>
+
+      <div class="decisioning-divider"><span>Strategy Assignment</span></div>
+
+      <div class="feature-row reverse">
+        <div class="feature-text">
+          <div class="section-label">Decision Tree Strategy Assignment</div>
+          <h3>Purpose-Built Strategy for Every Borrower Segment</h3>
+          <p>In traditional lending, every applicant runs through the same rules regardless of who they are. Zotta's fully customizable decision trees change that. Design your own segmentation logic visually — split by customer relationship, income band, product type, merchant tier, or any dimension — and assign a purpose-built strategy to each segment.</p>
+          <ul class="feature-list">
+            <li>Visual tree builder — configure branching conditions, thresholds, and paths without code</li>
+            <li>Segment by any dimension: customer type, income band, product, merchant, credit tier, geography</li>
+            <li>High-value existing customers fast-tracked through relaxed thresholds with behavioral scoring</li>
+            <li>New-to-bureau applicants routed to alternative assessment with field verification requirements</li>
+            <li>High-amount requests auto-escalated to senior underwriter review with enhanced due diligence</li>
+            <li>Risk-based segmentation: higher approval rates where data supports it, tighter controls where it doesn't</li>
+          </ul>
+        </div>
+        <div class="feature-img">
+          <img src="mockup-decision-tree.png" alt="Decision Tree Strategy Assignment" loading="lazy">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- AI-Powered Collections -->
+  <section id="collections" class="feature-showcase">
+    <div class="container">
+      <div class="feature-row">
+        <div class="feature-text">
+          <div class="section-label">AI-Powered Collections</div>
+          <h3>AI-First Case Management</h3>
+          <p>Every collection case surfaces the most effective next action for your agents. Prioritized queues, full interaction timelines, and one-click workflows keep resolution rates high and SLAs on track.</p>
+          <ul class="feature-list">
+            <li>Recommended next action with confidence scoring for each case</li>
+            <li>Prioritized queues by days-past-due, risk tier, and agent assignment</li>
+            <li>Promise-to-pay tracking with automatic status monitoring</li>
+            <li>Settlement offer calculator with configurable approval workflows</li>
+            <li>Built-in compliance engine — contact frequency limits, time-of-day rules</li>
+            <li>WhatsApp, SMS, and email outreach with full conversation history</li>
+          </ul>
+        </div>
+        <div class="feature-img">
+          <img src="mockup-collections.png" alt="AI-Powered Collections — Case Detail" loading="lazy">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Customer 360 -->
+  <section id="customer360" class="feature-showcase" style="background:var(--bg-card)">
+    <div class="container">
+      <div class="feature-row reverse">
+        <div class="feature-text">
+          <div class="section-label">Customer 360</div>
+          <h3>Complete Borrower Intelligence</h3>
+          <p>A unified view of every customer — their applications, loans, payments, communications, and documents — all in one place. An intelligence panel highlights key signals and recommended next steps.</p>
+          <ul class="feature-list">
+            <li>Unified profile with total exposure, active loans, and payment score</li>
+            <li>Tabbed navigation: Overview, Applications, Loans, Collections, Comms, Docs</li>
+            <li>Intelligence sidebar with risk score, key signals, and action suggestions</li>
+            <li>Chronological event timeline across all system interactions</li>
+            <li>Natural language search — ask questions about any customer in plain English</li>
+            <li>Quick links to related applications, collection cases, and conversations</li>
+          </ul>
+        </div>
+        <div class="feature-img">
+          <img src="mockup-customer360.png" alt="Customer 360 — Unified Customer View" loading="lazy">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- General Ledger -->
+  <section id="ledger" class="feature-showcase">
+    <div class="container">
+      <div class="feature-row">
+        <div class="feature-text">
+          <div class="section-label">General Ledger</div>
+          <h3>Full Double-Entry Accounting</h3>
+          <p>A complete accounting system built into the platform. Automated GL mapping eliminates manual journal entries, while real-time financial dashboards keep your finance team in control.</p>
+          <ul class="feature-list">
+            <li>Hierarchical chart of accounts — assets, liabilities, equity, revenue, expenses</li>
+            <li>Automated journal entries triggered by loan events (disbursement, payment, write-off)</li>
+            <li>Maker-checker approval workflow for journal entries</li>
+            <li>Balance sheet, income statement, and trial balance generation</li>
+            <li>Accounting period management with period-close automation</li>
+            <li>Anomaly detection surfaces unusual entries for review</li>
+          </ul>
+        </div>
+        <div class="feature-img">
+          <img src="mockup-ledger.png" alt="General Ledger — Financial Overview" loading="lazy">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Reporting -->
+  <section id="reporting" class="feature-showcase" style="background:var(--bg-card)">
+    <div class="container">
+      <div class="feature-row reverse">
+        <div class="feature-text">
+          <div class="section-label">Reporting &amp; Analytics</div>
+          <h3>Real-Time Portfolio Insights</h3>
+          <p>KPI dashboards, portfolio analytics, sector concentration analysis, and stress testing — all updated in real time. Export any report to CSV or schedule automated delivery.</p>
+          <ul class="feature-list">
+            <li>Live KPIs — total portfolio, approval rate, portfolio at risk, collection rate</li>
+            <li>Portfolio breakdown by product, sector, and risk band</li>
+            <li>Monthly disbursement vs. collection trend charts</li>
+            <li>Sector concentration dashboard with risk heatmaps</li>
+            <li>Stress testing — simulate portfolio impact under adverse scenarios</li>
+            <li>Standard reports: aged receivables, loan book, decision audit trail, and more</li>
+          </ul>
+        </div>
+        <div class="feature-img">
+          <img src="mockup-reporting.png" alt="Reporting — Analytics Dashboard" loading="lazy">
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- CAPABILITIES -->
+<section id="capabilities" class="cap-section">
+  <div class="container">
+    <div class="section-header center">
+      <div class="section-label">More Capabilities</div>
+      <h2 class="section-title">And That's Just the Start</h2>
+      <p class="section-desc">Beyond the core modules, Zotta includes a full suite of tools to run your lending operation end to end.</p>
+    </div>
+    <div class="cap-grid">
+      <div class="cap-card">
+        <div class="cap-icon">⚖️</div>
+        <h3>Decision Engine</h3>
+        <p>Orchestrates the full decision pipeline with champion-challenger strategy testing, customizable decision tree routing, credit bureau pulls, scorecard scoring, and business rules — all in seconds.</p>
+      </div>
+      <div class="cap-card">
+        <div class="cap-icon">🏗️</div>
+        <h3>Business Rules</h3>
+        <p>21 configurable rules (income, DTI, age, employment, sector risk, and more) with threshold editing, severity levels, and enable/disable toggles. Generate new rules from plain English.</p>
+      </div>
+      <div class="cap-card">
+        <div class="cap-icon">📥</div>
+        <h3>Queue Management</h3>
+        <p>AI-powered priority scoring, SLA tracking with escalation, stage-based workflows, skills-based routing, ambient team workload awareness, and authority-limit enforcement.</p>
+      </div>
+      <div class="cap-card">
+        <div class="cap-icon">&#9889;</div>
+        <h3>In-Store Pre-Approval</h3>
+        <p>Customers snap a price tag photo and get an instant eligibility decision. OTP verification, soft credit pull, merchant approval checking, and document checklist generation.</p>
+      </div>
+      <div class="cap-card">
+        <div class="cap-icon">&#128241;</div>
+        <h3>Consumer Portal</h3>
+        <p>Self-service loan applications, real-time status tracking, payment schedules, online payments, document upload, chat support, and a notification center for borrowers.</p>
+      </div>
+      <div class="cap-card">
+        <div class="cap-icon">&#127758;</div>
+        <h3>Sector Analysis</h3>
+        <p>Portfolio concentration monitoring, sector risk heatmaps, configurable exposure caps and policies, roll-rate analysis, macro indicators, and what-if stress testing scenarios.</p>
+      </div>
+      <div class="cap-card">
+        <div class="cap-icon">💬</div>
+        <h3>WhatsApp &amp; Chat</h3>
+        <p>Twilio-powered WhatsApp with intent classification, guided application flows, payment inquiries, and AI-powered agent escalation. Plus a web chat for customer support conversations.</p>
+      </div>
+      <div class="cap-card">
+        <div class="cap-icon">🛒</div>
+        <h3>Hire-Purchase Catalog</h3>
+        <p>Manage merchant partners, branches, product categories, and credit products. Configurable terms, rate tiers, fee structures, score-based eligibility, and amortization calculators.</p>
+      </div>
+      <div class="cap-card">
+        <div class="cap-icon">👥</div>
+        <h3>User Management &amp; RBAC</h3>
+        <p>10 system roles with 54 granular permissions. MFA, session tracking, automatic lockout, login anomaly detection, maker-checker workflows, and full audit trails.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPLETE PLATFORM -->
+<section id="platform" class="platform-section">
+  <div class="container">
+    <div class="section-header center">
+      <div class="section-label">Complete Platform</div>
+      <h2 class="section-title">Every Feature, In Detail</h2>
+      <p class="section-desc">Explore the full depth of each module. Click a tab to see everything it includes.</p>
+    </div>
+
+    <div class="tab-nav" role="tablist">
+      <button class="tab-btn active" data-tab="t-origination">Loan Origination</button>
+      <button class="tab-btn" data-tab="t-decision">Decision Engine</button>
+      <button class="tab-btn" data-tab="t-scoring">Credit Scoring</button>
+      <button class="tab-btn" data-tab="t-rules">Business Rules</button>
+      <button class="tab-btn" data-tab="t-queue">Queue Management</button>
+      <button class="tab-btn" data-tab="t-collections">Collections</button>
+      <button class="tab-btn" data-tab="t-customer">Customer 360</button>
+      <button class="tab-btn" data-tab="t-consumer">Consumer Portal</button>
+      <button class="tab-btn" data-tab="t-preapproval">Pre-Approval</button>
+      <button class="tab-btn" data-tab="t-whatsapp">WhatsApp &amp; Chat</button>
+      <button class="tab-btn" data-tab="t-gl">General Ledger</button>
+      <button class="tab-btn" data-tab="t-sector">Sector Analysis</button>
+      <button class="tab-btn" data-tab="t-reporting">Reporting</button>
+      <button class="tab-btn" data-tab="t-users">Users &amp; Security</button>
+      <button class="tab-btn" data-tab="t-docs">Document Processing</button>
+      <button class="tab-btn" data-tab="t-audit">Audit &amp; Compliance</button>
+    </div>
+
+    <!-- LOAN ORIGINATION -->
+    <div class="tab-panel active" id="t-origination">
+      <div class="tab-header">
+        <h3>Loan Origination</h3>
+        <p>Manage the entire application journey from multi-channel intake through underwriting to disbursement. Staff and borrowers both get dedicated interfaces optimized for their workflow.</p>
+      </div>
+      <div class="feat-grid">
+        <div class="feat-item"><h4><span class="fi"></span> Multi-Channel Intake</h4><p>Web portal self-service, walk-in agent-assisted, and staff-created applications on behalf of customers.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> ID Parsing (OCR)</h4><p>Scan front and back of national IDs. Automatically extracts name, DOB, ID number, address, and gender.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Document Management</h4><p>Upload payslips, bank statements, job letters, IDs, and utility bills. Preview, download, and delete with type tagging.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Digital Contracts</h4><p>Auto-generated hire-purchase agreements from DOCX templates. Electronic signature pad with typed name confirmation.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> References Management</h4><p>Add, edit, and delete applicant references with name, relationship, phone, address, and directions.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Counterproposals</h4><p>Underwriters can propose adjusted amounts, rates, or terms. Borrowers accept or reject directly from their portal.</p></div>
+      </div>
+      <div class="feat-more"><button onclick="toggleExtra(this)">Show 8 more features</button></div>
+      <div class="feat-extra">
+        <div class="feat-item"><h4><span class="fi"></span> Shopping Context</h4><p>Borrowers select merchants, branches, and item categories with quantities, prices, and descriptions.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Plan Selection</h4><p>Eligible credit products shown with tenure options, payment calculator, and full amortization schedule preview.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Application Comments</h4><p>Threaded messaging between staff and borrowers attached to each application.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Disbursement Processing</h4><p>Manual or bank transfer disbursement with bank details capture, method selection, and notes.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Void Applications</h4><p>Cancel approved applications with a reason. Creates audit trail entry and updates status.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Status Tracking</h4><p>Progress tracker: Submitted, Under Review, Credit Check, Decision. Visible to both staff and borrowers.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Consent Management</h4><p>Downloadable consent PDFs. Credit check requires explicit consent before proceeding.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Internal Notes</h4><p>Underwriters can add timestamped notes to applications visible only to staff.</p></div>
+      </div>
+    </div>
+
+    <!-- DECISION ENGINE -->
+    <div class="tab-panel" id="t-decision">
+      <div class="tab-header">
+        <h3>Decision Engine</h3>
+        <p>The orchestration layer that pulls together credit bureau data, scoring, and business rules into a single automated decision pipeline. Includes champion-challenger strategy testing, customizable decision tree routing, and full auditability.</p>
+      </div>
+      <div class="feat-grid">
+        <div class="feat-item"><h4><span class="fi"></span> Champion-Challenger Testing</h4><p>Run two decisioning strategies side by side on live traffic. Champion makes real decisions while challenger silently records what it would have done. Compare default rates, approvals, and revenue impact.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Decision Tree Strategy Assignment</h4><p>Visual tree builder for borrower segmentation. Assign purpose-built strategies to each segment by customer type, income band, product, merchant tier, or any dimension.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Two-Phase Pipeline</h4><p>Phase A: Credit scoring with weighted scorecard. Phase B: Business rule evaluation with 21 configurable rules.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Credit Bureau Pull</h4><p>Adapter pattern supporting multiple bureaus. AV Knowles integration built in, extensible to any provider.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Blended Scoring</h4><p>Combines internal scorecard score (60%) with bureau score (40%). 300-850 range with A-E risk bands.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Automated Outcomes</h4><p>Auto-approve, auto-decline, or refer to manual review based on rule severity and scorecard thresholds.</p></div>
+      </div>
+      <div class="feat-more"><button onclick="toggleExtra(this)">Show 8 more features</button></div>
+      <div class="feat-extra">
+        <div class="feat-item"><h4><span class="fi"></span> One-Click Promotion</h4><p>When challenger data proves superior performance, promote it to champion with a single click. Full rollback if needed.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Risk-Based Segmentation</h4><p>Route high-value customers to fast-track, new-to-bureau to alternative assessment, and high-amount requests to senior review automatically.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Rate Determination</h4><p>Interest rates set by priority: credit product config, decision engine output, or system default.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Payment Calculation</h4><p>Monthly payment, total interest, total payable, and effective annual rate computed at decision time.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> DTI &amp; LTI Ratios</h4><p>Debt-to-income and loan-to-income ratios calculated and checked against configurable thresholds.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Bank Statement Analysis</h4><p>Automated income and spending pattern analysis from CSV/PDF bank statements with risk flags.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Occupation Benchmarks</h4><p>Income and expense benchmarks by occupation for validation during decisioning.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Decision Audit Trail</h4><p>Every decision logged with timestamp, engine version, score breakdown, rule results, strategy used, and final outcome.</p></div>
+      </div>
+    </div>
+
+    <!-- CREDIT SCORING -->
+    <div class="tab-panel" id="t-scoring">
+      <div class="tab-header">
+        <h3>Credit Scoring &amp; Scorecards</h3>
+        <p>A full scorecard lifecycle management system with champion-challenger testing, performance monitoring, health alerts, and what-if simulation tools.</p>
+      </div>
+      <div class="feat-grid">
+        <div class="feat-item"><h4><span class="fi"></span> Scorecard CRUD</h4><p>Create, edit, clone, retire scorecards. Import characteristics and bins from CSV files.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Champion-Challenger</h4><p>Run multiple scorecards simultaneously with configurable traffic allocation. One-click promotion.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Performance Metrics</h4><p>Gini coefficient, KS statistic, AUC-ROC, PSI, and Information Value tracked over time.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Score Distribution</h4><p>Histogram charts with risk band coloring. Band analysis showing approval and default rates per band.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> What-If Analysis</h4><p>Select an application and simulate how changing individual characteristics affects the final score.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Batch Scoring</h4><p>Upload a CSV of applicant data. Get scored results with summary statistics and distribution charts.</p></div>
+      </div>
+      <div class="feat-more"><button onclick="toggleExtra(this)">Show 8 more features</button></div>
+      <div class="feat-extra">
+        <div class="feat-item"><h4><span class="fi"></span> Raw Score Script</h4><p>Human-readable Python scoring script auto-generated from scorecard config. Editable, downloadable, copyable.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Live Calculation</h4><p>Enter values for each characteristic and see total score, decision, trace table, and reason codes instantly.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Health Alerts</h4><p>Automated alerts for PSI breach, Gini decline, default rate spikes, and approval rate drift.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Kill Switch</h4><p>Emergency deactivation of any scorecard. Instantly removes it from the decision pipeline.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Shadow Mode</h4><p>Run a new scorecard alongside the champion without affecting decisions. Compare performance safely.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Vintage Analysis</h4><p>Default rate analysis by origination month to track scorecard degradation over time.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Reason Codes</h4><p>Top positive and negative scoring factors generated for each decision, supporting adverse action notices.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Change Audit Log</h4><p>Every edit to bins, weights, thresholds, and cutoffs logged with timestamp, user, and justification.</p></div>
+      </div>
+    </div>
+
+    <!-- BUSINESS RULES -->
+    <div class="tab-panel" id="t-rules">
+      <div class="tab-header">
+        <h3>Business Rules</h3>
+        <p>The configurable rule layer within the decision engine. 21 built-in rules covering income, employment, geography, and credit factors. Fully editable without code changes.</p>
+      </div>
+      <div class="feat-grid">
+        <div class="feat-item"><h4><span class="fi"></span> 21 Built-In Rules</h4><p>R01-R21 covering income verification, DTI ratio, LTI ratio, age limits, employment tenure, sector risk, geographic restrictions, and scorecard thresholds.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Configurable Thresholds</h4><p>Edit threshold values directly in the UI. Changes take effect immediately on the next decision run.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Severity Levels</h4><p>Each rule classified as hard decline, soft decline, or refer to manual review.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Enable/Disable Toggles</h4><p>Turn individual rules on or off without deleting them. Instant activation and deactivation.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Rule Generation</h4><p>Describe a new business rule in plain English and the system generates the implementation with safety guardrails.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Rules Analysis</h4><p>View which rules cause the most declines, their pass/fail statistics, and optimization recommendations.</p></div>
+      </div>
+      <div class="feat-more"><button onclick="toggleExtra(this)">Show 4 more features</button></div>
+      <div class="feat-extra">
+        <div class="feat-item"><h4><span class="fi"></span> Version History</h4><p>Full audit trail of every rule change with old/new values, user, timestamp, and justification.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Custom Rules</h4><p>Add rules beyond the built-in 21. Custom rules support threshold-based and complex logic evaluation.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Rules Merging</h4><p>Default system rules merged with database overrides. Diff tracking shows exactly what's been customized.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Impact Preview</h4><p>View projected impact of rule changes before activating, including estimated approval rate shifts.</p></div>
+      </div>
+    </div>
+
+    <!-- QUEUE MANAGEMENT -->
+    <div class="tab-panel" id="t-queue">
+      <div class="tab-header">
+        <h3>Queue Management</h3>
+        <p>An AI-powered application routing and workload management system. Priority scoring, SLA tracking, stage-based workflows, and real-time team awareness keep your underwriting pipeline moving.</p>
+      </div>
+      <div class="feat-grid">
+        <div class="feat-item"><h4><span class="fi"></span> AI-Powered Priority Scoring</h4><p>Applications ranked by configurable priority algorithm factoring in age, amount, completeness, and SLA urgency.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Multiple Queue Views</h4><p>Shared queue (unassigned pool), My Queue (assigned work), Waiting Queue (awaiting borrower response), and All Applications.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> SLA Tracking</h4><p>Target turnaround times with warning and breach indicators. Automatic pause when waiting for borrower. Business-hours aware.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Stage-Based Workflow</h4><p>Configurable pipeline stages. Applications progress through stages with SLA targets per stage.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Assignment Modes</h4><p>Pull (agents claim), auto-assign, hybrid, or manager assignment. Skills-based routing and authority limits.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Ambient Awareness</h4><p>Real-time stats bar: pending count, active work, decided today, average turnaround, and team online status.</p></div>
+      </div>
+      <div class="feat-more"><button onclick="toggleExtra(this)">Show 8 more features</button></div>
+      <div class="feat-extra">
+        <div class="feat-item"><h4><span class="fi"></span> Claim &amp; Release</h4><p>Agents claim applications from the shared pool. Release returns them. Defer suggestions for later.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Return to Borrower</h4><p>Send applications back for more info. Pauses SLA, increments return count, resumes on response.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Team Workload Panel</h4><p>Always-visible sidebar showing each team member's current/max load and availability status.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Need Help Signal</h4><p>Staff can signal overload. Visible to managers for workload redistribution.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Exception Management</h4><p>Formal exception workflow for applications requiring special handling outside normal rules.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Queue Analytics</h4><p>Throughput charts, team performance tables, pipeline funnel, and process insight recommendations.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Continuity Preference</h4><p>Same-borrower assignment preference keeps returning applications with the original underwriter.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Holiday &amp; Business Days</h4><p>Configurable holidays and business days. SLA calculations respect non-working periods.</p></div>
+      </div>
+    </div>
+
+    <!-- COLLECTIONS -->
+    <div class="tab-panel" id="t-collections">
+      <div class="tab-header">
+        <h3>Collections</h3>
+        <p>Full-featured collections management with AI-first case prioritization, compliance rules, automated sequences, multi-channel outreach, and detailed agent performance tracking.</p>
+      </div>
+      <div class="feat-grid">
+        <div class="feat-item"><h4><span class="fi"></span> Next Best Action</h4><p>Each case shows a recommended action with confidence score, reasoning, suggested tone, and offer guidance.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Propensity-to-Pay</h4><p>0-100 propensity score per case with trend indicators and contributing behavioral factors.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Promise-to-Pay</h4><p>Create, track, and monitor payment promises. Automatic status updates (pending, kept, broken).</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Settlement Offers</h4><p>Auto-calculated settlement amounts based on DPD. Approval workflow with senior authorization for high discounts.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Compliance Engine</h4><p>Contact frequency caps, cooling-off periods, time-of-day restrictions, and channel permissions per jurisdiction.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Collection Sequences</h4><p>Multi-step automated outreach sequences by channel (WhatsApp, SMS, email) with day offsets and wait-for-response logic.</p></div>
+      </div>
+      <div class="feat-more"><button onclick="toggleExtra(this)">Show 10 more features</button></div>
+      <div class="feat-extra">
+        <div class="feat-item"><h4><span class="fi"></span> Daily Briefing</h4><p>Auto-generated daily summary of portfolio priorities, key changes, and recommended strategy focus areas.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Message Drafting</h4><p>Context-aware message drafting for WhatsApp, SMS, and email tailored to each borrower's situation.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Case Flags</h4><p>Toggle dispute active, vulnerability, do-not-contact, and hardship flags per case.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Behavioral Patterns</h4><p>Pattern detection across payment history, communication responses, and borrower behavior trends.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Similar Outcomes</h4><p>See cure rates and average resolution days for borrowers with similar profiles and delinquency patterns.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Message Templates</h4><p>Reusable templates by channel and tone with context variable interpolation. Track response and payment rates.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Auto-Enrollment</h4><p>Automatically enroll delinquent cases into appropriate collection sequences based on DPD stage.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Agent Performance</h4><p>Per-agent metrics: resolution rates, PTP rates, collection amounts, SLA compliance, and case volumes.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Payment Heatmap</h4><p>12-month visual calendar grid showing payment activity, gaps, and patterns per borrower.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Export &amp; Dashboard</h4><p>CSV queue export. Dashboard KPIs: delinquent accounts, overdue totals, cure rate, recovered MTD.</p></div>
+      </div>
+    </div>
+
+    <!-- CUSTOMER 360 -->
+    <div class="tab-panel" id="t-customer">
+      <div class="tab-header">
+        <h3>Customer 360</h3>
+        <p>A unified view of every borrower's complete relationship with your organization. All applications, loans, payments, communications, documents, and system interactions in one place.</p>
+      </div>
+      <div class="feat-grid">
+        <div class="feat-item"><h4><span class="fi"></span> Unified Profile</h4><p>Header with total exposure, active loan count, payment score, risk tier, and contact details.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Intelligence Panel</h4><p>Sidebar with risk score gauge, key behavioral signals, and prioritized recommended actions.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Activity Timeline</h4><p>Chronological event stream across all modules. Filterable by category (application, loan, payment, collection, communication, document, system).</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Ask About Customer</h4><p>Natural language Q&amp;A panel. Ask questions in plain English with cited, data-grounded answers.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Account Summary</h4><p>Auto-generated narrative summary with sentiment badge, highlights, risk narrative, and confidence score.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Financial Snapshot</h4><p>Exposure breakdown pie chart, 12-month payment behavior bar chart, credit score trend line.</p></div>
+      </div>
+      <div class="feat-more"><button onclick="toggleExtra(this)">Show 8 more features</button></div>
+      <div class="feat-extra">
+        <div class="feat-item"><h4><span class="fi"></span> Applications Tab</h4><p>Expandable cards for every application: reference, date, amount, status, and full decision history.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Loans Tab</h4><p>Active and closed loans with payment schedules, HP agreement and contract downloads, and collection links.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Payments Tab</h4><p>Payment trend chart, payment method pie chart, and full payment history table.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Communications Tab</h4><p>Start new conversations (web chat or WhatsApp). Inline chat panel. Application messages and internal notes.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Documents Tab</h4><p>HP agreements, contracts, and uploaded documents with type, size, status, download, and delete controls.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Bureau Alerts Tab</h4><p>New/critical alert counts, severity badges, action buttons (acknowledge, dismiss, retention offers, freeze).</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Quick Stats</h4><p>Lifetime value, active products, worst DPD, on-time payment rate, relationship length, and last contact date.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Contact Editing</h4><p>Inline editing of phone, WhatsApp, email, and employer phone directly from the 360 view.</p></div>
+      </div>
+    </div>
+
+    <!-- CONSUMER PORTAL -->
+    <div class="tab-panel" id="t-consumer">
+      <div class="tab-header">
+        <h3>Consumer Portal</h3>
+        <p>A full self-service portal for borrowers. Apply for loans, track status, view payment schedules, make payments, upload documents, chat with support, and manage their profile.</p>
+      </div>
+      <div class="feat-grid">
+        <div class="feat-item"><h4><span class="fi"></span> Multi-Step Application</h4><p>Guided 8-step flow: ID scan, personal info, employment, references, shopping, plan selection, review, documents, and contract signing.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Application Status</h4><p>Visual progress tracker (Submitted, Under Review, Credit Check, Decision) with real-time status updates.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> My Loans Dashboard</h4><p>Active loans with balances, next payments, progress bars, payment calendars, and overdue alerts with DPD breakdown.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Online Payments</h4><p>Pay directly from the portal. Amount input, payment confirmation, and success/error handling.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Chat Support</h4><p>Real-time chat with support agents and automated assistant for loan inquiries and service requests.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Notifications Center</h4><p>Application messages, collection messages (WhatsApp), status change alerts, and payment reminders in one feed.</p></div>
+      </div>
+      <div class="feat-more"><button onclick="toggleExtra(this)">Show 6 more features</button></div>
+      <div class="feat-extra">
+        <div class="feat-item"><h4><span class="fi"></span> Document Upload</h4><p>Upload additional documents by type (payslip, bank statement, job letter, ID, utility bill). Preview and delete.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Profile Management</h4><p>Edit personal details, ID, address, employment sector, occupation, income, and years employed.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Counterproposal Handling</h4><p>View and respond to lender counterproposals. Side-by-side comparison of original vs. proposed terms.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Contract Signing</h4><p>HP agreement text display, canvas signature pad, typed name, and "I agree" confirmation.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Payment Plan Requests</h4><p>Request a payment plan when in arrears. Submit request with explanation directly from loan view.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Dispute Filing</h4><p>Raise disputes with category selection and description. Track dispute status from the loan view.</p></div>
+      </div>
+    </div>
+
+    <!-- PRE-APPROVAL -->
+    <div class="tab-panel" id="t-preapproval">
+      <div class="tab-header">
+        <h3>In-Store Pre-Approval</h3>
+        <p>Instant eligibility checks at the point of sale. Customers snap a price tag, enter basic details, and get a financing decision in under 60 seconds. No branch visit needed.</p>
+      </div>
+      <div class="feat-grid">
+        <div class="feat-item"><h4><span class="fi"></span> Price Tag Scanning</h4><p>Photo-based price extraction supporting TTD, JMD, BBD, GYD, and USD currencies. Manual entry fallback.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Instant Eligibility</h4><p>Pre-approval decision (approved, conditional, referred, declined) based on income, DTI, NDI, age, and credit pull.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> OTP Verification</h4><p>Phone-based OTP verification before processing. Expiry management for security.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Soft Credit Pull</h4><p>Bureau inquiry that doesn't impact the applicant's credit score. Data cached for conversion.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Conditional Approval</h4><p>If full amount doesn't qualify, system suggests a lower amount that would be approved.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Document Checklist</h4><p>Auto-generated list of required documents by employment type with explanations of what's needed and why.</p></div>
+      </div>
+      <div class="feat-more"><button onclick="toggleExtra(this)">Show 6 more features</button></div>
+      <div class="feat-extra">
+        <div class="feat-item"><h4><span class="fi"></span> Velocity Checking</h4><p>Maximum 3 checks per 30 days per applicant to prevent abuse.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Merchant Matching</h4><p>Merchant and category validation against approved partner list.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Reference Code</h4><p>Unique code generated for each check. Borrowers can look up status later by code + phone.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Conversion to Application</h4><p>One-click conversion of approved pre-approvals into full loan applications with pre-filled data.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Admin Dashboard</h4><p>Analytics: daily volume, conversion rates, merchant breakdown, category breakdown, and referred case management.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Expiry Management</h4><p>Pre-approvals expire after 30 days. Status check shows expired with option to recheck eligibility.</p></div>
+      </div>
+    </div>
+
+    <!-- WHATSAPP & CHAT -->
+    <div class="tab-panel" id="t-whatsapp">
+      <div class="tab-header">
+        <h3>WhatsApp &amp; Conversations</h3>
+        <p>Multi-channel customer communication with Twilio-powered WhatsApp, web chat, and an AI-powered conversation engine that classifies intents and guides users through structured flows.</p>
+      </div>
+      <div class="feat-grid">
+        <div class="feat-item"><h4><span class="fi"></span> WhatsApp Chatbot</h4><p>Automated responses for loan inquiries, application status, payment questions, FAQs, and product information.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Intent Classification</h4><p>Automatic detection: new loan, top-up, pre-qualification, rate inquiry, status check, servicing, complaint, general info.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Conversation State Machine</h4><p>18 states from INITIATED through APPLICATION_IN_PROGRESS to DISBURSED. Full lifecycle tracking.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Application from Chat</h4><p>Start and complete loan applications entirely through WhatsApp with guided data collection flows.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> AI-Powered Escalation</h4><p>Automatic escalation to human agents for complex cases. Agent assignment and conversation transfer.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Conversation Queue</h4><p>Staff-facing queue with active, escalated, and all conversation filters. Agent reply interface.</p></div>
+      </div>
+      <div class="feat-more"><button onclick="toggleExtra(this)">Show 6 more features</button></div>
+      <div class="feat-extra">
+        <div class="feat-item"><h4><span class="fi"></span> Multiple Entry Points</h4><p>Cold start, pre-qualified, returning applicant, existing customer, and servicing entry contexts.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Credit Check Consent</h4><p>Explicit consent flow within chat before any credit bureau inquiry is triggered.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Information Boundaries</h4><p>Consumer-facing info (balances, payments, arrears) shared. Internal data (scores, risk, logic) protected.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Twilio Verification</h4><p>Webhook signature verification for secure inbound message processing.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Message Routing</h4><p>Inbound messages routed to conversations or collections based on sender context and active cases.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Conversation Linking</h4><p>Conversations linked to loan applications. Linked application summary visible in the conversation view.</p></div>
+      </div>
+    </div>
+
+    <!-- GENERAL LEDGER -->
+    <div class="tab-panel" id="t-gl">
+      <div class="tab-header">
+        <h3>General Ledger</h3>
+        <p>A complete double-entry accounting system with automated loan event mapping, period management, financial statements, anomaly detection, natural language queries, and a custom report builder.</p>
+      </div>
+      <div class="feat-grid">
+        <div class="feat-item"><h4><span class="fi"></span> Chart of Accounts</h4><p>Hierarchical tree: assets, liabilities, equity, revenue, expenses. Header, detail, and total account types. Freeze and close controls.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Journal Entries</h4><p>Full lifecycle: draft, submit, approve, post, reverse. Double-entry validation, multi-line entries, and narrative support.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> GL Mapping Templates</h4><p>Automated journal entries triggered by loan events (disbursement, payment, fee, write-off). Dry-run preview before activation.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Financial Statements</h4><p>Balance sheet, income statement, and trial balance. Depth-level filtering. Balanced/unbalanced indicator.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Accounting Periods</h4><p>Create fiscal years with 12 monthly periods. Period operations: close, soft-close, lock, reopen. Year-end close automation.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Account Ledger</h4><p>T-account view per account with date range filters, running balance, opening and closing balance cards.</p></div>
+      </div>
+      <div class="feat-more"><button onclick="toggleExtra(this)">Show 10 more features</button></div>
+      <div class="feat-extra">
+        <div class="feat-item"><h4><span class="fi"></span> GL Chat</h4><p>Ask accounting questions in plain English: "What was total interest income last month?" Returns formatted numbers, tables, or suggestions.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Anomaly Dashboard</h4><p>Flagged entries with risk scores. Types: amount outliers, unusual patterns, velocity spikes, balance direction changes.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Report Builder</h4><p>Custom reports: select accounts, metrics (debit, credit, net, count), grouping, and time period. Save as templates.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Multi-Format Export</h4><p>CSV, Excel, PDF, JSON, and XML export for journal entries, trial balance, and custom reports.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Transaction Classifier</h4><p>Suggests GL accounts based on transaction descriptions for faster manual entry creation.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Predictive Analytics</h4><p>Cash flow forecasting, revenue forecasting, and account balance projections based on historical data.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Reconciliation</h4><p>Stale suspense item detection, auto-matching entries, and control account reconciliation tools.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Batch Processing</h4><p>Interest accrual, loan loss provisioning, and fee assessment batches with status tracking.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> GL Backfill</h4><p>Historical disbursement and payment entry generation for existing loans added to the GL.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Structured Search</h4><p>Operator syntax: amount:>50000, account:2100*, status:posted. Saved filter presets.</p></div>
+      </div>
+    </div>
+
+    <!-- SECTOR ANALYSIS -->
+    <div class="tab-panel" id="t-sector">
+      <div class="tab-header">
+        <h3>Sector Analysis</h3>
+        <p>Monitor portfolio concentration risk across industry sectors. Set exposure limits, track risk trends, run stress tests, and receive automated alerts when thresholds are breached.</p>
+      </div>
+      <div class="feat-grid">
+        <div class="feat-item"><h4><span class="fi"></span> Concentration Dashboard</h4><p>Donut and bar chart views of portfolio distribution. Top/bottom 5 sectors. Breached caps and watchlist counts.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Sector Detail</h4><p>Deep-dive: outstanding, active loans, average size, exposure with cap info, delinquency rate, NPL ratio.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Risk Heatmap</h4><p>Color-coded table: sector, exposure %, loan count, delinquency rate, NPL ratio, risk badge, concentration status.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Sector Policies</h4><p>Configurable exposure caps, max loan amounts, min credit scores, max terms, collateral/guarantor requirements per sector.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Stress Testing</h4><p>What-if scenario builder: apply default rate multipliers and exposure changes. Pre-built templates (hurricane, commodity crash, pandemic).</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Alert Rules</h4><p>Custom alert rules by metric (delinquency, NPL, exposure), operator, threshold, and severity. Automated evaluation.</p></div>
+      </div>
+      <div class="feat-more"><button onclick="toggleExtra(this)">Show 4 more features</button></div>
+      <div class="feat-extra">
+        <div class="feat-item"><h4><span class="fi"></span> Roll-Rate Analysis</h4><p>Transition rates between DPD buckets (current to 30, 30 to 60, 60 to 90+) per sector.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Origination Pause</h4><p>Pause new lending to a sector with reason and date tracking. Enforced during underwriting.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Watchlist</h4><p>Flag sectors for monitoring with configurable review frequency. Visible across dashboards.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Historical Trends</h4><p>Area charts tracking delinquency rate, NPL ratio, and loan count over time per sector.</p></div>
+      </div>
+    </div>
+
+    <!-- REPORTING -->
+    <div class="tab-panel" id="t-reporting">
+      <div class="tab-header">
+        <h3>Reporting &amp; Analytics</h3>
+        <p>Real-time KPI dashboards, 10+ standard report types, portfolio P&amp;L tracking, and exportable data across every module. Every list and dashboard supports CSV export.</p>
+      </div>
+      <div class="feat-grid">
+        <div class="feat-item"><h4><span class="fi"></span> Underwriter Dashboard</h4><p>Live P&amp;L (interest earned, expected losses, net). KPIs: total applications, pending, approval rate, avg amount, avg processing days.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Portfolio Arrears</h4><p>Aged bucket breakdown: 1-30, 31-60, 61-90, 90+ DPD with visual bars and amounts. Clickable to filter loans.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Standard Reports</h4><p>Aged Report, Exposure, Interest &amp; Fees, Loan Statement, Portfolio Summary, Loan Book, Decision Audit, Underwriter Performance, Collection Report, Disbursement Report.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Loan Book</h4><p>Searchable, sortable table of all disbursed loans. Filter by risk band or arrears. Expandable payment calendars and transaction histories.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Dashboard Charts</h4><p>Monthly volume area chart, risk distribution pie chart, daily application volume bars, applications by status breakdown.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Report History</h4><p>Previously generated reports stored with parameters. Re-download any historical report.</p></div>
+      </div>
+      <div class="feat-more"><button onclick="toggleExtra(this)">Show 4 more features</button></div>
+      <div class="feat-extra">
+        <div class="feat-item"><h4><span class="fi"></span> Projected Financials</h4><p>Projected interest income, total principal disbursed, projected profit, and expected default loss calculations.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Collection Analytics</h4><p>Collections dashboard: delinquent accounts, overdue totals, cure rate, PTP kept rate, avg collection days, recovered MTD.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Queue Analytics</h4><p>Throughput charts, pipeline funnel, team performance leaderboard, and process insight cards.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> CSV &amp; PDF Export</h4><p>Export any report to CSV. Download HP agreements and contracts as PDF/DOCX. Loan book export.</p></div>
+      </div>
+    </div>
+
+    <!-- USERS & SECURITY -->
+    <div class="tab-panel" id="t-users">
+      <div class="tab-header">
+        <h3>Users &amp; Security</h3>
+        <p>Enterprise-grade user management with role-based access control, multi-factor authentication, session tracking, anomaly detection, and maker-checker workflows for sensitive operations.</p>
+      </div>
+      <div class="feat-grid">
+        <div class="feat-item"><h4><span class="fi"></span> Role-Based Access</h4><p>10 system roles, 54 granular permissions across 13 modules. Scope levels: all, own, team. Role hierarchy with inheritance.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Multi-Factor Auth</h4><p>TOTP-based MFA via Google Authenticator, Authy, or any authenticator app. QR code setup, confirmation flow.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Session Management</h4><p>JWT tokens with unique JTI. Device and IP tracking. Active session listing. Individual and bulk revocation.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Account Lockout</h4><p>Automatic lockout after 5 failed login attempts. 30-minute cooldown. Admin unlock capability.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Maker-Checker</h4><p>Sensitive operations (role changes, user deactivation) require approval from a second administrator.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Login Anomaly Detection</h4><p>Heuristics for new IP/device, brute force, unusual login times, rapid IP switching, and impossible travel.</p></div>
+      </div>
+      <div class="feat-more"><button onclick="toggleExtra(this)">Show 6 more features</button></div>
+      <div class="feat-extra">
+        <div class="feat-item"><h4><span class="fi"></span> User CRUD</h4><p>Create, search, filter, suspend, reactivate, deactivate, unlock, and delete users. Status cards with counts.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Role Editor</h4><p>Create custom roles. Permission search and module-level select-all. System role protection prevents deletion.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Profile Fields</h4><p>Employee ID, department, job title, timezone, language, phone, display name, and profile photo support.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Password Management</h4><p>Admin password reset with must-change flag. Password strength validation. Forced change on next login.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Separation of Duties</h4><p>SoD checks prevent self-assignment of conflicting roles. Enforced at the workflow level.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Role Recommendations</h4><p>AI-powered role suggestions based on department and job title using keyword matching.</p></div>
+      </div>
+    </div>
+
+    <!-- DOCUMENT PROCESSING -->
+    <div class="tab-panel" id="t-docs">
+      <div class="tab-header">
+        <h3>Document Processing</h3>
+        <p>Automated document handling covering ID parsing, bank statement analysis, price tag extraction, and contract generation. Reduces manual data entry and speeds up underwriting.</p>
+      </div>
+      <div class="feat-grid">
+        <div class="feat-item"><h4><span class="fi"></span> ID Parsing (OCR)</h4><p>Scan front and back of national IDs. Extracts name, DOB, ID number, address, gender. Multi-language, multi-country support.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Bank Statement Analysis</h4><p>Parse PDF, CSV, and image bank statements. Categorized inflows/outflows, income stability, volatility scoring.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Price Tag Parsing</h4><p>Extract item price from photos. Multi-currency: TTD, JMD, BBD, GYD, USD.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Contract Generation</h4><p>DOCX template processing with placeholder replacement. Items table, financial summary, and signature image embedding.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Risk Flags</h4><p>Bank statement flags: gambling transactions, cash squeeze, high withdrawals, irregular income, bounced payments, declining balance.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Document Types</h4><p>Payslips, bank statements, job letters, national IDs, utility bills, and custom document types with status tracking.</p></div>
+      </div>
+    </div>
+
+    <!-- AUDIT & COMPLIANCE -->
+    <div class="tab-panel" id="t-audit">
+      <div class="tab-header">
+        <h3>Audit &amp; Compliance</h3>
+        <p>Comprehensive audit trails, error monitoring, and compliance tools ensuring every action is logged, every error is tracked, and regulatory requirements are met.</p>
+      </div>
+      <div class="feat-grid">
+        <div class="feat-item"><h4><span class="fi"></span> Global Audit Trail</h4><p>Every create, update, delete, and action logged with entity, user, IP address, old/new values, and timestamp.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Error Monitoring</h4><p>Real-time dashboard: error counts by severity, unresolved count, top error types, top failing endpoints, hourly trends.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Error Resolution</h4><p>Mark errors resolved/unresolved with notes. Bulk resolve. Full request context: body, traceback, user, response time.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Decision Audit Trail</h4><p>Every underwriting decision logged with engine version, score breakdown, rule results, and final outcome.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Scorecard Change Log</h4><p>Edits to bins, weights, thresholds, and cutoffs tracked with user, timestamp, and justification.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Rules Version History</h4><p>Business rule changes logged: old/new values, change type (added/modified/removed), user, and justification.</p></div>
+      </div>
+      <div class="feat-more"><button onclick="toggleExtra(this)">Show 4 more features</button></div>
+      <div class="feat-extra">
+        <div class="feat-item"><h4><span class="fi"></span> Compliance Engine</h4><p>Contact frequency caps, cooling-off periods, time-of-day rules, and channel permissions enforced across collections.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> GL Audit</h4><p>Account audit trails, journal entry approval workflows, and period-close automation with readiness checklists.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Login Audit</h4><p>Login attempt history with success/failure, IP, device, timestamp, and anomaly detection flags.</p></div>
+        <div class="feat-item"><h4><span class="fi"></span> Sector Compliance</h4><p>Exposure cap enforcement during underwriting. Policy approval workflows. Origination pause controls.</p></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how-it-works">
+  <div class="container">
+    <div class="section-header center">
+      <div class="section-label">Getting Started</div>
+      <h2 class="section-title">Up and Running in Days, Not Months</h2>
+      <p class="section-desc">Zotta is designed for rapid deployment with minimal configuration.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-number">1</div>
+        <h3>Configure</h3>
+        <p>Set up your credit products, scorecards, business rules, and compliance policies through the intuitive back office.</p>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <h3>Integrate</h3>
+        <p>Connect your credit bureau, WhatsApp Business, and payment channels. API-first architecture makes integration seamless.</p>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <h3>Launch</h3>
+        <p>Go live with AI-first lending. Your team gets better recommendations from day one, improving with every interaction.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section id="contact" class="contact-section">
+  <div class="container">
+    <div class="contact-grid">
+      <div>
+        <div class="section-label">Contact Us</div>
+        <h2 class="section-title">Ready to Transform Your Lending?</h2>
+        <p class="section-desc" style="margin-bottom:32px">Get in touch to schedule a demo or learn how Zotta LMS can modernize your lending operations.</p>
+        <div style="display:flex;flex-direction:column;gap:16px;color:var(--text-muted);font-size:.9375rem">
+          <div>&#127760; zotta-lms.com</div>
+        </div>
+      </div>
+      <div>
+        <form id="contactForm" class="contact-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="name">Full Name</label>
+              <input type="text" id="name" name="name" required placeholder="John Smith">
+            </div>
+            <div class="form-group">
+              <label for="email">Email Address</label>
+              <input type="email" id="email" name="email" required placeholder="john@company.com">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="company">Company</label>
+            <input type="text" id="company" name="company" placeholder="Your company name">
+          </div>
+          <div class="form-group">
+            <label for="message">Message</label>
+            <textarea id="message" name="message" required placeholder="Tell us about your lending operations and what you're looking for..."></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary" id="submitBtn" style="justify-content:center">Send Message</button>
+        </form>
+        <div id="formSuccess" class="form-success">
+          <div class="checkmark">&#10003;</div>
+          <p>Thank you! We'll be in touch shortly.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AI CHAT WIDGET -->
+<button class="chat-fab" id="chatFab" aria-label="Chat with AI assistant">
+  <svg class="chat-open" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.2L4 17.2V4h16v12z"/><path d="M7 9h10v2H7zm0-3h10v2H7z"/></svg>
+  <svg class="chat-close" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+</button>
+<div class="chat-panel" id="chatPanel">
+  <div class="chat-head">
+    <div class="chat-head-dot"></div>
+    <div>
+      <div class="chat-head-title">Zotta LMS Assistant</div>
+      <div class="chat-head-sub">Ask about our lending platform</div>
+    </div>
+  </div>
+  <div class="chat-body" id="chatBody">
+    <div class="chat-msg bot">Hi! I'm the Zotta LMS assistant. Ask me anything about our AI-first loan management platform — features, capabilities, or how we can solve your lending challenges.</div>
+  </div>
+  <div class="chat-quick" id="chatQuick">
+    <button data-msg="How does automated underwriting work in Zotta?">Automated underwriting</button>
+    <button data-msg="What credit scoring and champion-challenger capabilities are available?">Credit scoring</button>
+    <button data-msg="How does Zotta help with collections and delinquency management?">Collections &amp; recovery</button>
+    <button data-msg="Can Zotta replace our legacy lending system? What modules does it cover?">Replace legacy system</button>
+    <button data-msg="How does the decision tree strategy assignment work for different borrower segments?">Decision tree strategies</button>
+  </div>
+  <div class="chat-input">
+    <textarea id="chatInput" rows="1" placeholder="Ask about Zotta LMS..." maxlength="500"></textarea>
+    <button id="chatSend" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+  </div>
+</div>
+
+<footer>
+  <div class="container">
+    <div class="footer-content">
+      <div class="copyright">&copy; 2026 Zotta LMS. All rights reserved.</div>
+      <div class="footer-links">
+        <a href="#benefits">Benefits</a>
+        <a href="#features">Features</a>
+        <a href="#contact">Contact</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* === TABS === */
+document.querySelectorAll('.tab-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).classList.add('active');
+  });
+});
+
+function toggleExtra(btn) {
+  var extra = btn.parentElement.nextElementSibling;
+  if (extra.classList.contains('open')) {
+    extra.classList.remove('open');
+    btn.textContent = btn.textContent.replace('Show fewer', 'Show ' + extra.children.length + ' more features');
+  } else {
+    extra.classList.add('open');
+    btn.textContent = 'Show fewer';
+  }
+}
+
+/* === HAMBURGER MENU === */
+(function() {
+  var hb = document.getElementById('hamburgerBtn');
+  var mm = document.getElementById('mobileMenu');
+  if (!hb || !mm) return;
+  hb.addEventListener('click', function() { mm.classList.toggle('open'); });
+  mm.querySelectorAll('a').forEach(function(a) {
+    a.addEventListener('click', function() { mm.classList.remove('open'); });
+  });
+})();
+
+/* === MOBILE CAROUSEL DOTS === */
+(function() {
+  if (window.innerWidth > 768) return;
+  ['.benefits-grid', '.cap-grid'].forEach(function(sel) {
+    var grid = document.querySelector(sel);
+    if (!grid) return;
+    var items = grid.children;
+    if (items.length < 2) return;
+    var dotsWrap = document.createElement('div');
+    dotsWrap.className = 'carousel-scroll';
+    for (var i = 0; i < items.length; i++) {
+      var d = document.createElement('span');
+      d.className = 'dot' + (i === 0 ? ' active' : '');
+      dotsWrap.appendChild(d);
+    }
+    grid.parentNode.insertBefore(dotsWrap, grid.nextSibling);
+    var dots = dotsWrap.querySelectorAll('.dot');
+    grid.addEventListener('scroll', function() {
+      var scrollLeft = grid.scrollLeft;
+      var itemW = items[0].offsetWidth + 16;
+      var idx = Math.round(scrollLeft / itemW);
+      dots.forEach(function(d, j) { d.classList.toggle('active', j === idx); });
+    }, {passive: true});
+  });
+})();
+
+/* === CONTACT FORM === */
+var API_URL = '/api/contact';
+document.getElementById('contactForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  var btn = document.getElementById('submitBtn');
+  var form = this;
+  var successDiv = document.getElementById('formSuccess');
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+  var data = {
+    name: document.getElementById('name').value,
+    email: document.getElementById('email').value,
+    company: document.getElementById('company').value,
+    message: document.getElementById('message').value
+  };
+  try {
+    var res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Failed');
+    form.style.display = 'none';
+    successDiv.classList.add('show');
+  } catch (err) {
+    alert('Something went wrong. Please try again later.');
+    btn.disabled = false;
+    btn.textContent = 'Send Message';
+  }
+});
+
+/* === AI CHAT WIDGET === */
+(function() {
+  var fab = document.getElementById('chatFab');
+  var panel = document.getElementById('chatPanel');
+  var body = document.getElementById('chatBody');
+  var input = document.getElementById('chatInput');
+  var sendBtn = document.getElementById('chatSend');
+  var quickWrap = document.getElementById('chatQuick');
+  var history = [];
+
+  fab.addEventListener('click', function() {
+    var open = panel.classList.toggle('open');
+    fab.classList.toggle('active', open);
+    if (open) input.focus();
+  });
+
+  input.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 80) + 'px';
+  });
+
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+
+  sendBtn.addEventListener('click', send);
+
+  quickWrap.querySelectorAll('button').forEach(function(b) {
+    b.addEventListener('click', function() {
+      var msg = b.getAttribute('data-msg');
+      if (msg) { input.value = msg; send(); }
+    });
+  });
+
+  function addMsg(text, role) {
+    var div = document.createElement('div');
+    div.className = 'chat-msg ' + role;
+    div.textContent = text;
+    body.appendChild(div);
+    body.scrollTop = body.scrollHeight;
+    return div;
+  }
+
+  function send() {
+    var msg = input.value.trim();
+    if (!msg || sendBtn.disabled) return;
+    addMsg(msg, 'user');
+    history.push({role: 'user', content: msg});
+    input.value = '';
+    input.style.height = 'auto';
+    sendBtn.disabled = true;
+    if (quickWrap.style.display !== 'none') quickWrap.style.display = 'none';
+
+    var typing = addMsg('Thinking...', 'bot typing');
+
+    fetch('/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({message: msg, history: history.slice(-10)})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      body.removeChild(typing);
+      var reply = data.reply || 'Sorry, I could not process that. Please try again.';
+      addMsg(reply, 'bot');
+      history.push({role: 'assistant', content: reply});
+    })
+    .catch(function() {
+      body.removeChild(typing);
+      addMsg('Something went wrong. Please try again, or use the contact form below to reach our team.', 'bot');
+    })
+    .finally(function() { sendBtn.disabled = false; input.focus(); });
+  }
+})();
+</script>
+
+</body>
+</html>
