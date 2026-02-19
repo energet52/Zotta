@@ -181,29 +181,21 @@ footer{padding:48px 0;border-top:1px solid var(--border)}
 .decisioning-divider::before,.decisioning-divider::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(139,92,246,.3),transparent)}
 .decisioning-divider span{color:var(--accent-light);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;white-space:nowrap}
 
-/* AI CHAT WIDGET */
-.chat-fab{position:fixed;bottom:24px;right:24px;z-index:200;width:56px;height:56px;border-radius:50%;background:var(--accent);border:none;cursor:pointer;box-shadow:0 4px 24px rgba(109,40,217,.4);display:flex;align-items:center;justify-content:center;transition:all .2s;color:#fff}
-.chat-fab:hover{background:var(--accent-light);transform:scale(1.05)}
-.chat-fab svg{width:26px;height:26px;fill:currentColor}
-.chat-fab .chat-close{display:none}
-.chat-fab.active .chat-open{display:none}
-.chat-fab.active .chat-close{display:block}
-.chat-panel{position:fixed;bottom:92px;right:24px;z-index:199;width:380px;max-height:520px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 20px 60px rgba(0,0,0,.5);display:none;flex-direction:column;overflow:hidden}
-.chat-panel.open{display:flex}
-.chat-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
-.chat-head-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0}
-.chat-head-title{font-size:.875rem;font-weight:700}
-.chat-head-sub{font-size:.75rem;color:var(--text-dim)}
-.chat-body{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:12px;min-height:200px;max-height:320px}
-.chat-msg{max-width:85%;padding:10px 14px;border-radius:12px;font-size:.8125rem;line-height:1.5;word-break:break-word}
+/* HERO CHAT */
+.hero-chat{max-width:640px;margin:48px auto 0;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;position:relative;z-index:1;box-shadow:0 8px 40px rgba(0,0,0,.3)}
+.chat-head{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.chat-head-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;animation:pulse 2s infinite}
+.chat-head-title{font-size:.8125rem;font-weight:600;color:var(--text-muted)}
+.chat-body{overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:12px;min-height:60px;max-height:280px}
+.chat-msg{max-width:85%;padding:10px 14px;border-radius:12px;font-size:.875rem;line-height:1.5;word-break:break-word}
 .chat-msg.bot{background:var(--bg);border:1px solid var(--border);align-self:flex-start;border-bottom-left-radius:4px}
 .chat-msg.user{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
 .chat-msg.typing{color:var(--text-dim);font-style:italic}
-.chat-quick{display:flex;flex-wrap:wrap;gap:6px;padding:0 20px 12px}
-.chat-quick button{background:transparent;border:1px solid var(--border);border-radius:999px;color:var(--text-muted);font-family:inherit;font-size:.75rem;padding:6px 14px;cursor:pointer;transition:all .2s;text-align:left;line-height:1.3}
-.chat-quick button:hover{border-color:var(--accent-light);color:var(--accent-light)}
+.chat-quick{display:flex;flex-wrap:wrap;gap:6px;padding:4px 20px 14px;justify-content:center}
+.chat-quick button{background:transparent;border:1px solid var(--border);border-radius:999px;color:var(--text-muted);font-family:inherit;font-size:.8125rem;padding:8px 16px;cursor:pointer;transition:all .2s;text-align:left;line-height:1.3}
+.chat-quick button:hover{border-color:var(--accent-light);color:var(--accent-light);background:var(--accent-glow)}
 .chat-input{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);align-items:flex-end}
-.chat-input textarea{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:inherit;font-size:.8125rem;padding:10px 14px;resize:none;min-height:40px;max-height:80px;line-height:1.4}
+.chat-input textarea{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:inherit;font-size:.875rem;padding:10px 14px;resize:none;min-height:42px;max-height:80px;line-height:1.4}
 .chat-input textarea:focus{outline:none;border-color:var(--accent-light)}
 .chat-input button{background:var(--accent);border:none;border-radius:var(--radius-sm);color:#fff;cursor:pointer;padding:10px 14px;transition:background .2s;flex-shrink:0}
 .chat-input button:hover{background:var(--accent-light)}
@@ -244,9 +236,9 @@ footer{padding:48px 0;border-top:1px solid var(--border)}
   .feature-text h3{font-size:1.375rem}
   .feat-grid,.feat-extra.open{grid-template-columns:1fr}
   .tab-nav{justify-content:flex-start;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;padding-bottom:8px}
-  .chat-panel{right:0;left:0;bottom:0;top:0;width:100%;max-height:100%;border-radius:0;border:none}
-  .chat-fab{bottom:16px;right:16px;width:52px;height:52px}
-  .chat-body{max-height:none;flex:1}
+  .hero-chat{margin:32px auto 0}
+  .chat-quick button{font-size:.75rem;padding:6px 12px}
+  .chat-body{max-height:240px}
   .carousel-scroll{display:flex;gap:8px;justify-content:center;padding:12px 0}
   .carousel-scroll .dot{width:8px;height:8px;border-radius:50%;background:var(--border);transition:background .2s}
   .carousel-scroll .dot.active{background:var(--accent-light)}
@@ -290,6 +282,28 @@ footer{padding:48px 0;border-top:1px solid var(--border)}
       <a href="#contact" class="btn btn-primary">Request a Demo</a>
       <a href="#features" class="btn btn-outline">Explore Features</a>
     </div>
+
+    <div class="hero-chat" id="chatPanel">
+      <div class="chat-head">
+        <div class="chat-head-dot"></div>
+        <div class="chat-head-title">Ask our AI assistant anything about loan management</div>
+      </div>
+      <div class="chat-body" id="chatBody">
+        <div class="chat-msg bot">Hi! Tell me about your current lending setup or any challenges you're facing — I'll show you exactly how Zotta can help.</div>
+      </div>
+      <div class="chat-quick" id="chatQuick">
+        <button data-msg="We're still using spreadsheets and manual processes for lending. What would change if we switched to Zotta?">We're still managing loans manually — where do we start?</button>
+        <button data-msg="We have a basic LOS but it can't handle collections, scoring, or accounting. Can Zotta replace everything in one system?">Can one system replace our patchwork of tools?</button>
+        <button data-msg="How does Zotta automate underwriting decisions? We want to reduce manual review time without increasing risk.">How can we speed up underwriting without adding risk?</button>
+        <button data-msg="Our collections team is overwhelmed and we have no strategy beyond calling everyone. How does Zotta help prioritize and automate collections?">How do we get better at collecting overdue loans?</button>
+        <button data-msg="We want to use credit scoring but don't know how to build and maintain scorecards. What does Zotta offer?">How do we start with credit scoring if we've never done it?</button>
+      </div>
+      <div class="chat-input">
+        <textarea id="chatInput" rows="1" placeholder="Describe your challenge or ask a question..." maxlength="500"></textarea>
+        <button id="chatSend" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+      </div>
+    </div>
+
     <div class="stats">
       <div class="stat"><div class="stat-value purple">14+</div><div class="stat-label">Core Modules</div></div>
       <div class="stat"><div class="stat-value green">AI</div><div class="stat-label">Powered Automation</div></div>
@@ -1093,35 +1107,6 @@ footer{padding:48px 0;border-top:1px solid var(--border)}
   </div>
 </section>
 
-<!-- AI CHAT WIDGET -->
-<button class="chat-fab" id="chatFab" aria-label="Chat with AI assistant">
-  <svg class="chat-open" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.2L4 17.2V4h16v12z"/><path d="M7 9h10v2H7zm0-3h10v2H7z"/></svg>
-  <svg class="chat-close" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-</button>
-<div class="chat-panel" id="chatPanel">
-  <div class="chat-head">
-    <div class="chat-head-dot"></div>
-    <div>
-      <div class="chat-head-title">Zotta LMS Assistant</div>
-      <div class="chat-head-sub">Ask about our lending platform</div>
-    </div>
-  </div>
-  <div class="chat-body" id="chatBody">
-    <div class="chat-msg bot">Hi! I'm the Zotta LMS assistant. Ask me anything about our AI-first loan management platform — features, capabilities, or how we can solve your lending challenges.</div>
-  </div>
-  <div class="chat-quick" id="chatQuick">
-    <button data-msg="How does automated underwriting work in Zotta?">Automated underwriting</button>
-    <button data-msg="What credit scoring and champion-challenger capabilities are available?">Credit scoring</button>
-    <button data-msg="How does Zotta help with collections and delinquency management?">Collections &amp; recovery</button>
-    <button data-msg="Can Zotta replace our legacy lending system? What modules does it cover?">Replace legacy system</button>
-    <button data-msg="How does the decision tree strategy assignment work for different borrower segments?">Decision tree strategies</button>
-  </div>
-  <div class="chat-input">
-    <textarea id="chatInput" rows="1" placeholder="Ask about Zotta LMS..." maxlength="500"></textarea>
-    <button id="chatSend" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
-  </div>
-</div>
-
 <footer>
   <div class="container">
     <div class="footer-content">
@@ -1225,21 +1210,13 @@ document.getElementById('contactForm').addEventListener('submit', async function
   }
 });
 
-/* === AI CHAT WIDGET === */
+/* === AI CHAT === */
 (function() {
-  var fab = document.getElementById('chatFab');
-  var panel = document.getElementById('chatPanel');
   var body = document.getElementById('chatBody');
   var input = document.getElementById('chatInput');
   var sendBtn = document.getElementById('chatSend');
   var quickWrap = document.getElementById('chatQuick');
   var history = [];
-
-  fab.addEventListener('click', function() {
-    var open = panel.classList.toggle('open');
-    fab.classList.toggle('active', open);
-    if (open) input.focus();
-  });
 
   input.addEventListener('input', function() {
     this.style.height = 'auto';

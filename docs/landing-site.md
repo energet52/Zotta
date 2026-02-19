@@ -214,7 +214,9 @@ aws sesv2 delete-suppressed-destination \
 2. CloudFront → S3 bucket `zotta-lms-landing` (origin access identity)
 3. S3 returns `index.html` or image asset
 
-### AI chat widget (`POST /api/chat`)
+### AI chat (`POST /api/chat`)
+The AI chat is embedded inline in the hero section (below CTA buttons, always visible). Visitors see it immediately on load with quick-start question templates targeting lenders upgrading from legacy systems or manual processes.
+
 1. Browser sends JSON `{message, history}` to `/api/chat`
 2. CloudFront matches `/api/*` → forwards to API Gateway
 3. API Gateway → invokes Lambda `zotta-landing-chat`
