@@ -412,9 +412,7 @@ export default function ProductDetail() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs text-[var(--color-text-muted)] mb-1">
-                      Strategy <span className="text-red-400">*</span>
-                    </label>
+                    <label className="block text-xs text-[var(--color-text-muted)] mb-1">Strategy</label>
                     <select
                       value={product.default_strategy_id ?? ''}
                       onChange={e => {
@@ -426,19 +424,17 @@ export default function ProductDetail() {
                           decision_tree_id: strat?.decision_tree_id || null,
                         }));
                       }}
-                      className={`w-full px-3 py-2 bg-[var(--color-bg)] border rounded-lg ${
-                        !product.default_strategy_id ? 'border-red-500/50' : 'border-[var(--color-border)]'
-                      }`}
+                      className="w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg"
                     >
-                      <option value="">Select strategy...</option>
+                      <option value="">No strategy (uses fallback)</option>
                       {strategies.filter(s => s.status !== 'archived').map(s => (
                         <option key={s.id} value={s.id}>
-                          {s.name} ({s.status})
+                          {s.name}{s.status !== 'active' ? ` (${s.status})` : ''}
                         </option>
                       ))}
                     </select>
                     {!product.default_strategy_id && (
-                      <p className="text-[10px] text-red-400 mt-0.5">Required — defines how applications are evaluated</p>
+                      <p className="text-[10px] text-[var(--color-text-secondary)] mt-0.5">Will use the default fallback strategy</p>
                     )}
                   </div>
                   <div>
