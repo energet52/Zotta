@@ -1659,6 +1659,7 @@ class DecisionStrategyResponse(BaseModel):
     parent_version_id: Optional[int] = None
     change_description: Optional[str] = None
     is_emergency_override: bool = False
+    is_fallback: bool = False
     created_at: datetime
     updated_at: datetime
 

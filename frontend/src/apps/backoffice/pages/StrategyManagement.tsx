@@ -104,6 +104,7 @@ interface Strategy {
   created_at: string;
   updated_at: string;
   is_emergency_override: boolean;
+  is_fallback: boolean;
   change_description: string | null;
   parent_version_id: number | null;
   created_by: number | null;
@@ -266,6 +267,25 @@ export default function StrategyManagement() {
     },
   });
 
+  const { data: products = [] } = useQuery({
+    queryKey: ['products-for-strategies'],
+    queryFn: async () => {
+      const res = await api.get('/admin/products');
+      return res.data as { id: number; name: string; default_strategy_id?: number | null; decision_tree_id?: number | null }[];
+    },
+  });
+
+  const fallbackStrategy = strategies.find((s) => s.is_fallback);
+
+  const getLinkedProducts = (s: Strategy) => {
+    const directlyLinked = products.filter((p) => p.default_strategy_id === s.id);
+    if (s.is_fallback) {
+      const unassigned = products.filter((p) => !p.default_strategy_id);
+      return { direct: directlyLinked, defaulted: unassigned };
+    }
+    return { direct: directlyLinked, defaulted: [] };
+  };
+
   const createMutation = useMutation({
     mutationFn: async () => {
       const res = await api.post('/strategies', createForm);
@@ -319,6 +339,8 @@ export default function StrategyManagement() {
       s.name.toLowerCase().includes(search.toLowerCase()) ||
       (s.description || '').toLowerCase().includes(search.toLowerCase()),
   );
+  const customStrategies = filtered.filter((s) => !s.is_fallback);
+  const fallbackStrategies = filtered.filter((s) => s.is_fallback);
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -426,20 +448,31 @@ export default function StrategyManagement() {
             </p>
           </div>
         )}
-        {filtered.map((s) => {
+        {[...customStrategies, ...fallbackStrategies].map((s, idx) => {
           const ModeIcon = modeIcons[s.evaluation_mode] || Shield;
           const isExpanded = editId === s.id;
+          const linked = getLinkedProducts(s);
+          const allLinked = [...linked.direct, ...linked.defaulted];
+          const showFallbackDivider = s.is_fallback && idx === customStrategies.length && customStrategies.length > 0;
           return (
-            <div key={s.id} data-testid={`strategy-row-${s.id}`}>
+            <div key={s.id}>
+            {showFallbackDivider && (
+              <div className="flex items-center gap-3 my-4">
+                <div className="flex-1 border-t" style={{ borderColor: 'var(--color-border)' }} />
+                <span className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">Fallback Strategy</span>
+                <div className="flex-1 border-t" style={{ borderColor: 'var(--color-border)' }} />
+              </div>
+            )}
+            <div data-testid={`strategy-row-${s.id}`}>
               <div
                 className={`flex items-center gap-4 px-4 py-3 rounded-lg border transition-colors cursor-pointer ${
-                  isExpanded ? 'border-blue-500/50 bg-blue-500/5' : 'hover:border-blue-500/30'
+                  isExpanded ? 'border-blue-500/50 bg-blue-500/5' : s.is_fallback ? 'border-dashed hover:border-blue-500/30' : 'hover:border-blue-500/30'
                 }`}
-                style={isExpanded ? {} : { borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}
+                style={isExpanded ? {} : { borderColor: 'var(--color-border)', background: s.is_fallback ? 'var(--color-bg)' : 'var(--color-surface)' }}
                 onClick={() => setEditId(isExpanded ? null : s.id)}
               >
                 <div className="p-2 rounded-lg bg-[var(--color-bg)]">
-                  <ModeIcon size={20} className="text-blue-500" />
+                  <ModeIcon size={20} className={s.is_fallback ? 'text-gray-400' : 'text-blue-500'} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -452,6 +485,11 @@ export default function StrategyManagement() {
                     >
                       {s.status.replace(/_/g, ' ')}
                     </span>
+                    {s.is_fallback && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-500/10 text-gray-400">
+                        fallback
+                      </span>
+                    )}
                     {s.is_emergency_override && (
                       <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-500">
                         emergency
@@ -468,6 +506,17 @@ export default function StrategyManagement() {
                       <span>{s.assessments.length} assessment{s.assessments.length !== 1 ? 's' : ''}</span>
                     )}
                     {s.decision_tree_id && <span>decision tree</span>}
+                    {allLinked.length > 0 && (
+                      <span className="text-emerald-500">
+                        {linked.direct.map((p) => p.name).join(', ')}
+                        {linked.direct.length > 0 && linked.defaulted.length > 0 && ', '}
+                        {linked.defaulted.length > 0 && (
+                          <span className="text-gray-400 italic">
+                            {linked.defaulted.map((p) => p.name).join(', ')} (default)
+                          </span>
+                        )}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -546,6 +595,7 @@ export default function StrategyManagement() {
                   onSaved={() => queryClient.invalidateQueries({ queryKey: ['strategies'] })}
                 />
               )}
+            </div>
             </div>
           );
         })}

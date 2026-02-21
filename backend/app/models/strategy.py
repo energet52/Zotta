@@ -116,6 +116,7 @@ class DecisionStrategy(Base):
     )
     change_description: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_emergency_override: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_fallback: Mapped[bool] = mapped_column(Boolean, default=False)
     emergency_review_deadline: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True,
     )
