@@ -568,14 +568,6 @@ function StrategyEditPanel({
 
   const [name, setName] = useState(strategy.name);
   const [description, setDescription] = useState(strategy.description || '');
-  const [knockOuts, setKnockOuts] = useState<RuleEntry[]>(strategy.knock_out_rules || []);
-  const [overlays, setOverlays] = useState<RuleEntry[]>(strategy.overlay_rules || []);
-  const [scoreCutoffs, setScoreCutoffs] = useState(
-    strategy.score_cutoffs || { approve: 220, refer: 180, decline: 0 },
-  );
-  const [concentrationLimits, setConcentrationLimits] = useState(
-    strategy.concentration_limits || [],
-  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
@@ -588,10 +580,6 @@ function StrategyEditPanel({
       await api.put(`/strategies/${strategy.id}`, {
         name,
         description: description || null,
-        knock_out_rules: knockOuts.length > 0 ? knockOuts : null,
-        overlay_rules: overlays.length > 0 ? overlays : null,
-        score_cutoffs: scoreCutoffs,
-        concentration_limits: concentrationLimits.length > 0 ? concentrationLimits : null,
       });
       setSaved(true);
       onSaved();
@@ -607,34 +595,6 @@ function StrategyEditPanel({
     } finally {
       setSaving(false);
     }
-  };
-
-  const addRule = (list: RuleEntry[], setList: (v: RuleEntry[]) => void) => {
-    setList([...list, { ...EMPTY_RULE, rule_id: `R${Date.now()}` }]);
-  };
-
-  const addAiRule = (rule: RuleEntry, target: 'knockout' | 'overlay') => {
-    if (target === 'knockout') {
-      setKnockOuts((prev) => [...prev, rule]);
-    } else {
-      setOverlays((prev) => [...prev, rule]);
-    }
-  };
-
-  const updateRule = (
-    list: RuleEntry[],
-    setList: (v: RuleEntry[]) => void,
-    idx: number,
-    field: string,
-    value: unknown,
-  ) => {
-    const updated = [...list];
-    (updated[idx] as unknown as Record<string, unknown>)[field] = value;
-    setList(updated);
-  };
-
-  const removeRule = (list: RuleEntry[], setList: (v: RuleEntry[]) => void, idx: number) => {
-    setList(list.filter((_, i) => i !== idx));
   };
 
   return (
@@ -716,135 +676,6 @@ function StrategyEditPanel({
       ) : (
         <NoTreePlaceholder strategyId={strategy.id} onTreeCreated={onSaved} />
       )}
-
-      {/* Score Cutoffs */}
-      <div data-testid="score-cutoffs-section">
-          <h4 className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase mb-2">
-            Score Cutoffs
-          </h4>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="text-xs text-[var(--color-text-secondary)]">Approve above</label>
-              <input
-                type="number"
-                value={scoreCutoffs.approve ?? ''}
-                onChange={(e) => setScoreCutoffs({ ...scoreCutoffs, approve: Number(e.target.value) })}
-                disabled={!isEditable}
-                className="w-full px-3 py-1.5 text-sm rounded border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text)] disabled:opacity-50"
-                data-testid="cutoff-approve"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-[var(--color-text-secondary)]">Refer above</label>
-              <input
-                type="number"
-                value={scoreCutoffs.refer ?? ''}
-                onChange={(e) => setScoreCutoffs({ ...scoreCutoffs, refer: Number(e.target.value) })}
-                disabled={!isEditable}
-                className="w-full px-3 py-1.5 text-sm rounded border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text)] disabled:opacity-50"
-                data-testid="cutoff-refer"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-[var(--color-text-secondary)]">Decline below</label>
-              <input
-                type="number"
-                value={scoreCutoffs.decline ?? ''}
-                onChange={(e) => setScoreCutoffs({ ...scoreCutoffs, decline: Number(e.target.value) })}
-                disabled={!isEditable}
-                className="w-full px-3 py-1.5 text-sm rounded border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text)] disabled:opacity-50"
-                data-testid="cutoff-decline"
-              />
-            </div>
-          </div>
-        </div>
-
-      {/* Knock-Out Rules */}
-      <RuleListEditor
-        title="Knock-Out Rules (Hard Declines)"
-        subtitle="Policy rules that override everything. If any fires, application is declined."
-          rules={knockOuts}
-          addRule={() => addRule(knockOuts, setKnockOuts)}
-          updateRule={(idx, field, val) => updateRule(knockOuts, setKnockOuts, idx, field, val)}
-          removeRule={(idx) => removeRule(knockOuts, setKnockOuts, idx)}
-          editable={isEditable}
-          testIdPrefix="knockout"
-          onAiRuleAdded={(rule) => addAiRule(rule, 'knockout')}
-      />
-
-      {/* Overlay Rules */}
-      <RuleListEditor
-        title="Policy Overlay Rules"
-        subtitle="Applied after score-based decision. Can downgrade approvals or upgrade referrals."
-        rules={overlays}
-        addRule={() => addRule(overlays, setOverlays)}
-        updateRule={(idx, field, val) => updateRule(overlays, setOverlays, idx, field, val)}
-        removeRule={(idx) => removeRule(overlays, setOverlays, idx)}
-        editable={isEditable}
-        testIdPrefix="overlay"
-        onAiRuleAdded={(rule) => addAiRule(rule, 'overlay')}
-      />
-
-      {/* Concentration Limits */}
-      <div data-testid="concentration-section">
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <h4 className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase">
-              Concentration Limits
-            </h4>
-            <p className="text-xs text-[var(--color-text-secondary)]">
-              Portfolio-level exposure caps checked at decision time
-            </p>
-          </div>
-          {isEditable && (
-            <button
-              onClick={() => setConcentrationLimits([...concentrationLimits, { dimension: '', limit: 0 }])}
-              className="flex items-center gap-1 px-2.5 py-1 text-xs rounded border border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-bg)] transition-colors"
-              data-testid="btn-add-concentration"
-            >
-              <Plus size={12} /> Add Limit
-            </button>
-          )}
-        </div>
-        {concentrationLimits.map((cl, i) => (
-          <div key={i} className="flex items-center gap-2 mb-1">
-            <input
-              placeholder="Dimension (e.g. product, merchant)"
-              value={cl.dimension}
-              onChange={(e) => {
-                const updated = [...concentrationLimits];
-                updated[i] = { ...updated[i], dimension: e.target.value };
-                setConcentrationLimits(updated);
-              }}
-              disabled={!isEditable}
-              className="flex-1 px-2 py-1 text-xs rounded border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text)] disabled:opacity-50"
-            />
-            <input
-              type="number"
-              placeholder="Max exposure"
-              value={cl.limit || ''}
-              onChange={(e) => {
-                const updated = [...concentrationLimits];
-                updated[i] = { ...updated[i], limit: Number(e.target.value) };
-                setConcentrationLimits(updated);
-              }}
-              disabled={!isEditable}
-              className="w-32 px-2 py-1 text-xs rounded border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text)] disabled:opacity-50"
-            />
-            {isEditable && (
-              <button
-                onClick={() => setConcentrationLimits(concentrationLimits.filter((_, j) => j !== i))}
-                className="p-1 text-red-400 hover:text-red-500"
-              >
-                <Trash2 size={12} />
-              </button>
-            )}
-          </div>
-        ))}
-        {concentrationLimits.length === 0 && (
-          <p className="text-xs text-[var(--color-text-secondary)] italic">No concentration limits configured</p>
-        )}
-      </div>
 
       {/* Assessments */}
       <AssessmentManager strategyId={strategy.id} assessments={strategy.assessments || []} editable={isEditable} onChanged={onSaved} />

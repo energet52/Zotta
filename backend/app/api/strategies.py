@@ -124,6 +124,26 @@ async def create_strategy(
         )
         db.add(tree)
         await db.flush()
+
+        root_node = DecisionTreeNode(
+            tree_id=tree.id,
+            node_key="all_applications",
+            node_type=NodeType.CONDITION,
+            label="All Applications",
+            condition_type=ConditionType.BINARY,
+            attribute="is_existing_customer",
+            operator="eq",
+            branches={
+                "Existing Customer": {"value": True},
+                "New Customer": {"value": False},
+            },
+            is_root=True,
+            position_x=300,
+            position_y=50,
+        )
+        db.add(root_node)
+        await db.flush()
+
         strategy.decision_tree_id = tree.id
         await db.flush()
     except Exception:
