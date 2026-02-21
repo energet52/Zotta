@@ -920,13 +920,10 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
         const available = branchKeys.filter((k) => !existingLabels.includes(k));
         branchLabel = available[0] || branchKeys[0] || '';
       }
-      if (!branchLabel) {
-        branchLabel = window.prompt('Branch label (e.g. "Yes", "High Income"):', '') || '';
-      }
 
       setEdges((eds) => addEdge({
         ...params,
-        label: branchLabel,
+        label: branchLabel || undefined,
         animated: true,
         style: { strokeWidth: 2 },
       }, eds));

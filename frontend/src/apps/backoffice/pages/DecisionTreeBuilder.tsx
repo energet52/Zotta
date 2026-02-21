@@ -176,13 +176,9 @@ export default function DecisionTreeBuilder() {
         const available = branchKeys.filter((k) => !existingLabels.includes(k));
         branchLabel = available[0] || branchKeys[0] || '';
       }
-      if (!branchLabel) {
-        branchLabel = window.prompt('Branch label:', '') || '';
-      }
-
       setEdges((eds) => addEdge({
         ...params,
-        label: branchLabel,
+        label: branchLabel || undefined,
         animated: true,
         style: { strokeWidth: 2 },
       }, eds));
