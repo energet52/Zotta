@@ -957,6 +957,40 @@ async def tree_versions(tree_id: int, db: AsyncSession = Depends(get_db)):
     return versions_result.scalars().unique().all()
 
 
+# ── AI Tree Generator ──────────────────────────────────────────────
+
+@router.post("/strategies/{strategy_id}/generate-tree")
+async def generate_tree_with_ai(
+    strategy_id: int,
+    body: dict,
+    db: AsyncSession = Depends(get_db),
+):
+    """Use AI to generate a decision tree from natural language."""
+    from app.services.tree_generator import generate_tree
+
+    result = await db.execute(
+        select(DecisionStrategy).where(DecisionStrategy.id == strategy_id)
+    )
+    strategy = result.scalar_one_or_none()
+    if not strategy:
+        raise HTTPException(404, "Strategy not found")
+
+    prompt = body.get("prompt", "")
+    history = body.get("conversation_history")
+    if not prompt:
+        raise HTTPException(400, "Prompt is required")
+
+    ai_result = generate_tree(prompt, history)
+
+    if ai_result.get("status") == "complete" and ai_result.get("tree") and strategy.decision_tree_id:
+        tree_nodes = ai_result["tree"]["nodes"]
+        assessment_names = [n.get("assessment_name") or n.get("label", "Assessment")
+                          for n in tree_nodes if n.get("node_type") == "assessment"]
+        ai_result["tree"]["assessment_names"] = assessment_names
+
+    return ai_result
+
+
 # ── Champion-Challenger ────────────────────────────────────────────
 
 @router.get("/champion-challenger")

@@ -835,6 +835,10 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
   const [treeSaved, setTreeSaved] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [editingEdge, setEditingEdge] = useState<{ id: string; x: number; y: number; branches: string[]; current: string; usedLabels: string[] } | null>(null);
+  const [showAiGen, setShowAiGen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState<{ status: string; tree?: { nodes: Array<Record<string, unknown>>; assessment_names?: string[] }; explanation?: string; questions?: string[]; refusal_reason?: string } | null>(null);
 
   const assessmentOptions = useMemo(
     () => assessments.map((a) => ({ id: a.id, name: a.name, ruleCount: (a.rules || []).length })),
@@ -1060,6 +1064,43 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
     [editingEdge, setEdges],
   );
 
+  const handleAiGenerate = async () => {
+    if (!aiPrompt.trim() || !treeId) return;
+    setAiLoading(true);
+    setAiResult(null);
+    try {
+      const res = await api.post(`/strategies/${assessments[0]?.strategy_id || 0}/generate-tree`, {
+        prompt: aiPrompt,
+      });
+      setAiResult(res.data);
+    } catch {
+      setAiResult({ status: 'refused', refusal_reason: 'Failed to connect to AI service.' });
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const applyAiTree = async () => {
+    if (!aiResult?.tree?.nodes || !treeId) return;
+    const headers = { 'Content-Type': 'application/json' };
+    await api.put(`/decision-trees/${treeId}`, { nodes: aiResult.tree.nodes });
+
+    if (aiResult.tree.assessment_names) {
+      const stratId = assessments[0]?.strategy_id;
+      if (stratId) {
+        for (const name of aiResult.tree.assessment_names) {
+          await api.post(`/assessments/from-template?strategy_id=${stratId}&name=${encodeURIComponent(name)}`);
+        }
+      }
+    }
+
+    queryClient.invalidateQueries({ queryKey: ['decision-tree-embed', treeId] });
+    queryClient.invalidateQueries({ queryKey: ['strategies'] });
+    setAiResult(null);
+    setShowAiGen(false);
+    setAiPrompt('');
+  };
+
   const edgePicker = editingEdge && (
     <div
       className="fixed z-[100]"
@@ -1139,6 +1180,15 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
         <Save size={11} /> {saving ? '...' : 'Save Tree'}
       </button>
       <button
+        onClick={() => setShowAiGen(!showAiGen)}
+        className={`flex items-center gap-1 px-2 py-1 text-xs rounded border transition-colors ${
+          showAiGen ? 'border-purple-500 bg-purple-500/10 text-purple-500' : 'border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-bg)]'
+        }`}
+        data-testid="btn-ai-generate-tree"
+      >
+        <Sparkles size={11} /> AI Generate
+      </button>
+      <button
         onClick={() => setFullscreen(!fullscreen)}
         className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-bg)] transition-colors"
         data-testid="btn-fullscreen-tree"
@@ -1212,6 +1262,71 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
         </div>
         {toolbar}
       </div>
+
+      {showAiGen && (
+        <div className="mb-2 p-3 rounded-lg border border-purple-500/30 bg-purple-500/5 space-y-2">
+          <div className="flex items-center gap-2">
+            <Sparkles size={14} className="text-purple-500" />
+            <span className="text-xs font-semibold text-purple-500 uppercase">AI Decision Tree Generator</span>
+          </div>
+          <p className="text-xs text-[var(--color-text-secondary)]">
+            Describe your lending strategy in plain language. The AI will generate the decision tree structure.
+          </p>
+          <textarea
+            value={aiPrompt}
+            onChange={(e) => setAiPrompt(e.target.value)}
+            placeholder='e.g. "Split by new vs existing customer. For existing customers with income above $10,000 use relaxed rules, otherwise standard rules. For new customers, check bureau data - thin file gets enhanced verification, standard file gets normal assessment, thick file gets express processing."'
+            rows={3}
+            className="w-full px-2.5 py-1.5 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] rounded focus:outline-none focus:border-purple-500 resize-none"
+          />
+
+          {aiResult?.status === 'refused' && (
+            <div className="px-2 py-1.5 rounded bg-red-500/10 text-red-400 text-xs">
+              {aiResult.refusal_reason}
+            </div>
+          )}
+
+          {aiResult?.status === 'needs_clarification' && aiResult.questions && (
+            <div className="px-2 py-1.5 rounded bg-amber-500/10 text-amber-400 text-xs">
+              <div className="font-medium mb-1">Clarification needed:</div>
+              {aiResult.questions.map((q, i) => <div key={i}>• {q}</div>)}
+            </div>
+          )}
+
+          {aiResult?.status === 'complete' && aiResult.tree && (
+            <div className="px-2 py-1.5 rounded bg-emerald-500/10 text-emerald-400 text-xs space-y-1">
+              <div className="font-medium">Tree generated: {aiResult.tree.nodes.length} nodes</div>
+              {aiResult.explanation && <div className="text-[var(--color-text-secondary)]">{aiResult.explanation}</div>}
+              {aiResult.tree.assessment_names && (
+                <div>Assessments: {aiResult.tree.assessment_names.join(', ')}</div>
+              )}
+              <button
+                onClick={applyAiTree}
+                className="mt-1 flex items-center gap-1 px-2.5 py-1 text-xs rounded bg-emerald-500 text-white hover:bg-emerald-600"
+              >
+                <CheckCircle size={11} /> Apply to Tree
+              </button>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button
+              onClick={handleAiGenerate}
+              disabled={!aiPrompt.trim() || aiLoading}
+              className="flex items-center gap-1 px-2.5 py-1 text-xs rounded bg-purple-500 text-white hover:bg-purple-600 disabled:opacity-50"
+            >
+              <Sparkles size={11} /> {aiLoading ? 'Generating...' : 'Generate'}
+            </button>
+            <button
+              onClick={() => { setShowAiGen(false); setAiResult(null); setAiPrompt(''); }}
+              className="px-2.5 py-1 text-xs rounded border border-[var(--color-border)] text-[var(--color-text-secondary)]"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
       <div
         className="rounded-lg border overflow-hidden relative"
         style={{ height: 350, borderColor: 'var(--color-border)' }}
