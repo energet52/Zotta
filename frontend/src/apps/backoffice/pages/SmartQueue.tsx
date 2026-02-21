@@ -12,18 +12,13 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  MessageSquare,
-  FileText,
   TrendingUp,
   TrendingDown,
   Minus,
   Sparkles,
   Hand,
-  ChevronRight,
   X,
-  Pause,
   Play,
-  Eye,
   Users,
   Timer,
   Inbox,
@@ -31,7 +26,6 @@ import {
   Hourglass,
   CircleDot,
   Brain,
-  Shield,
   ClipboardList,
 } from 'lucide-react';
 import Card from '../../../components/ui/Card';
@@ -182,7 +176,7 @@ export default function SmartQueue() {
   const urlStatusFilter = searchParams.get('status_filter');
   const [activeTab, setActiveTab] = useState<Tab>(urlTab === 'all' || urlStatusFilter ? 'all' : 'shared');
   const [items, setItems] = useState<QueueItem[]>([]);
-  const [total, setTotal] = useState(0);
+  const [_total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [awareness, setAwareness] = useState<AwarenessData | null>(null);
   const [search, setSearch] = useState('');
@@ -534,7 +528,8 @@ export default function SmartQueue() {
                           )}
                         </td>
                         <td className="py-3 px-4 text-[var(--color-text-muted)]">
-                          {new Date(app.created_at).toLocaleDateString()}
+                          {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}{' '}
+                          {new Date(app.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center space-x-2">
@@ -585,7 +580,7 @@ export default function SmartQueue() {
         </Card>
       ) : (
         <div className="space-y-1.5">
-          {displayed.map((item, idx) => (
+          {displayed.map((item, _idx) => (
             <div
               key={item.id}
               className={`group rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-primary)]/40 transition-all ${
