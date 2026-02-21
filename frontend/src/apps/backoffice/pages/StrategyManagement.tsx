@@ -1047,7 +1047,13 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
     (label: string) => {
       if (!editingEdge) return;
       setEdges((eds) =>
-        eds.map((e) => e.id === editingEdge.id ? { ...e, label: label || undefined } : e),
+        eds.map((e) => {
+          if (e.id === editingEdge.id) return { ...e, label: label || undefined };
+          if (e.source === eds.find((x) => x.id === editingEdge.id)?.source && e.label === label) {
+            return { ...e, label: undefined };
+          }
+          return e;
+        }),
       );
       setEditingEdge(null);
     },
@@ -1072,19 +1078,18 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
           return (
             <button
               key={b}
-              onClick={() => !isUsed && applyEdgeLabel(b)}
-              disabled={isUsed}
+              onClick={() => applyEdgeLabel(b)}
               className={`w-full text-left px-2.5 py-1.5 text-xs rounded transition-colors ${
                 isCurrent
                   ? 'bg-blue-500/10 text-blue-500 font-medium'
                   : isUsed
-                    ? 'text-[var(--color-text-secondary)] opacity-40 cursor-not-allowed'
+                    ? 'text-amber-500 hover:bg-amber-500/5'
                     : 'text-[var(--color-text)] hover:bg-[var(--color-bg)]'
               }`}
             >
               {b}
               {isCurrent && <span className="ml-2 text-[10px] text-blue-400">(current)</span>}
-              {isUsed && !isCurrent && <span className="ml-2 text-[10px]">(used)</span>}
+              {isUsed && !isCurrent && <span className="ml-2 text-[10px] text-amber-400">(swap)</span>}
             </button>
           );
         })}
