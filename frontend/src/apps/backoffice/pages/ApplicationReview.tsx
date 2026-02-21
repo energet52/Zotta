@@ -819,20 +819,47 @@ export default function ApplicationReview() {
                 {decision.scoring_breakdown && (
                   <div className="mb-6">
                     <h4 className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-3">Scoring Breakdown</h4>
+
+                    {/* Scorecard result */}
+                    {decision.scoring_breakdown.scorecard_score != null && (
+                      <div className="flex items-center gap-3 mb-3 p-2.5 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)]">
+                        <div className="flex-1">
+                          <div className="text-xs text-[var(--color-text-muted)]">
+                            {(decision.scoring_breakdown as Record<string, unknown>).scorecard_name as string || 'Scorecard'}
+                          </div>
+                          <div className="text-lg font-bold text-[var(--color-text)]">
+                            {decision.scoring_breakdown.scorecard_score}
+                          </div>
+                        </div>
+                        {(decision.scoring_breakdown as Record<string, unknown>).scorecard_decision && (
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                            String((decision.scoring_breakdown as Record<string, unknown>).scorecard_decision).includes('APPROVE') ? 'bg-emerald-500/10 text-emerald-500' :
+                            String((decision.scoring_breakdown as Record<string, unknown>).scorecard_decision).includes('DECLINE') ? 'bg-red-500/10 text-red-500' :
+                            'bg-amber-500/10 text-amber-500'
+                          }`}>
+                            {String((decision.scoring_breakdown as Record<string, unknown>).scorecard_decision).replace(/_/g, ' ')}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Component scores */}
                     <div className="space-y-2">
-                      {Object.entries(decision.scoring_breakdown).filter(([, v]) => typeof v === 'number' && v <= 100).map(([key, value]) => (
+                      {Object.entries(decision.scoring_breakdown)
+                        .filter(([k, v]) => typeof v === 'number' && !k.startsWith('scorecard'))
+                        .map(([key, value]) => (
                         <div key={key} className="flex items-center">
                           <span className="text-xs text-[var(--color-text-muted)] w-36 capitalize">{key.replace(/_/g, ' ')}</span>
                           <div className="flex-1 bg-[var(--color-bg)] rounded-full h-2 mx-2">
                             <div
                               className="h-2 rounded-full transition-all"
                               style={{
-                                width: `${Math.min(value, 100)}%`,
-                                backgroundColor: value > 70 ? '#34d399' : value > 40 ? '#fbbf24' : '#f87171',
+                                width: `${Math.min(value as number, 100)}%`,
+                                backgroundColor: (value as number) > 70 ? '#34d399' : (value as number) > 40 ? '#fbbf24' : '#f87171',
                               }}
                             />
                           </div>
-                          <span className="text-xs font-medium text-[var(--color-text)] w-8 text-right">{value}</span>
+                          <span className="text-xs font-medium text-[var(--color-text)] w-8 text-right">{value as number}</span>
                         </div>
                       ))}
                     </div>
@@ -2190,7 +2217,7 @@ function AVKnowlesTab({
 
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
-  const [stepStartTime, setStepStartTime] = useState(0);
+  const [_stepStartTime, setStepStartTime] = useState(0);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState('');
 
@@ -2277,7 +2304,6 @@ function AVKnowlesTab({
             {AV_KNOWLES_STEPS.map((s, i) => {
               const isActive = i === currentStep;
               const isDone = i < currentStep;
-              const isPending = i > currentStep;
               return (
                 <div
                   key={i}
