@@ -244,6 +244,8 @@ interface ProductOption {
   id: number;
   name: string;
   merchant_name?: string;
+  decision_tree_id?: number | null;
+  default_strategy_id?: number | null;
 }
 
 export default function StrategyManagement() {
@@ -483,6 +485,15 @@ export default function StrategyManagement() {
                       <span>{s.assessments.length} assessment{s.assessments.length !== 1 ? 's' : ''}</span>
                     )}
                     {s.decision_tree_id && <span>decision tree</span>}
+                    {(() => {
+                      const linked = products.filter((p) => p.decision_tree_id === s.decision_tree_id && s.decision_tree_id);
+                      if (linked.length === 0) return null;
+                      return (
+                        <span className="text-emerald-500">
+                          {linked.map((p) => p.name).join(', ')}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">

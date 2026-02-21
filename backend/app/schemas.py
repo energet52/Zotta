@@ -472,6 +472,8 @@ class CreditProductResponse(BaseModel):
     internal_notes: Optional[str] = None
     regulatory_code: Optional[str] = None
     ai_summary: Optional[str] = None
+    decision_tree_id: Optional[int] = None
+    default_strategy_id: Optional[int] = None
     score_ranges: list[ProductScoreRangeResponse] = []
     fees: list[ProductFeeResponse] = []
     rate_tiers: list[ProductRateTierResponse] = []

@@ -7,6 +7,9 @@ import {
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
 import { adminApi } from '../../../api/endpoints';
+import api from '../../../api/client';
+
+type StrategyRef = { id: number; name: string; status: string };
 
 type Product = {
   id: number;
@@ -21,6 +24,8 @@ type Product = {
   is_active: boolean;
   lifecycle_status?: string;
   interest_rate?: number | null;
+  decision_tree_id?: number | null;
+  default_strategy_id?: number | null;
 };
 
 type PortfolioProduct = {
@@ -52,7 +57,18 @@ export default function ProductManagement() {
   const [showAiGenerate, setShowAiGenerate] = useState(false);
   const [generatePrompt, setGeneratePrompt] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [strategies, setStrategies] = useState<StrategyRef[]>([]);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    api.get('/strategies').then((res) => setStrategies(res.data || [])).catch(() => {});
+  }, []);
+
+  const strategyMap = useMemo(() => {
+    const m = new Map<number, string>();
+    strategies.forEach((s) => m.set(s.id, s.name));
+    return m;
+  }, [strategies]);
 
   const loadProducts = async () => {
     setLoading(true);
@@ -268,6 +284,7 @@ export default function ProductManagement() {
                 {showCompare && <th className="px-3 py-3 text-left w-10"></th>}
                 <th className="px-4 py-3 text-left">Product</th>
                 <th className="px-4 py-3 text-left">Merchant</th>
+                <th className="px-4 py-3 text-left">Strategy</th>
                 <th className="px-4 py-3 text-left">Status</th>
                 <th className="px-4 py-3 text-left">Term Range</th>
                 <th className="px-4 py-3 text-left">Amount Range (TTD)</th>
@@ -295,6 +312,15 @@ export default function ProductManagement() {
                       {p.description && <div className="text-xs text-[var(--color-text-muted)] truncate max-w-[200px]">{p.description}</div>}
                     </td>
                     <td className="px-4 py-2 text-[var(--color-text-muted)]">{p.merchant_name || 'All'}</td>
+                    <td className="px-4 py-2">
+                      {p.default_strategy_id ? (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500">
+                          {strategyMap.get(p.default_strategy_id) || `#${p.default_strategy_id}`}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-[var(--color-text-muted)]">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-2">
                       <span className={`text-xs px-2 py-0.5 rounded-full ${lifecycleColor[p.lifecycle_status || 'active']}`}>
                         {p.lifecycle_status || 'active'}
