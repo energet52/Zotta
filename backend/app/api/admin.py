@@ -656,6 +656,8 @@ def _product_to_response(product: CreditProduct) -> CreditProductResponse:
         internal_notes=product.internal_notes,
         regulatory_code=product.regulatory_code,
         ai_summary=product.ai_summary,
+        decision_tree_id=product.decision_tree_id,
+        default_strategy_id=product.default_strategy_id,
         score_ranges=[ProductScoreRangeResponse.model_validate(sr) for sr in product.score_ranges],
         fees=[ProductFeeResponse.model_validate(fee) for fee in product.fees],
         rate_tiers=[ProductRateTierResponse.model_validate(rt) for rt in rate_tiers],
@@ -1035,6 +1037,8 @@ async def create_product(
             target_segments=data.target_segments,
             internal_notes=data.internal_notes,
             regulatory_code=data.regulatory_code,
+            default_strategy_id=data.default_strategy_id,
+            decision_tree_id=data.decision_tree_id,
         )
         db.add(product)
         await db.flush()
@@ -1092,11 +1096,12 @@ async def update_product(
             "repayment_scheme", "grace_period_days", "is_active",
             "interest_rate", "eligibility_criteria", "lifecycle_status",
             "channels", "target_segments", "internal_notes", "regulatory_code",
+            "default_strategy_id", "decision_tree_id",
         )
+        update_data = data.model_dump(exclude_unset=True)
         for field in _PRODUCT_EDITABLE:
-            value = getattr(data, field, None)
-            if value is not None:
-                setattr(product, field, value)
+            if field in update_data:
+                setattr(product, field, update_data[field])
         await db.flush()
         return await get_product(product_id, current_user, db)
     except HTTPException:
