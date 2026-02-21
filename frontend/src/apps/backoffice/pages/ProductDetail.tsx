@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Plus, RefreshCcw, Trash2, Copy, Send,
   BarChart3, Brain, Beaker, Shield, Layers, Settings2,
-  TrendingUp, TrendingDown, AlertTriangle, CheckCircle2,
+  TrendingUp, AlertTriangle, CheckCircle2,
   Sparkles, ChevronRight, Activity, Target, Zap, Globe,
 } from 'lucide-react';
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
 import { adminApi } from '../../../api/endpoints';
+import api from '../../../api/client';
 
 /* ────────────────────────── Types ────────────────────────── */
 
@@ -25,6 +26,7 @@ type EligibilityCriteria = {
   required_documents?: string[]; excluded_sectors?: string[];
   citizenship_required?: boolean; existing_customer_only?: boolean;
 };
+type StrategyRef = { id: number; name: string; status: string; decision_tree_id?: number | null };
 type Product = {
   id: number; name: string; description?: string; merchant_id?: number | null;
   min_term_months: number; max_term_months: number; min_amount: number; max_amount: number;
@@ -38,6 +40,8 @@ type Product = {
   internal_notes?: string | null;
   regulatory_code?: string | null;
   ai_summary?: string | null;
+  default_strategy_id?: number | null;
+  decision_tree_id?: number | null;
   score_ranges: ScoreRange[]; fees: Fee[]; rate_tiers?: RateTier[];
 };
 
@@ -81,6 +85,7 @@ export default function ProductDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [merchants, setMerchants] = useState<Merchant[]>([]);
+  const [strategies, setStrategies] = useState<StrategyRef[]>([]);
 
   const [product, setProduct] = useState<Product>({
     id: 0, name: '', description: '', merchant_id: null,
@@ -88,7 +93,8 @@ export default function ProductDetail() {
     repayment_scheme: REPAYMENT_SCHEMES[0], grace_period_days: 0, is_active: true,
     interest_rate: null, eligibility_criteria: null,
     lifecycle_status: 'active', channels: [], target_segments: [],
-    internal_notes: '', regulatory_code: '', score_ranges: [], fees: [], rate_tiers: [],
+    internal_notes: '', regulatory_code: '', default_strategy_id: null, decision_tree_id: null,
+    score_ranges: [], fees: [], rate_tiers: [],
   });
 
   // Pending items for new products
@@ -121,11 +127,13 @@ export default function ProductDetail() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [mRes, pRes] = await Promise.all([
+      const [mRes, pRes, sRes] = await Promise.all([
         adminApi.getMerchants(),
         isNew ? Promise.resolve({ data: null }) : adminApi.getProduct(Number(id)),
+        api.get('/strategies'),
       ]);
       setMerchants(mRes.data || []);
+      setStrategies(sRes.data || []);
       if (pRes.data) setProduct(pRes.data);
     } finally {
       setLoading(false);
@@ -159,6 +167,8 @@ export default function ProductDetail() {
         target_segments: product.target_segments || [],
         internal_notes: product.internal_notes || '',
         regulatory_code: product.regulatory_code || '',
+        default_strategy_id: product.default_strategy_id || null,
+        decision_tree_id: product.decision_tree_id || null,
       };
       if (isNew) {
         const res = await adminApi.createProduct(payload);
@@ -393,13 +403,43 @@ export default function ProductDetail() {
                   <label className="block text-xs text-[var(--color-text-muted)] mb-1">Description</label>
                   <textarea rows={3} value={product.description || ''} onChange={e => setProduct(p => ({ ...p, description: e.target.value }))} className="w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg" />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs text-[var(--color-text-muted)] mb-1">Merchant</label>
                     <select value={product.merchant_id ?? ''} onChange={e => setProduct(p => ({ ...p, merchant_id: e.target.value ? Number(e.target.value) : null }))} className="w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg">
                       <option value="">All Merchants</option>
                       {merchants.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                     </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-[var(--color-text-muted)] mb-1">
+                      Strategy <span className="text-red-400">*</span>
+                    </label>
+                    <select
+                      value={product.default_strategy_id ?? ''}
+                      onChange={e => {
+                        const sid = e.target.value ? Number(e.target.value) : null;
+                        const strat = strategies.find(s => s.id === sid);
+                        setProduct(p => ({
+                          ...p,
+                          default_strategy_id: sid,
+                          decision_tree_id: strat?.decision_tree_id || null,
+                        }));
+                      }}
+                      className={`w-full px-3 py-2 bg-[var(--color-bg)] border rounded-lg ${
+                        !product.default_strategy_id ? 'border-red-500/50' : 'border-[var(--color-border)]'
+                      }`}
+                    >
+                      <option value="">Select strategy...</option>
+                      {strategies.filter(s => s.status !== 'archived').map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} ({s.status})
+                        </option>
+                      ))}
+                    </select>
+                    {!product.default_strategy_id && (
+                      <p className="text-[10px] text-red-400 mt-0.5">Required — defines how applications are evaluated</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-xs text-[var(--color-text-muted)] mb-1">Lifecycle Status</label>

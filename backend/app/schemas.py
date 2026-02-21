@@ -425,6 +425,8 @@ class CreditProductCreate(BaseModel):
     target_segments: Optional[list[str]] = None
     internal_notes: Optional[str] = None
     regulatory_code: Optional[str] = None
+    default_strategy_id: Optional[int] = None
+    decision_tree_id: Optional[int] = None
     score_ranges: list[ProductScoreRangeCreate] = []
     fees: list[ProductFeeCreate] = []
     rate_tiers: list[ProductRateTierCreate] = []
@@ -448,6 +450,8 @@ class CreditProductUpdate(BaseModel):
     target_segments: Optional[list[str]] = None
     internal_notes: Optional[str] = None
     regulatory_code: Optional[str] = None
+    default_strategy_id: Optional[int] = None
+    decision_tree_id: Optional[int] = None
 
 
 class CreditProductResponse(BaseModel):
