@@ -678,3 +678,42 @@ export const preApprovalApi = {
   adminDetail: (ref: string) => api.get(`/pre-approval/admin/${ref}`),
   adminDecide: (ref: string, data: { outcome: string; reason?: string }) => api.post(`/pre-approval/admin/${ref}/decide`, data),
 };
+
+// ── Decision Strategy Management ─────────────────────────────────
+export const strategyApi = {
+  list: (params?: Record<string, unknown>) => api.get('/strategies', { params }),
+  create: (data: Record<string, unknown>) => api.post('/strategies', data),
+  get: (id: number) => api.get(`/strategies/${id}`),
+  update: (id: number, data: Record<string, unknown>) => api.put(`/strategies/${id}`, data),
+  activate: (id: number, emergency?: boolean) =>
+    api.post(`/strategies/${id}/activate`, null, { params: emergency ? { emergency: true } : {} }),
+  archive: (id: number) => api.post(`/strategies/${id}/archive`),
+  versions: (id: number) => api.get(`/strategies/${id}/versions`),
+};
+
+export const decisionTreeApi = {
+  list: (params?: Record<string, unknown>) => api.get('/decision-trees', { params }),
+  create: (data: Record<string, unknown>) => api.post('/decision-trees', data),
+  get: (id: number) => api.get(`/decision-trees/${id}`),
+  update: (id: number, data: Record<string, unknown>) => api.put(`/decision-trees/${id}`, data),
+  validate: (id: number) => api.post(`/decision-trees/${id}/validate`),
+  activate: (id: number) => api.post(`/decision-trees/${id}/activate`),
+  versions: (id: number) => api.get(`/decision-trees/${id}/versions`),
+};
+
+export const championChallengerApi = {
+  start: (data: Record<string, unknown>) => api.post('/champion-challenger', data),
+  get: (id: number) => api.get(`/champion-challenger/${id}`),
+  promote: (id: number) => api.post(`/champion-challenger/${id}/promote`),
+  discard: (id: number) => api.delete(`/champion-challenger/${id}`),
+};
+
+export const simulationApi = {
+  replay: (data: Record<string, unknown>) => api.post('/simulation/replay', data),
+  trace: (data: Record<string, unknown>) => api.post('/simulation/trace', data),
+  impact: (data: Record<string, unknown>) => api.post('/simulation/impact', data),
+};
+
+export const decisionExplanationApi = {
+  get: (decisionId: number) => api.get(`/decisions/${decisionId}/explanation`),
+};

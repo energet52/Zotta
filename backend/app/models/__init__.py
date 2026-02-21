@@ -99,6 +99,20 @@ from app.models.pre_approval import (
     PreApprovalOutcome,
     PreApprovalStatus,
 )
+from app.models.strategy import (
+    DecisionStrategy,
+    DecisionTree,
+    DecisionTreeNode,
+    Assessment,
+    ChampionChallengerTest,
+    DecisionAuditTrail,
+    StrategyStatus,
+    EvaluationMode,
+    TreeStatus,
+    NodeType,
+    ConditionType,
+    ChallengerTestStatus,
+)
 from app.models.gl import (
     Currency,
     GLAccount,
@@ -233,6 +247,19 @@ __all__ = [
     "PreApprovalOTP",
     "PreApprovalOutcome",
     "PreApprovalStatus",
+    # Decision Strategy Management
+    "DecisionStrategy",
+    "DecisionTree",
+    "DecisionTreeNode",
+    "Assessment",
+    "ChampionChallengerTest",
+    "DecisionAuditTrail",
+    "StrategyStatus",
+    "EvaluationMode",
+    "TreeStatus",
+    "NodeType",
+    "ConditionType",
+    "ChallengerTestStatus",
     # General Ledger
     "Currency",
     "GLAccount",

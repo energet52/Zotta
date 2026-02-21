@@ -1566,3 +1566,271 @@ class PreApprovalAnalyticsResponse(BaseModel):
     merchant_breakdown: list[dict] = []
     category_breakdown: list[dict] = []
     daily_volume: list[dict] = []
+
+
+# ── Decision Strategy Management ─────────────────────────────────
+
+class DecisionStrategyCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    evaluation_mode: str = "sequential"
+    rules_config_id: Optional[int] = None
+    scorecard_id: Optional[int] = None
+    knock_out_rules: Optional[list[dict]] = None
+    overlay_rules: Optional[list[dict]] = None
+    score_cutoffs: Optional[dict] = None
+    terms_matrix: Optional[dict] = None
+    reason_code_map: Optional[dict] = None
+    concentration_limits: Optional[list[dict]] = None
+
+
+class DecisionStrategyUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    evaluation_mode: Optional[str] = None
+    rules_config_id: Optional[int] = None
+    scorecard_id: Optional[int] = None
+    knock_out_rules: Optional[list[dict]] = None
+    overlay_rules: Optional[list[dict]] = None
+    score_cutoffs: Optional[dict] = None
+    terms_matrix: Optional[dict] = None
+    reason_code_map: Optional[dict] = None
+    concentration_limits: Optional[list[dict]] = None
+    decision_tree_id: Optional[int] = None
+    change_description: Optional[str] = None
+
+
+class AssessmentCreate(BaseModel):
+    strategy_id: int
+    name: str
+    description: Optional[str] = None
+    rules: Optional[list[dict]] = None
+    score_cutoffs: Optional[dict] = None
+
+
+class AssessmentUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    rules: Optional[list[dict]] = None
+    score_cutoffs: Optional[dict] = None
+    status: Optional[str] = None
+
+
+class AssessmentResponse(BaseModel):
+    id: int
+    strategy_id: int
+    name: str
+    description: Optional[str] = None
+    rules: Optional[list[dict]] = None
+    score_cutoffs: Optional[dict] = None
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class DecisionStrategyResponse(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    evaluation_mode: str
+    version: int
+    status: str
+    rules_config_id: Optional[int] = None
+    scorecard_id: Optional[int] = None
+    knock_out_rules: Optional[list[dict]] = None
+    overlay_rules: Optional[list[dict]] = None
+    score_cutoffs: Optional[dict] = None
+    terms_matrix: Optional[dict] = None
+    reason_code_map: Optional[dict] = None
+    concentration_limits: Optional[list[dict]] = None
+    decision_tree_id: Optional[int] = None
+    assessments: list[AssessmentResponse] = []
+    created_by: Optional[int] = None
+    approved_by: Optional[int] = None
+    activated_at: Optional[datetime] = None
+    parent_version_id: Optional[int] = None
+    change_description: Optional[str] = None
+    is_emergency_override: bool = False
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# Decision Tree schemas
+
+class TreeNodeCreate(BaseModel):
+    node_key: str
+    node_type: str
+    label: Optional[str] = None
+    condition_type: Optional[str] = None
+    attribute: Optional[str] = None
+    operator: Optional[str] = None
+    branches: Optional[dict] = None
+    compound_conditions: Optional[list[dict]] = None
+    compound_logic: Optional[str] = None
+    strategy_id: Optional[int] = None
+    strategy_params: Optional[dict] = None
+    assessment_id: Optional[int] = None
+    null_branch: Optional[str] = None
+    null_strategy_id: Optional[int] = None
+    scorecard_id: Optional[int] = None
+    parent_node_key: Optional[str] = None
+    branch_label: Optional[str] = None
+    is_root: bool = False
+    position_x: float = 0
+    position_y: float = 0
+
+
+class TreeNodeResponse(BaseModel):
+    id: int
+    tree_id: int
+    node_key: str
+    node_type: str
+    label: Optional[str] = None
+    condition_type: Optional[str] = None
+    attribute: Optional[str] = None
+    operator: Optional[str] = None
+    branches: Optional[dict] = None
+    compound_conditions: Optional[list[dict]] = None
+    compound_logic: Optional[str] = None
+    strategy_id: Optional[int] = None
+    strategy_params: Optional[dict] = None
+    assessment_id: Optional[int] = None
+    null_branch: Optional[str] = None
+    null_strategy_id: Optional[int] = None
+    scorecard_id: Optional[int] = None
+    parent_node_id: Optional[int] = None
+    branch_label: Optional[str] = None
+    is_root: bool
+    position_x: float
+    position_y: float
+
+    model_config = {"from_attributes": True}
+
+
+class DecisionTreeCreate(BaseModel):
+    product_id: int
+    name: str
+    description: Optional[str] = None
+    default_strategy_id: Optional[int] = None
+    nodes: list[TreeNodeCreate] = []
+
+
+class DecisionTreeUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    default_strategy_id: Optional[int] = None
+    nodes: Optional[list[TreeNodeCreate]] = None
+    change_description: Optional[str] = None
+
+
+class DecisionTreeResponse(BaseModel):
+    id: int
+    product_id: int
+    name: str
+    description: Optional[str] = None
+    version: int
+    status: str
+    default_strategy_id: Optional[int] = None
+    tree_data: Optional[dict] = None
+    nodes: list[TreeNodeResponse] = []
+    created_by: Optional[int] = None
+    approved_by: Optional[int] = None
+    activated_at: Optional[datetime] = None
+    parent_version_id: Optional[int] = None
+    change_description: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ValidationErrorSchema(BaseModel):
+    severity: str
+    node_key: Optional[str] = None
+    code: str
+    message: str
+
+
+class TreeValidationResponse(BaseModel):
+    valid: bool
+    errors: list[ValidationErrorSchema] = []
+    warnings: list[ValidationErrorSchema] = []
+    stats: dict = {}
+
+
+# Champion-Challenger schemas
+
+class ChampionChallengerCreate(BaseModel):
+    champion_strategy_id: int
+    challenger_strategy_id: int
+    tree_id: Optional[int] = None
+    tree_node_key: Optional[str] = None
+    traffic_pct: float = 10.0
+    min_volume: int = 500
+    min_duration_days: int = 90
+
+
+class ChampionChallengerResponse(BaseModel):
+    id: int
+    champion_strategy_id: int
+    challenger_strategy_id: int
+    tree_id: Optional[int] = None
+    traffic_pct: float
+    min_volume: int
+    min_duration_days: int
+    status: str
+    total_evaluated: int
+    agreement_count: int
+    disagreement_count: int
+    results: Optional[dict] = None
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# Simulation schemas
+
+class SimulationReplayRequest(BaseModel):
+    tree_id: Optional[int] = None
+    strategy_id: Optional[int] = None
+    application_ids: list[int] = []
+    time_period_start: Optional[datetime] = None
+    time_period_end: Optional[datetime] = None
+    max_applications: int = 1000
+
+
+class SimulationTraceRequest(BaseModel):
+    application_id: int
+    tree_id: Optional[int] = None
+    strategy_id: Optional[int] = None
+    overrides: Optional[dict] = None
+
+
+class SimulationImpactRequest(BaseModel):
+    old_tree_id: Optional[int] = None
+    new_tree_id: Optional[int] = None
+    old_strategy_id: Optional[int] = None
+    new_strategy_id: Optional[int] = None
+    application_ids: list[int] = []
+
+
+# Decision Explanation
+
+class DecisionExplanationResponse(BaseModel):
+    application_id: int
+    tree_path: Optional[list[dict]] = None
+    strategy_name: Optional[str] = None
+    strategy_version: Optional[int] = None
+    evaluation_steps: list[dict] = []
+    final_outcome: str
+    reason_codes: list[str] = []
+    reasons: list[str] = []
+    terms: Optional[dict] = None
+    explanation_staff: Optional[str] = None
+    explanation_consumer: Optional[str] = None

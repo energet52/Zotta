@@ -74,6 +74,11 @@ import RoleEditor, { RoleDetailPage } from './apps/backoffice/pages/RoleEditor';
 import PreApprovalDashboard from './apps/backoffice/pages/PreApprovalDashboard';
 import PreApprovalDetail from './apps/backoffice/pages/PreApprovalDetail';
 
+// Decision Strategy Management
+import DecisionTreeBuilder from './apps/backoffice/pages/DecisionTreeBuilder';
+import StrategyManagement from './apps/backoffice/pages/StrategyManagement';
+import ChampionChallenger from './apps/backoffice/pages/ChampionChallenger';
+
 // Admin pages
 import ErrorMonitor from './apps/backoffice/pages/ErrorMonitor';
 import AuditTrail from './apps/backoffice/pages/AuditTrail';
@@ -195,6 +200,12 @@ export default function App() {
           {/* Pre-Approval */}
           <Route path="/backoffice/pre-approvals" element={<PreApprovalDashboard />} />
           <Route path="/backoffice/pre-approvals/:ref" element={<PreApprovalDetail />} />
+          {/* Decision Strategy Management */}
+          <Route path="/backoffice/strategies" element={<StrategyManagement />} />
+          <Route path="/backoffice/strategies/:id/champion-challenger" element={<ChampionChallenger />} />
+          <Route path="/backoffice/champion-challenger" element={<ChampionChallenger />} />
+          <Route path="/backoffice/decision-trees/:treeId" element={<DecisionTreeBuilder />} />
+          <Route path="/backoffice/products/:id/decision-tree" element={<DecisionTreeBuilder />} />
           {/* Audit */}
           <Route path="/backoffice/audit-trail" element={<AuditTrail />} />
         </Route>

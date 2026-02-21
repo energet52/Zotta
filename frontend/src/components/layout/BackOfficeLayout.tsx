@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
-  ClipboardList,
   BarChart3,
   LogOut,
   Shield,
@@ -99,9 +98,11 @@ const SECTIONS: NavSection[] = [
   },
   {
     id: 'scoring',
-    label: 'Scoring & Rules',
+    label: 'Decisioning',
     icon: Target,
     items: [
+      { to: '/backoffice/strategies', icon: Shield, label: 'Strategies' },
+      { to: '/backoffice/champion-challenger', icon: Zap, label: 'Champion-Challenger' },
       { to: '/backoffice/scorecards', icon: Target, label: 'Scorecards' },
       { to: '/backoffice/rules', icon: Scale, label: 'Business Rules' },
     ],
