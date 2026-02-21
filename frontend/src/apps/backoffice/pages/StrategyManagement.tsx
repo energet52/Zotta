@@ -834,7 +834,7 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
   const [saving, setSaving] = useState(false);
   const [treeSaved, setTreeSaved] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
-  const [editingEdge, setEditingEdge] = useState<{ id: string; x: number; y: number; branches: string[]; current: string } | null>(null);
+  const [editingEdge, setEditingEdge] = useState<{ id: string; x: number; y: number; branches: string[]; current: string; usedLabels: string[] } | null>(null);
 
   const assessmentOptions = useMemo(
     () => assessments.map((a) => ({ id: a.id, name: a.name, ruleCount: (a.rules || []).length })),
@@ -912,22 +912,32 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
       const branches = sourceData?.branches as Record<string, unknown> | undefined;
       const branchKeys = branches ? Object.keys(branches) : [];
 
-      let branchLabel = '';
-      if (branchKeys.length > 0) {
-        const existingLabels = edges
-          .filter((e) => e.source === params.source)
-          .map((e) => e.label)
-          .filter(Boolean);
-        const available = branchKeys.filter((k) => !existingLabels.includes(k));
-        branchLabel = available[0] || branchKeys[0] || '';
-      }
+      const existingLabels = edges
+        .filter((e) => e.source === params.source)
+        .map((e) => e.label as string)
+        .filter(Boolean);
 
-      setEdges((eds) => addEdge({
-        ...params,
-        label: branchLabel || undefined,
-        animated: true,
-        style: { strokeWidth: 2 },
-      }, eds));
+      if (branchKeys.length > 0) {
+        const available = branchKeys.filter((k) => !existingLabels.includes(k));
+        if (available.length === 0) {
+          return;
+        }
+        setEdges((eds) => addEdge({
+          ...params,
+          label: available[0],
+          animated: true,
+          style: { strokeWidth: 2 },
+        }, eds));
+      } else {
+        if (existingLabels.length > 0) {
+          return;
+        }
+        setEdges((eds) => addEdge({
+          ...params,
+          animated: true,
+          style: { strokeWidth: 2 },
+        }, eds));
+      }
     },
     [setEdges, nodes, edges],
   );
@@ -1015,16 +1025,22 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
       const branchKeys = branches ? Object.keys(branches) : [];
 
       if (branchKeys.length > 0) {
+        const usedByOthers = edges
+          .filter((e) => e.source === edge.source && e.id !== edge.id)
+          .map((e) => e.label as string)
+          .filter(Boolean);
+
         setEditingEdge({
           id: edge.id,
           x: event.clientX,
           y: event.clientY,
           branches: branchKeys,
           current: (edge.label as string) || '',
+          usedLabels: usedByOthers,
         });
       }
     },
-    [nodes],
+    [nodes, edges],
   );
 
   const applyEdgeLabel = useCallback(
@@ -1050,20 +1066,28 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
         <div className="text-[10px] font-semibold text-[var(--color-text-secondary)] uppercase mb-1.5 px-1">
           Select Branch
         </div>
-        {editingEdge.branches.map((b) => (
-          <button
-            key={b}
-            onClick={() => applyEdgeLabel(b)}
-            className={`w-full text-left px-2.5 py-1.5 text-xs rounded transition-colors ${
-              b === editingEdge.current
-                ? 'bg-blue-500/10 text-blue-500 font-medium'
-                : 'text-[var(--color-text)] hover:bg-[var(--color-bg)]'
-            }`}
-          >
-            {b}
-            {b === editingEdge.current && <span className="ml-2 text-[10px] text-blue-400">(current)</span>}
-          </button>
-        ))}
+        {editingEdge.branches.map((b) => {
+          const isCurrent = b === editingEdge.current;
+          const isUsed = editingEdge.usedLabels.includes(b);
+          return (
+            <button
+              key={b}
+              onClick={() => !isUsed && applyEdgeLabel(b)}
+              disabled={isUsed}
+              className={`w-full text-left px-2.5 py-1.5 text-xs rounded transition-colors ${
+                isCurrent
+                  ? 'bg-blue-500/10 text-blue-500 font-medium'
+                  : isUsed
+                    ? 'text-[var(--color-text-secondary)] opacity-40 cursor-not-allowed'
+                    : 'text-[var(--color-text)] hover:bg-[var(--color-bg)]'
+              }`}
+            >
+              {b}
+              {isCurrent && <span className="ml-2 text-[10px] text-blue-400">(current)</span>}
+              {isUsed && !isCurrent && <span className="ml-2 text-[10px]">(used)</span>}
+            </button>
+          );
+        })}
         <div className="border-t mt-1.5 pt-1.5" style={{ borderColor: 'var(--color-border)' }}>
           <button
             onClick={() => setEditingEdge(null)}

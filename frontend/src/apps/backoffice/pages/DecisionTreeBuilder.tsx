@@ -167,21 +167,28 @@ export default function DecisionTreeBuilder() {
       const branches = sourceData?.branches as Record<string, unknown> | undefined;
       const branchKeys = branches ? Object.keys(branches) : [];
 
-      let branchLabel = '';
+      const existingLabels = edges
+        .filter((e) => e.source === params.source)
+        .map((e) => e.label as string)
+        .filter(Boolean);
+
       if (branchKeys.length > 0) {
-        const existingLabels = edges
-          .filter((e) => e.source === params.source)
-          .map((e) => e.label)
-          .filter(Boolean);
         const available = branchKeys.filter((k) => !existingLabels.includes(k));
-        branchLabel = available[0] || branchKeys[0] || '';
+        if (available.length === 0) return;
+        setEdges((eds) => addEdge({
+          ...params,
+          label: available[0],
+          animated: true,
+          style: { strokeWidth: 2 },
+        }, eds));
+      } else {
+        if (existingLabels.length > 0) return;
+        setEdges((eds) => addEdge({
+          ...params,
+          animated: true,
+          style: { strokeWidth: 2 },
+        }, eds));
       }
-      setEdges((eds) => addEdge({
-        ...params,
-        label: branchLabel || undefined,
-        animated: true,
-        style: { strokeWidth: 2 },
-      }, eds));
     },
     [setEdges, nodes, edges],
   );
