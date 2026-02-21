@@ -419,8 +419,13 @@ async def _run_tree_path(
     # Build rules_results from strategy evaluation steps
     step_rules = []
     for step in strat_result.evaluation_steps:
-        for rf in step.rules_fired:
-            step_rules.append(rf)
+        step_data = step.data or {}
+        all_rules_in_step = step_data.get("all_rules", [])
+        if all_rules_in_step:
+            step_rules.extend(all_rules_in_step)
+        else:
+            for rf in step.rules_fired:
+                step_rules.append(rf)
 
     decision = Decision(
         loan_application_id=application.id,

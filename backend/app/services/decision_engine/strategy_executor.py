@@ -696,13 +696,26 @@ def execute_assessment(
     hard_rules = [r for r in processed_rules if r.get("severity") == "hard"]
     refer_rules = [r for r in processed_rules if r.get("severity") != "hard"]
 
+    all_rule_results: list[dict] = []
+
     hard_failures = _evaluate_rule_set(hard_rules, rule_input, "hard")
+    for r in hard_rules:
+        rid = r.get("rule_id", "")
+        is_failure = any(f.get("rule_id") == rid for f in hard_failures)
+        value = _get_field_value(rule_input, r.get("field", ""))
+        all_rule_results.append({
+            "id": rid, "rule_id": rid, "name": r.get("name", ""),
+            "passed": not is_failure, "severity": "hard",
+            "message": next((f["message"] for f in hard_failures if f.get("rule_id") == rid), f"{r.get('field','')} passed"),
+        })
+
     steps.append(EvaluationStep(
         step_name="Hard Rules (Knock-Outs)",
         step_number=1,
         outcome="decline" if hard_failures else "pass",
         details=f"Evaluated {len(hard_rules)} hard rules, {len(hard_failures)} failed",
         rules_fired=hard_failures,
+        data={"all_rules": [r for r in all_rule_results if r["severity"] == "hard"]},
     ))
 
     if hard_failures:
@@ -711,15 +724,26 @@ def execute_assessment(
             reasons=[f["message"] for f in hard_failures],
             reason_codes=[f.get("reason_code", f["rule_id"]) for f in hard_failures],
             evaluation_steps=steps,
+            rules_output=None,
         )
 
     refer_failures = _evaluate_rule_set(refer_rules, rule_input, "refer")
+    for r in refer_rules:
+        rid = r.get("rule_id", "")
+        is_failure = any(f.get("rule_id") == rid for f in refer_failures)
+        all_rule_results.append({
+            "id": rid, "rule_id": rid, "name": r.get("name", ""),
+            "passed": not is_failure, "severity": "refer",
+            "message": next((f["message"] for f in refer_failures if f.get("rule_id") == rid), f"{r.get('field','')} passed"),
+        })
+
     steps.append(EvaluationStep(
         step_name="Refer Rules (Policy Overlays)",
         step_number=2,
         outcome="refer" if refer_failures else "pass",
         details=f"Evaluated {len(refer_rules)} refer rules, {len(refer_failures)} failed",
         rules_fired=refer_failures,
+        data={"all_rules": [r for r in all_rule_results if r["severity"] != "hard"]},
     ))
 
     if refer_failures:
