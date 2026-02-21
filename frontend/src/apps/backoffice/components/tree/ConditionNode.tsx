@@ -1,6 +1,6 @@
 import { memo, useState } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { GitBranch, Pencil, Check, Plus, Trash2 } from 'lucide-react';
+import { GitBranch, Pencil, Check, Plus, Trash2, X } from 'lucide-react';
 
 const ROUTING_ATTRIBUTES: {
   value: string;
@@ -16,27 +16,45 @@ const ROUTING_ATTRIBUTES: {
   { value: 'has_adverse_records', label: 'Adverse Records', type: 'binary', trueLabel: 'Has Adverse', falseLabel: 'No Adverse' },
   { value: 'is_income_verified', label: 'Income Verified', type: 'binary', trueLabel: 'Verified', falseLabel: 'Not Verified' },
   { value: 'is_approved_merchant', label: 'Approved Merchant', type: 'binary', trueLabel: 'Approved', falseLabel: 'Not Approved' },
-  { value: 'employment_type', label: 'Employment Type', type: 'categorical', categories: ['employed', 'self_employed', 'contract', 'unemployed', 'retired'] },
-  { value: 'bureau_file_status', label: 'Bureau Data', type: 'categorical', categories: ['none', 'thin', 'standard', 'thick'] },
+  { value: 'has_cross_default', label: 'Cross Default', type: 'binary', trueLabel: 'Has Cross Default', falseLabel: 'No Cross Default' },
+  { value: 'is_topup_refinance', label: 'Top-up / Refinance', type: 'binary', trueLabel: 'Top-up/Refi', falseLabel: 'New Loan' },
+  { value: 'is_id_verified', label: 'ID Verified', type: 'binary', trueLabel: 'ID Verified', falseLabel: 'Not Verified' },
+  { value: 'employment_type', label: 'Employment Type', type: 'categorical', categories: ['employed', 'self_employed', 'contract', 'part_time', 'not_employed', 'government_employee', 'retired'] },
+  { value: 'bureau_file_status', label: 'Bureau File Status', type: 'categorical', categories: ['thick', 'standard', 'thin', 'none'] },
   { value: 'income_band', label: 'Income Band', type: 'categorical', categories: ['below_5000', '5000_15000', '15000_30000', 'above_30000'] },
+  { value: 'channel', label: 'Application Channel', type: 'categorical', categories: ['branch', 'online', 'mobile', 'agent', 'api', 'pos'] },
+  { value: 'relationship_status', label: 'Relationship Status', type: 'categorical', categories: ['new', 'existing_active', 'existing_dormant', 'previous', 'staff'] },
+  { value: 'risk_band', label: 'Risk Band', type: 'categorical', categories: ['A', 'B', 'C', 'D', 'E'] },
+  { value: 'internal_risk_grade', label: 'Internal Risk Grade', type: 'categorical', categories: ['A', 'B', 'C', 'D', 'E'] },
   { value: 'merchant_name', label: 'Merchant', type: 'categorical' },
-  { value: 'channel', label: 'Channel', type: 'categorical', categories: ['branch', 'online', 'mobile', 'agent', 'api', 'pos'] },
+  { value: 'merchant_tier', label: 'Merchant Tier', type: 'categorical' },
   { value: 'product_family', label: 'Product Family', type: 'categorical' },
   { value: 'geographic_region', label: 'Region', type: 'categorical' },
-  { value: 'risk_band', label: 'Risk Band', type: 'categorical', categories: ['A', 'B', 'C', 'D', 'E'] },
+  { value: 'employer_category', label: 'Employer Category', type: 'categorical' },
+  { value: 'loan_purpose', label: 'Loan Purpose', type: 'categorical' },
   { value: 'monthly_income', label: 'Monthly Income', type: 'numeric_range', unit: 'TTD' },
   { value: 'loan_amount', label: 'Loan Amount', type: 'numeric_range', unit: 'TTD' },
   { value: 'age', label: 'Applicant Age', type: 'numeric_range', unit: 'years' },
   { value: 'dti_ratio', label: 'DTI Ratio', type: 'numeric_range', unit: '' },
   { value: 'ltv_ratio', label: 'LTV Ratio', type: 'numeric_range', unit: '' },
   { value: 'application_score', label: 'Application Score', type: 'numeric_range', unit: 'pts' },
+  { value: 'behavioral_score', label: 'Behavioral Score', type: 'numeric_range', unit: 'pts' },
+  { value: 'fraud_score', label: 'Fraud Score', type: 'numeric_range', unit: 'pts' },
   { value: 'loan_tenure_months', label: 'Loan Tenure', type: 'numeric_range', unit: 'months' },
+  { value: 'employment_tenure_months', label: 'Employment Tenure', type: 'numeric_range', unit: 'months' },
   { value: 'net_disposable_income', label: 'Net Disposable Income', type: 'numeric_range', unit: 'TTD' },
   { value: 'total_exposure', label: 'Total Exposure', type: 'numeric_range', unit: 'TTD' },
+  { value: 'total_outstanding_debt', label: 'Outstanding Debt', type: 'numeric_range', unit: 'TTD' },
+  { value: 'prior_loan_count', label: 'Prior Loan Count', type: 'numeric_range', unit: '' },
+  { value: 'recent_inquiries', label: 'Recent Inquiries', type: 'numeric_range', unit: '' },
+  { value: 'down_payment_pct', label: 'Down Payment %', type: 'numeric_range', unit: '%' },
+  { value: 'relationship_tenure_months', label: 'Relationship Tenure', type: 'numeric_range', unit: 'months' },
+  { value: 'worst_delinquency_12m', label: 'Worst Delinquency 12m', type: 'numeric_range', unit: 'DPD' },
+  { value: 'active_credit_facilities', label: 'Active Credit Facilities', type: 'numeric_range', unit: '' },
 ];
 
 interface BranchDef {
-  label: string;
+  label?: string;
   values?: string[];
   value?: boolean;
   min?: number;
@@ -65,8 +83,8 @@ function ConditionNodeInner({ id, data, selected }: NodeProps) {
   const attrDef = ROUTING_ATTRIBUTES.find((a) => a.value === d.attribute);
 
   const typeLabel =
-    d.conditionType === 'binary' ? 'Binary'
-    : d.conditionType === 'categorical' ? 'Categorical'
+    d.conditionType === 'binary' ? 'Yes / No'
+    : d.conditionType === 'categorical' ? 'Category'
     : d.conditionType === 'numeric_range' ? 'Numeric'
     : 'Compound';
 
@@ -174,10 +192,10 @@ function ConditionEditor({
         [attr.falseLabel || 'No', { value: false }],
       ];
     }
+    if (attr.type === 'categorical' && attr.categories && attr.categories.length > 0) {
+      return attr.categories.slice(0, 3).map((c) => [c, { values: [c] }]);
+    }
     if (attr.type === 'categorical') {
-      if (attr.categories && attr.categories.length > 0) {
-        return attr.categories.slice(0, 3).map((c) => [c, { values: [c] }]);
-      }
       return [['Group 1', { values: [] }], ['Other', { values: [] }]];
     }
     return [
@@ -236,13 +254,22 @@ function ConditionEditor({
 
   return (
     <div
-      className="relative px-3 py-3 min-w-[260px] max-w-[320px] rounded-lg border-2 border-blue-500 shadow-lg shadow-blue-500/20"
+      className="relative px-3 py-3 min-w-[280px] max-w-[340px] rounded-lg border-2 border-blue-500 shadow-lg shadow-blue-500/20 nopan nodrag nowheel"
       style={{ background: 'var(--color-surface)' }}
-      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
     >
       <Handle type="target" position={Position.Top} className="!bg-blue-500 !w-3 !h-3" />
       <div className="space-y-2">
-        <div className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider">Edit Condition</div>
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider">Edit Condition</span>
+          <button
+            onClick={(e) => { e.stopPropagation(); onCancel(); }}
+            className="p-0.5 rounded hover:bg-[var(--color-bg)]"
+          >
+            <X size={12} className="text-[var(--color-text-secondary)]" />
+          </button>
+        </div>
 
         <input
           value={label}
@@ -257,18 +284,18 @@ function ConditionEditor({
           onChange={(e) => handleAttrChange(e.target.value)}
           className="w-full px-2 py-1 text-xs rounded border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text)]"
         >
-          <option value="">Select attribute...</option>
-          <optgroup label="Binary (Yes/No)">
+          <option value="">Select field...</option>
+          <optgroup label="Yes / No">
             {ROUTING_ATTRIBUTES.filter((a) => a.type === 'binary').map((a) => (
               <option key={a.value} value={a.value}>{a.label}</option>
             ))}
           </optgroup>
-          <optgroup label="Categorical">
+          <optgroup label="Category">
             {ROUTING_ATTRIBUTES.filter((a) => a.type === 'categorical').map((a) => (
               <option key={a.value} value={a.value}>{a.label}</option>
             ))}
           </optgroup>
-          <optgroup label="Numeric Range">
+          <optgroup label="Numeric">
             {ROUTING_ATTRIBUTES.filter((a) => a.type === 'numeric_range').map((a) => (
               <option key={a.value} value={a.value}>{a.label}{a.unit ? ` (${a.unit})` : ''}</option>
             ))}
@@ -278,9 +305,11 @@ function ConditionEditor({
         <div className="border-t pt-2" style={{ borderColor: 'var(--color-border)' }}>
           <div className="flex items-center justify-between mb-1">
             <span className="text-[10px] font-semibold text-[var(--color-text-secondary)] uppercase">Branches</span>
-            <button onClick={addBranch} className="p-0.5 rounded hover:bg-blue-500/10">
-              <Plus size={11} className="text-blue-400" />
-            </button>
+            {condType !== 'binary' && (
+              <button onClick={addBranch} className="p-0.5 rounded hover:bg-blue-500/10">
+                <Plus size={11} className="text-blue-400" />
+              </button>
+            )}
           </div>
 
           {branches.map(([name, def], idx) => (
@@ -311,11 +340,37 @@ function ConditionEditor({
                 </select>
               )}
 
-              {condType === 'categorical' && (
+              {condType === 'categorical' && attrDef?.categories && attrDef.categories.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {attrDef.categories.map((cat) => {
+                    const selected = (def.values || []).includes(cat);
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => {
+                          const current = def.values || [];
+                          const next = selected ? current.filter((v) => v !== cat) : [...current, cat];
+                          updateBranch(idx, 'values', next);
+                        }}
+                        className={`px-1.5 py-0.5 text-[10px] rounded border transition-colors ${
+                          selected
+                            ? 'border-blue-500 bg-blue-500/20 text-blue-400'
+                            : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-blue-500/50'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {condType === 'categorical' && (!attrDef?.categories || attrDef.categories.length === 0) && (
                 <input
                   value={(def.values || []).join(', ')}
                   onChange={(e) => updateBranch(idx, 'values', e.target.value.split(',').map((v) => v.trim()).filter(Boolean))}
-                  placeholder={attrDef?.categories ? `e.g. ${attrDef.categories.slice(0, 2).join(', ')}` : 'Values (comma-separated)'}
+                  placeholder="Values (comma-separated)"
                   className="w-full px-1.5 py-0.5 text-[11px] rounded border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)]"
                 />
               )}
@@ -335,6 +390,7 @@ function ConditionEditor({
                   </select>
                   <input
                     type="number"
+                    step="any"
                     value={def.threshold ?? ''}
                     onChange={(e) => updateBranch(idx, 'threshold', Number(e.target.value))}
                     placeholder="Value"
@@ -349,20 +405,12 @@ function ConditionEditor({
           ))}
         </div>
 
-        <div className="flex gap-1">
-          <button
-            onClick={handleSave}
-            className="flex-1 flex items-center justify-center gap-1 px-2 py-1 text-xs rounded bg-blue-500 text-white hover:bg-blue-600"
-          >
-            <Check size={12} /> Apply
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onCancel(); }}
-            className="px-2 py-1 text-xs rounded border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
-          >
-            Cancel
-          </button>
-        </div>
+        <button
+          onClick={handleSave}
+          className="w-full flex items-center justify-center gap-1 px-2 py-1.5 text-xs rounded bg-blue-500 text-white hover:bg-blue-600"
+        >
+          <Check size={12} /> Apply
+        </button>
       </div>
       <Handle type="source" position={Position.Bottom} className="!bg-blue-500 !w-3 !h-3" />
     </div>

@@ -49,9 +49,10 @@ function AssessmentNodeInner({ id, data, selected }: NodeProps) {
   if (editing) {
     return (
       <div
-        className="relative px-3 py-3 min-w-[220px] max-w-[280px] rounded-lg border-2 border-orange-500 shadow-lg shadow-orange-500/20"
+        className="relative px-3 py-3 min-w-[220px] max-w-[280px] rounded-lg border-2 border-orange-500 shadow-lg shadow-orange-500/20 nopan nodrag nowheel"
         style={{ background: 'var(--color-surface)' }}
-        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
       >
         <Handle type="target" position={Position.Top} className="!bg-orange-500 !w-3 !h-3" />
         <div className="space-y-2">

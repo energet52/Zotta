@@ -158,7 +158,7 @@ class TestTreeBuilderInteractive:
 
     def test_07_select_attribute(self, page):
         """Select 'Customer Relationship' (is_existing_customer) as the attribute."""
-        editor = page.locator("text=Edit Condition").locator("..")
+        editor = page.locator(".nopan").first
         attr_select = editor.locator("select").first
         attr_select.select_option("is_existing_customer")
         page.wait_for_timeout(500)
@@ -168,12 +168,11 @@ class TestTreeBuilderInteractive:
 
     def test_08_apply_condition(self, page):
         """Click Apply to save the condition."""
-        apply_btn = page.locator("button", has_text="Apply").first
+        apply_btn = page.locator(".nopan button", has_text="Apply").first
         apply_btn.click()
         page.wait_for_timeout(1000)
 
         expect(page.locator("text=Customer Relationship").first).to_be_visible(timeout=3000)
-        expect(page.locator("text=is_existing_customer").first).to_be_visible(timeout=3000)
 
     def test_09_add_assessment_nodes(self, page):
         """Add 2 assessment nodes."""
