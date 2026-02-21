@@ -519,12 +519,20 @@ def _evaluate_rule_set(
         if threshold is None:
             continue
 
-        passed = _compare(value, operator, threshold)
-        if not passed:
+        matched = _compare(value, operator, threshold)
+
+        trigger_mode = rule.get("trigger_mode", False)
+        failed = matched if trigger_mode else not matched
+
+        if failed:
+            if trigger_mode:
+                msg = rule.get("message", f"{field_name} ({value}) matched {operator} {threshold} — rule triggered")
+            else:
+                msg = rule.get("message", f"{field_name} ({value}) fails {operator} {threshold}")
             failures.append({
                 "rule_id": rule.get("rule_id", ""),
                 "name": rule.get("name", ""),
-                "message": rule.get("message", f"{field_name} ({value}) fails {operator} {threshold}"),
+                "message": msg,
                 "severity": rule.get("severity", default_severity),
                 "reason_code": rule.get("reason_code", rule.get("rule_id", "")),
                 "value": value,
@@ -663,15 +671,22 @@ def execute_assessment(
 ) -> StrategyResult:
     """Execute an Assessment's rules against the input data.
 
-    Rules are evaluated in two passes:
-    1. Hard rules (severity=hard): any failure -> decline
-    2. Refer rules (severity=refer): any failure -> refer
-    If no failures: approve.
+    Assessment rules use TRIGGER mode: the rule fires (causes decline/refer)
+    when the condition IS true. E.g. "job_title eq janitor" means
+    "decline when job_title is janitor".
+
+    This is opposite to the legacy requirement mode where rules define what
+    must be true to pass.
     """
     steps: list[EvaluationStep] = []
 
-    hard_rules = [r for r in assessment_rules if r.get("severity") == "hard" and r.get("enabled", True)]
-    refer_rules = [r for r in assessment_rules if r.get("severity") != "hard" and r.get("enabled", True)]
+    trigger_rules = [
+        {**r, "trigger_mode": True}
+        for r in assessment_rules
+        if r.get("enabled", True)
+    ]
+    hard_rules = [r for r in trigger_rules if r.get("severity") == "hard"]
+    refer_rules = [r for r in trigger_rules if r.get("severity") != "hard"]
 
     hard_failures = _evaluate_rule_set(hard_rules, rule_input, "hard")
     steps.append(EvaluationStep(
