@@ -119,7 +119,7 @@ def generate_tree(
     try:
         client = OpenAI(api_key=api_key)
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-5.2",
             messages=messages,
             response_format={"type": "json_object"},
             temperature=0.3,
