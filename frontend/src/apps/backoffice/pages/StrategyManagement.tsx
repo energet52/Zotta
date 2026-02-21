@@ -270,8 +270,12 @@ export default function StrategyManagement() {
   const { data: products = [] } = useQuery({
     queryKey: ['products-for-strategies'],
     queryFn: async () => {
-      const res = await api.get('/admin/products');
-      return res.data as { id: number; name: string; default_strategy_id?: number | null; decision_tree_id?: number | null }[];
+      try {
+        const res = await api.get('/admin/products');
+        return res.data as { id: number; name: string; default_strategy_id?: number | null; decision_tree_id?: number | null }[];
+      } catch {
+        return [];
+      }
     },
   });
 
@@ -724,7 +728,7 @@ function StrategyEditPanel({
 
       {/* Decision Tree */}
       {strategy.decision_tree_id ? (
-        <EmbeddedTreeViewer treeId={strategy.decision_tree_id} assessments={strategy.assessments || []} />
+        <EmbeddedTreeViewer treeId={strategy.decision_tree_id} strategyId={strategy.id} assessments={strategy.assessments || []} />
       ) : (
         <NoTreePlaceholder strategyId={strategy.id} onTreeCreated={onSaved} />
       )}
@@ -817,7 +821,7 @@ function NoTreePlaceholder({ strategyId, onTreeCreated }: { strategyId: number; 
   );
 }
 
-function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessments: AssessmentEntry[] }) {
+function EmbeddedTreeViewer({ treeId, strategyId, assessments }: { treeId: number; strategyId: number; assessments: AssessmentEntry[] }) {
   const queryClient = useQueryClient();
 
   const { data: tree } = useQuery({
@@ -1069,7 +1073,7 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
     setAiLoading(true);
     setAiResult(null);
     try {
-      const res = await api.post(`/strategies/${assessments[0]?.strategy_id || 0}/generate-tree`, {
+      const res = await api.post(`/strategies/${strategyId}/generate-tree`, {
         prompt: aiPrompt,
       });
       setAiResult(res.data);
@@ -1082,15 +1086,11 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
 
   const applyAiTree = async () => {
     if (!aiResult?.tree?.nodes || !treeId) return;
-    const headers = { 'Content-Type': 'application/json' };
     await api.put(`/decision-trees/${treeId}`, { nodes: aiResult.tree.nodes });
 
     if (aiResult.tree.assessment_names) {
-      const stratId = assessments[0]?.strategy_id;
-      if (stratId) {
-        for (const name of aiResult.tree.assessment_names) {
-          await api.post(`/assessments/from-template?strategy_id=${stratId}&name=${encodeURIComponent(name)}`);
-        }
+      for (const name of aiResult.tree.assessment_names) {
+        await api.post(`/assessments/from-template?strategy_id=${strategyId}&name=${encodeURIComponent(name)}`);
       }
     }
 
