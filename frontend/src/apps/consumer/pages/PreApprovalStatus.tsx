@@ -93,7 +93,7 @@ export default function PreApprovalStatus() {
         </div>
       </header>
 
-      <div className="max-w-lg mx-auto px-4 py-6">
+      <div className="max-w-lg mx-auto px-4 py-4 sm:py-6">
       <h1 className="text-2xl font-bold text-[var(--color-text)] mb-1">Check Your Status</h1>
       <p className="text-sm text-[var(--color-text-muted)] mb-6">Enter your reference code and phone number to view your pre-approval result</p>
 

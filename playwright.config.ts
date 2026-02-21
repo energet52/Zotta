@@ -12,6 +12,18 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    {
+      name: 'mobile-chrome',
+      use: { ...devices['Pixel 7'] },
+      grep: /@responsive/,
+    },
+    {
+      name: 'mobile-safari',
+      use: { ...devices['iPhone 14'] },
+      grep: /@responsive/,
+    },
+  ],
   timeout: 30000,
 });

@@ -72,7 +72,7 @@ export default function StrategyAuditLog() {
   );
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-[var(--color-text)]">Strategy Audit Log</h1>
@@ -148,8 +148,8 @@ export default function StrategyAuditLog() {
                   <div className="flex items-center gap-3 mt-2 text-xs text-[var(--color-text-secondary)]">
                     <span>v{String(details.version || 1)}</span>
                     {details.assessments !== undefined && <span>{String(details.assessments)} assessments</span>}
-                    {details.has_tree && <span>has tree</span>}
-                    {details.is_fallback && <span className="text-gray-400">fallback</span>}
+                    {Boolean(details.has_tree) && <span>has tree</span>}
+                    {Boolean(details.is_fallback) && <span className="text-gray-400">fallback</span>}
                     <Link
                       to="/backoffice/strategies"
                       className="flex items-center gap-0.5 text-blue-500 hover:text-blue-400"

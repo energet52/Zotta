@@ -174,7 +174,7 @@ export default function ErrorMonitor() {
 
       {/* Stats Cards */}
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -292,7 +292,7 @@ export default function ErrorMonitor() {
             <option value="true">Resolved</option>
           </select>
 
-          <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 flex-1 min-w-[200px]">
+          <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 flex-1 min-w-0 sm:min-w-[200px]">
             <div className="relative flex-1">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
               <input
@@ -422,7 +422,7 @@ export default function ErrorMonitor() {
                     {log.request_body && (
                       <div className="mb-4">
                         <p className="text-xs text-[var(--color-text-muted)] mb-1">Request Body</p>
-                        <pre className="text-xs p-3 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] overflow-x-auto max-h-32 font-mono">
+                        <pre className="text-xs p-3 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] overflow-x-auto max-w-full max-h-32 font-mono">
                           {(() => {
                             try { return JSON.stringify(JSON.parse(log.request_body), null, 2); }
                             catch { return log.request_body; }
@@ -434,7 +434,7 @@ export default function ErrorMonitor() {
                     {log.traceback && (
                       <div className="mb-4">
                         <p className="text-xs text-[var(--color-text-muted)] mb-1">Traceback</p>
-                        <pre className="text-xs p-3 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] overflow-x-auto max-h-64 font-mono text-red-400/80 whitespace-pre-wrap">
+                        <pre className="text-xs p-3 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] overflow-x-auto max-w-full max-h-64 font-mono text-red-400/80 whitespace-pre-wrap">
                           {log.traceback}
                         </pre>
                       </div>

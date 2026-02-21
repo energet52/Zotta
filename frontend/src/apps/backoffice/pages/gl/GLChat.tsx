@@ -112,7 +112,7 @@ function QueryUsed({ queryUsed }: { queryUsed?: string | null }) {
         Show query
       </button>
       {open && (
-        <pre className="mt-1 p-2 text-xs rounded bg-[var(--color-bg)] text-[var(--color-text-muted)] overflow-x-auto">
+        <pre className="mt-1 p-2 text-xs rounded bg-[var(--color-bg)] text-[var(--color-text-muted)] overflow-x-auto max-w-full">
           {queryUsed}
         </pre>
       )}

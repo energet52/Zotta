@@ -128,7 +128,7 @@ export default function CollectionsDashboard() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <Card>
           <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] mb-1">
             <AlertTriangle size={12} /> Delinquent
@@ -225,7 +225,7 @@ export default function CollectionsDashboard() {
           <Users size={16} /> Agent Performance
         </h3>
         {agents.length > 0 ? (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-w-full">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)]">

@@ -284,7 +284,7 @@ export default function GLReports() {
           {/* Parameters */}
           <Card padding="sm">
             <div className="flex flex-wrap items-end gap-4">
-              <div className="min-w-[180px]">
+              <div className="min-w-0 sm:min-w-[180px]">
                 <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">
                   Period
                 </label>
@@ -301,7 +301,7 @@ export default function GLReports() {
                   ))}
                 </select>
               </div>
-              <div className="min-w-[140px]">
+              <div className="min-w-0 sm:min-w-[140px]">
                 <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">
                   Date From
                 </label>
@@ -312,7 +312,7 @@ export default function GLReports() {
                   className="w-full px-3 py-2 text-sm rounded-lg border bg-[var(--color-surface)] text-[var(--color-text)] border-[var(--color-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                 />
               </div>
-              <div className="min-w-[140px]">
+              <div className="min-w-0 sm:min-w-[140px]">
                 <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">
                   Date To
                 </label>
@@ -324,7 +324,7 @@ export default function GLReports() {
                 />
               </div>
               {selectedType.key === 'account_activity' && (
-                <div className="min-w-[220px]">
+                <div className="min-w-0 sm:min-w-[220px]">
                   <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">
                     Account
                   </label>
@@ -369,7 +369,7 @@ export default function GLReports() {
                     <ChevronDown size={14} className="ml-1" />
                   </Button>
                   {exportOpen && (
-                    <div className="absolute right-0 mt-1 py-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg shadow-lg z-10 min-w-[120px]">
+                    <div className="absolute right-0 mt-1 py-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg shadow-lg z-10 min-w-0 sm:min-w-[120px]">
                       {EXPORT_FORMATS.map(({ value, label }) => (
                         <button
                           key={value}

@@ -165,7 +165,7 @@ export default function IncomeStatement() {
           </div>
         </div>
 
-        <div className="min-w-[220px]">
+        <div className="min-w-0 sm:min-w-[220px]">
           <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Period</label>
           <select
             value={selectedPeriod}

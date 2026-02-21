@@ -317,7 +317,7 @@ export default function Customer360() {
   return (
     <div className="space-y-0">
       {/* ─── HEADER BAR ─────────────────────────────────────── */}
-      <div className="bg-[var(--color-surface)] border-b border-[var(--color-border)] px-6 py-4 -mx-6 -mt-6 mb-6">
+      <div className="bg-[var(--color-surface)] border-b border-[var(--color-border)] px-4 sm:px-6 py-4 -mx-6 -mt-6 mb-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-4">
             <button onClick={() => navigate('/backoffice/customers')} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
@@ -415,7 +415,7 @@ export default function Customer360() {
           </Card>
 
           {/* Quick Stats */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <StatCard label="Lifetime Value" value={fmtMoney(qs.total_lifetime_value)} icon={<TrendingUp className="w-4 h-4 text-emerald-400" />} />
             <StatCard label="Active Products" value={String(qs.active_products || 0)} sub={fmtMoney(qs.total_outstanding)} icon={<Activity className="w-4 h-4 text-sky-400" />} />
             <StatCard label="Worst DPD" value={String(qs.worst_dpd || 0)} icon={<AlertTriangle className={`w-4 h-4 ${qs.worst_dpd > 0 ? 'text-red-400' : 'text-emerald-400'}`} />} />
@@ -428,14 +428,14 @@ export default function Customer360() {
         {/* ─── MAIN CONTENT (Tabbed) ─── */}
         <div className="flex-1 min-w-0">
           {/* Tab Bar */}
-          <div className="flex gap-1 overflow-x-auto border-b border-[var(--color-border)] mb-4 pb-px">
+          <div className="flex flex-nowrap gap-1 overflow-x-auto max-w-full border-b border-[var(--color-border)] mb-4 pb-px">
             {TABS.map((t) => {
               const newAlertCount = t === 'Bureau Alerts' ? bureauAlerts.filter((a: any) => a.status === 'new').length : 0;
               return (
                 <button
                   key={t}
                   onClick={() => setActiveTab(t)}
-                  className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition flex items-center gap-1.5 ${
+                  className={`shrink-0 px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition flex items-center gap-1.5 ${
                     activeTab === t
                       ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
                       : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
@@ -492,7 +492,7 @@ export default function Customer360() {
       {/* ─── NEW COMMUNICATION MODAL ──────────────────────────── */}
       {showNewComm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] shadow-2xl w-full max-w-lg p-6">
+          <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] shadow-2xl w-full max-w-lg p-4 sm:p-6">
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-semibold text-lg flex items-center gap-2">
                 <MessageCircle className="w-5 h-5 text-[var(--color-primary)]" />
@@ -739,7 +739,7 @@ function OverviewTab({ u, p, qs, apps, payments, schedules, creditReports, timel
       </div>
 
       {/* Summary row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
         <MiniStat label="Total Ever Borrowed" value={fmtMoney(apps.reduce((s: number, a: any) => s + Number(a.amount_approved || a.amount_requested || 0), 0))} />
         <MiniStat label="Total Repaid" value={fmtMoney(payments.filter((p: any) => p.status === 'completed').reduce((s: number, p: any) => s + Number(p.amount || 0), 0))} />
         <MiniStat label="Total Outstanding" value={fmtMoney(qs.total_outstanding)} />
@@ -976,7 +976,7 @@ function ApplicationsTab({ apps, decisions }: { apps: any[]; decisions: any[] })
             </div>
             {isOpen && (
               <div className="mt-3 pt-3 border-t border-[var(--color-border)] text-sm space-y-2">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
                   <Info label="Requested" value={fmtMoney(a.amount_requested)} />
                   <Info label="Approved" value={fmtMoney(a.amount_approved)} />
                   <Info label="Term" value={`${a.term_months}m`} />
@@ -1040,7 +1040,7 @@ function LoansTab({ apps, schedules, disbursements }: { apps: any[]; schedules: 
           </div>
           {getStatusBadge(a.status)}
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm mb-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-sm mb-3">
           <Info label="Principal" value={fmtMoney(a.amount_approved || a.amount_requested)} />
           <Info label="Monthly" value={fmtMoney(a.monthly_payment)} />
           <Info label="Total Paid" value={fmtMoney(totalPaid)} />
@@ -1177,7 +1177,7 @@ function PaymentsTab({ payments, schedules: _schedules }: { payments: any[]; sch
 
       {/* Payment Table */}
       <Card padding="none">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-w-full">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--color-border)] text-left text-[var(--color-text-muted)]">
@@ -1846,7 +1846,7 @@ function BureauAlertsTab({ alerts, userId, onRefresh }: { alerts: any[]; userId:
                   <p className="text-sm text-[var(--color-text-muted)] mb-3 leading-relaxed">{alert.description}</p>
 
                   {/* Details grid */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 mb-3 text-sm">
                     {alert.other_institution && (
                       <div>
                         <span className="text-[10px] text-[var(--color-text-muted)] block">Institution</span>
@@ -1977,7 +1977,7 @@ function AuditTab({ logs }: { logs: any[] }) {
         />
       </div>
       <Card padding="none">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-w-full">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--color-border)] text-left text-[var(--color-text-muted)]">

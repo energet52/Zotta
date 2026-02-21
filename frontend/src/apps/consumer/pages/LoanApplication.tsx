@@ -516,7 +516,7 @@ export default function LoanApplication() {
   return (
     <div className="max-w-5xl mx-auto">
       <h1 className="text-2xl font-bold mb-6 text-[var(--color-text)]">Hire-Purchase Application</h1>
-      <div className="flex items-center mb-8 overflow-x-auto">
+      <div className="flex items-center mb-8 overflow-x-auto max-w-full">
         {STEPS.map((label, i) => (
           <div key={label} className="flex items-center flex-1 min-w-0">
             <div className="flex items-center">
@@ -538,7 +538,7 @@ export default function LoanApplication() {
           <div className="space-y-6">
             {scanPhase === 'start' && (
               <div className="flex flex-col items-center justify-center py-12 space-y-6">
-                <div className="p-6 bg-[var(--color-primary)]/10 rounded-full">
+                <div className="p-4 sm:p-6 bg-[var(--color-primary)]/10 rounded-full">
                   <CreditCard className="text-[var(--color-primary)]" size={48} />
                 </div>
                 <div className="text-center space-y-2">
@@ -946,7 +946,7 @@ export default function LoanApplication() {
             )}
             {calculation && (
               <div className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="p-3 bg-[var(--color-bg)] rounded-lg"><p className="text-xs text-[var(--color-text-muted)]">Total Financed</p><p className="font-bold text-[var(--color-text)]">TTD {calculation.total_financed.toLocaleString()}</p></div>
                   <div className="p-3 bg-[var(--color-bg)] rounded-lg"><p className="text-xs text-[var(--color-text-muted)]">Downpayment</p><p className="font-bold text-[var(--color-text)]">TTD {calculation.downpayment.toLocaleString()}</p></div>
                   <div className="p-3 bg-[var(--color-bg)] rounded-lg"><p className="text-xs text-[var(--color-text-muted)]">Fees Upfront</p><p className="font-bold text-[var(--color-text)]">TTD {calculation.fees_due_upfront.toLocaleString()}</p></div>
@@ -989,7 +989,7 @@ export default function LoanApplication() {
                   <div><p className="text-xs text-[var(--color-text-muted)] mb-1">Product</p><p className="font-semibold text-[var(--color-text)]">{selectedProduct?.name || '—'}</p></div>
                   <div><p className="text-xs text-[var(--color-text-muted)] mb-1">Tenure</p><p className="font-semibold text-[var(--color-text)]">{selectedTerm || '—'} months</p></div>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-[var(--color-border)]">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-[var(--color-border)]">
                   <div><p className="text-xs text-[var(--color-text-muted)]">Total Financed</p><p className="font-bold text-[var(--color-text)]">TTD {(calculation?.total_financed || totalAmount).toLocaleString()}</p></div>
                   <div><p className="text-xs text-[var(--color-text-muted)]">Downpayment</p><p className="font-bold text-[var(--color-text)]">TTD {(calculation?.downpayment || 0).toLocaleString()}</p></div>
                   <div><p className="text-xs text-[var(--color-text-muted)]">Fees Upfront</p><p className="font-bold text-[var(--color-text)]">TTD {(calculation?.fees_due_upfront || 0).toLocaleString()}</p></div>

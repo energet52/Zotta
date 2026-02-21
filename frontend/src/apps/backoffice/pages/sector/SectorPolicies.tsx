@@ -297,12 +297,12 @@ export default function SectorPolicies() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-[var(--color-surface)] p-1 rounded-lg border border-[var(--color-border)] w-fit">
+      <div className="flex flex-nowrap gap-1 bg-[var(--color-surface)] p-1 rounded-lg border border-[var(--color-border)] w-full sm:w-fit overflow-x-auto max-w-full">
         {tabs.map(t => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm transition-colors ${
+            className={`shrink-0 flex items-center gap-2 px-4 py-2 rounded-md text-sm transition-colors whitespace-nowrap ${
               tab === t.key
                 ? 'bg-[var(--color-primary)] text-white'
                 : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
@@ -311,7 +311,7 @@ export default function SectorPolicies() {
             <t.icon size={16} />
             {t.label}
             {t.key === 'alerts' && alerts.filter(a => a.status === 'new').length > 0 && (
-              <span className="bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[20px] text-center">
+              <span className="bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 min-w-0 sm:min-w-[20px] text-center">
                 {alerts.filter(a => a.status === 'new').length}
               </span>
             )}
@@ -333,7 +333,7 @@ export default function SectorPolicies() {
               </div>
 
               {showForm && (
-                <Card className="p-6 border-2 border-[var(--color-primary)]/30">
+                <Card className="p-4 sm:p-6 border-2 border-[var(--color-primary)]/30">
                   <h3 className="font-semibold text-[var(--color-text)] mb-4">{editingPolicy ? 'Edit Policy' : 'New Sector Policy'}</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div>
@@ -561,7 +561,7 @@ export default function SectorPolicies() {
               </div>
 
               {showRuleForm && (
-                <Card className="p-6 border-2 border-[var(--color-primary)]/30">
+                <Card className="p-4 sm:p-6 border-2 border-[var(--color-primary)]/30">
                   <h3 className="font-semibold text-[var(--color-text)] mb-4">New Alert Rule</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div>
@@ -660,7 +660,7 @@ export default function SectorPolicies() {
           {/* ═══ STRESS TEST TAB ═══ */}
           {tab === 'stress' && (
             <div className="space-y-4">
-              <Card className="p-6">
+              <Card className="p-4 sm:p-6">
                 <h3 className="font-semibold text-[var(--color-text)] mb-4">What-If Scenario Builder</h3>
                 <div className="flex items-center gap-4 mb-4">
                   <div>
@@ -706,15 +706,15 @@ export default function SectorPolicies() {
                   <button onClick={() => { setStressName('Pandemic Scenario'); setStressShocks(Object.fromEntries(SECTORS.slice(0, 20).map(s => [s, { default_rate_multiplier: 1.8, exposure_change_pct: -5 }]))); }} className="px-3 py-1 text-xs rounded-lg border border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)]">Pandemic</button>
                 </div>
 
-                <button onClick={handleRunStressTest} disabled={Object.keys(stressShocks).length === 0} className="px-6 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
+                <button onClick={handleRunStressTest} disabled={Object.keys(stressShocks).length === 0} className="px-4 sm:px-6 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
                   Run Stress Test
                 </button>
               </Card>
 
               {stressResult && (
-                <Card className="p-6">
+                <Card className="p-4 sm:p-6">
                   <h3 className="font-semibold text-[var(--color-text)] mb-2">Results: {stressResult.scenario_name}</h3>
-                  <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                     <div className="p-3 rounded-lg bg-[var(--color-bg)]">
                       <div className="text-xs text-[var(--color-text-muted)]">Total Portfolio</div>
                       <div className="text-lg font-bold text-[var(--color-text)]">{fmt(stressResult.total_portfolio)}</div>

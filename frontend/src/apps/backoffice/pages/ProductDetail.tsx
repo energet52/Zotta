@@ -372,7 +372,7 @@ export default function ProductDetail() {
 
       {/* Tabs */}
       <Card padding="none">
-        <div className="border-b border-[var(--color-border)] px-2 py-1.5 flex items-center gap-1 overflow-x-auto">
+        <div className="border-b border-[var(--color-border)] px-2 py-1.5 flex items-center gap-1 overflow-x-auto max-w-full">
           {TABS.map(t => (
             <button
               key={t.key}
@@ -403,7 +403,7 @@ export default function ProductDetail() {
                   <label className="block text-xs text-[var(--color-text-muted)] mb-1">Description</label>
                   <textarea rows={3} value={product.description || ''} onChange={e => setProduct(p => ({ ...p, description: e.target.value }))} className="w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg" />
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs text-[var(--color-text-muted)] mb-1">Merchant</label>
                     <select value={product.merchant_id ?? ''} onChange={e => setProduct(p => ({ ...p, merchant_id: e.target.value ? Number(e.target.value) : null }))} className="w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg">
@@ -444,7 +444,7 @@ export default function ProductDetail() {
                     </select>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs text-[var(--color-text-muted)] mb-1">Min Term (months)</label>
                     <input type="number" value={product.min_term_months} onChange={e => setProduct(p => ({ ...p, min_term_months: Number(e.target.value) }))} className="w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg" />
@@ -454,7 +454,7 @@ export default function ProductDetail() {
                     <input type="number" value={product.max_term_months} onChange={e => setProduct(p => ({ ...p, max_term_months: Number(e.target.value) }))} className="w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg" />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs text-[var(--color-text-muted)] mb-1">Min Amount (TTD)</label>
                     <input type="number" value={product.min_amount} onChange={e => setProduct(p => ({ ...p, min_amount: Number(e.target.value) }))} className="w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg" />
@@ -464,7 +464,7 @@ export default function ProductDetail() {
                     <input type="number" value={product.max_amount} onChange={e => setProduct(p => ({ ...p, max_amount: Number(e.target.value) }))} className="w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg" />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs text-[var(--color-text-muted)] mb-1">Base Interest Rate (%)</label>
                     <input type="number" step="0.01" value={product.interest_rate ?? ''} onChange={e => setProduct(p => ({ ...p, interest_rate: e.target.value ? Number(e.target.value) : null }))} placeholder="e.g. 12.5" className="w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg" />
@@ -513,7 +513,7 @@ export default function ProductDetail() {
                       </tbody>
                     </table>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
                     <input type="number" placeholder="Min" value={newScoreRange.min_score} onChange={e => setNewScoreRange(s => ({ ...s, min_score: Number(e.target.value) }))} className="h-[36px] px-3 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm" />
                     <input type="number" placeholder="Max" value={newScoreRange.max_score} onChange={e => setNewScoreRange(s => ({ ...s, max_score: Number(e.target.value) }))} className="h-[36px] px-3 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm" />
                   </div>
@@ -680,7 +680,7 @@ export default function ProductDetail() {
               </table>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-7 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-7 gap-2">
               <input value={newTier.tier_name} onChange={e => setNewTier(t => ({ ...t, tier_name: e.target.value }))} placeholder="Tier name" className="h-[38px] px-3 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm" />
               <input type="number" value={newTier.min_score} onChange={e => setNewTier(t => ({ ...t, min_score: Number(e.target.value) }))} placeholder="Min score" className="h-[38px] px-3 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm" />
               <input type="number" value={newTier.max_score} onChange={e => setNewTier(t => ({ ...t, max_score: Number(e.target.value) }))} placeholder="Max score" className="h-[38px] px-3 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm" />
@@ -725,7 +725,7 @@ export default function ProductDetail() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <h3 className="font-semibold text-sm">Applicant Requirements</h3>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs text-[var(--color-text-muted)] mb-1">Min Age</label>
                     <input type="number" value={elig.min_age ?? ''} onChange={e => setElig({ min_age: e.target.value ? Number(e.target.value) : null })} placeholder="18" className="w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg" />
@@ -735,7 +735,7 @@ export default function ProductDetail() {
                     <input type="number" value={elig.max_age ?? ''} onChange={e => setElig({ max_age: e.target.value ? Number(e.target.value) : null })} placeholder="65" className="w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg" />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs text-[var(--color-text-muted)] mb-1">Min Monthly Income (TTD)</label>
                     <input type="number" value={elig.min_income ?? ''} onChange={e => setElig({ min_income: e.target.value ? Number(e.target.value) : null })} placeholder="3000" className="w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg" />
@@ -811,7 +811,7 @@ export default function ProductDetail() {
                 </div>
 
                 {/* KPI Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                   {[
                     { label: 'Total Applications', value: analytics.metrics.total_applications, icon: <Activity size={14} /> },
                     { label: 'Last 30 Days', value: analytics.metrics.recent_applications_30d, icon: <TrendingUp size={14} /> },
@@ -916,7 +916,7 @@ export default function ProductDetail() {
               <div className="space-y-3 p-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)]">
                 <h3 className="font-semibold text-sm">Simulation Results</h3>
                 <p className="text-sm">{simResult.analysis.impact_summary}</p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="text-center p-2 rounded bg-[var(--color-surface-hover)]">
                     <div className="text-xs text-[var(--color-text-muted)]">Risk Level</div>
                     <div className={`font-semibold text-sm ${

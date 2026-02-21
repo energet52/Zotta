@@ -155,7 +155,7 @@ export default function PreApprovalDashboard() {
           ) : analytics && (
             <>
               {/* KPI Cards */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <Card padding="sm">
                   <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider">Total Checks</p>
                   <p className="text-3xl font-bold text-[var(--color-text)] mt-1">{fmt(analytics.total)}</p>
@@ -276,7 +276,7 @@ export default function PreApprovalDashboard() {
                   <Badge variant="info">Referred</Badge>
                 </div>
 
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm mb-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm mb-3">
                   <div>
                     <span className="text-xs text-[var(--color-text-muted)]">Item</span>
                     <p className="text-[var(--color-text)]">{c.item_description || '—'}</p>
@@ -328,7 +328,7 @@ export default function PreApprovalDashboard() {
           {allItems.length === 0 ? (
             <p className="text-center py-8 text-[var(--color-text-muted)]">No pre-approval records</p>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-w-full">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[var(--color-border)]">

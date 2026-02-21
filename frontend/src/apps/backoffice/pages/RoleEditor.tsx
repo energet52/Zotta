@@ -313,7 +313,7 @@ export function RoleDetailPage() {
       </div>
 
       {/* Name & description */}
-      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6 space-y-4">
+      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-4 sm:p-6 space-y-4">
         <div>
           <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Role Name *</label>
           <input
@@ -341,7 +341,7 @@ export function RoleDetailPage() {
       </div>
 
       {/* Permissions */}
-      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6">
+      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-[var(--color-text)]">
             Permissions ({selectedPerms.size} / {allPermissions.length})

@@ -73,6 +73,40 @@ body {
   -webkit-font-smoothing: antialiased;
   background-color: var(--color-bg);
   color: var(--color-text);
+  overflow-x: hidden;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+pre,
+code {
+  overflow-wrap: anywhere;
+}
+
+/* Keep content constrained on small viewports and avoid accidental bleed */
+.responsive-shell {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 /* Thin scrollbar for sidebar nav */

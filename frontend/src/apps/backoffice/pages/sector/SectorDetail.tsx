@@ -143,7 +143,7 @@ export default function SectorDetail() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
         <Card className="p-4">
           <div className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider">Outstanding</div>
           <div className="text-lg font-bold text-[var(--color-text)] mt-1">{fmt(data.total_outstanding)}</div>
@@ -180,7 +180,7 @@ export default function SectorDetail() {
       {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Delinquency Distribution */}
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <h2 className="font-semibold text-[var(--color-text)] mb-4">
             <AlertTriangle size={18} className="inline mr-2 text-yellow-400" />
             Delinquency Distribution
@@ -198,7 +198,7 @@ export default function SectorDetail() {
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-          <div className="grid grid-cols-3 gap-4 mt-4 text-center text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4 text-center text-xs">
             <div className="p-2 rounded-lg bg-yellow-500/10">
               <div className="font-bold text-yellow-400">{fmt(data.dpd_30.amount)}</div>
               <div className="text-[var(--color-text-muted)]">30 DPD Amount</div>
@@ -215,7 +215,7 @@ export default function SectorDetail() {
         </Card>
 
         {/* Roll Rates */}
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <h2 className="font-semibold text-[var(--color-text)] mb-4">
             <Activity size={18} className="inline mr-2 text-[var(--color-primary)]" />
             Roll Rate Analysis
@@ -243,7 +243,7 @@ export default function SectorDetail() {
               <h3 className="text-sm font-medium text-[var(--color-text)] mb-2">
                 <Shield size={14} className="inline mr-1" /> Active Policy
               </h3>
-              <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                 {data.policy.exposure_cap_pct && (
                   <div>
                     <span className="text-[var(--color-text-muted)]">Exposure Cap:</span>{' '}
@@ -282,7 +282,7 @@ export default function SectorDetail() {
 
       {/* Historical Trend */}
       {data.snapshots.length > 0 && (
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <h2 className="font-semibold text-[var(--color-text)] mb-4">
             <TrendingUp size={18} className="inline mr-2 text-[var(--color-primary)]" />
             Historical Trend
@@ -315,7 +315,7 @@ export default function SectorDetail() {
       )}
 
       {/* Loan Listings (Drill-down) */}
-      <Card className="p-6">
+      <Card className="p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-[var(--color-text)]">
             <FileText size={18} className="inline mr-2 text-[var(--color-primary)]" />
@@ -329,7 +329,7 @@ export default function SectorDetail() {
           </button>
         </div>
         {showLoans && (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-w-full">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-[var(--color-text-muted)] uppercase tracking-wider border-b border-[var(--color-border)]">

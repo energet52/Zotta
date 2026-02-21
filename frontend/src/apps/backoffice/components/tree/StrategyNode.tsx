@@ -25,7 +25,7 @@ function StrategyNodeInner({ data, selected }: NodeProps) {
 
   return (
     <div
-      className={`relative px-4 py-3 min-w-[180px] max-w-[260px] rounded-lg border-2 transition-shadow ${
+      className={`relative px-4 py-3 min-w-0 sm:min-w-[180px] max-w-[260px] rounded-lg border-2 transition-shadow ${
         selected
           ? `border-${color}-500 shadow-lg shadow-${color}-500/20`
           : 'border-[var(--color-border)] shadow-sm'

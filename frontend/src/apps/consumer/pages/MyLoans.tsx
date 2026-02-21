@@ -225,7 +225,7 @@ export default function MyLoans() {
                       </div>
                     </div>
                     {/* Balance Breakdown */}
-                    <div className="grid grid-cols-3 gap-4 mt-2 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-2 text-xs">
                       <div>
                         <span className="text-[var(--color-text-muted)]">Principal</span>
                         <p className="font-medium text-red-300">{formatCurrency(overdueInfo.principalOverdue)}</p>
@@ -359,7 +359,7 @@ export default function MyLoans() {
                       <p className="text-sm text-[var(--color-text-muted)] py-4 text-center">Loading schedule...</p>
                     ) : (
                       <>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 sm:grid-cols-4 gap-4">
                           <div className="p-3 rounded-lg bg-[var(--color-bg)]">
                             <p className="text-xs text-[var(--color-text-muted)]">Outstanding</p>
                             <p className="font-semibold text-[var(--color-text)]">{formatCurrency(outstanding)}</p>

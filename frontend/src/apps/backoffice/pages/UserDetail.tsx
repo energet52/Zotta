@@ -262,13 +262,13 @@ export default function UserDetail() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-[var(--color-border)]">
+      <div className="flex flex-nowrap border-b border-[var(--color-border)] overflow-x-auto max-w-full">
         {tabs.map(t => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
             className={clsx(
-              'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors',
+              'shrink-0 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
               tab === t.id
                 ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
                 : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)]',
@@ -281,7 +281,7 @@ export default function UserDetail() {
 
       {/* Tab content */}
       {tab === 'profile' && (
-        <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6">
+        <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-4 sm:p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[
               { key: 'first_name', label: 'First Name' },
@@ -320,7 +320,7 @@ export default function UserDetail() {
 
       {tab === 'roles' && (
         <div className="space-y-6">
-          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6">
+          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-4 sm:p-6">
             <h3 className="text-sm font-semibold text-[var(--color-text)] mb-4">Assigned Roles</h3>
             <div className="space-y-2">
               {allRoles.filter(r => r.is_active && r.name !== 'Applicant').map(role => (
@@ -372,7 +372,7 @@ export default function UserDetail() {
           </div>
 
           {/* Effective permissions */}
-          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6">
+          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-4 sm:p-6">
             <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">
               Effective Permissions ({user.effective_permissions.length})
             </h3>
@@ -395,7 +395,7 @@ export default function UserDetail() {
 
       {tab === 'sessions' && (
         <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl overflow-hidden">
-          <div className="px-6 py-4 flex items-center justify-between border-b border-[var(--color-border)]">
+          <div className="px-4 sm:px-6 py-4 flex items-center justify-between border-b border-[var(--color-border)]">
             <h3 className="text-sm font-semibold text-[var(--color-text)]">Active Sessions</h3>
             <button
               onClick={() => handleAction('revoke-sessions')}
@@ -407,11 +407,11 @@ export default function UserDetail() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)]">
-                <th className="text-left px-6 py-2 font-medium">Device</th>
-                <th className="text-left px-6 py-2 font-medium">IP Address</th>
-                <th className="text-left px-6 py-2 font-medium">Status</th>
-                <th className="text-left px-6 py-2 font-medium">Started</th>
-                <th className="text-left px-6 py-2 font-medium">Last Activity</th>
+                <th className="text-left px-4 sm:px-6 py-2 font-medium">Device</th>
+                <th className="text-left px-4 sm:px-6 py-2 font-medium">IP Address</th>
+                <th className="text-left px-4 sm:px-6 py-2 font-medium">Status</th>
+                <th className="text-left px-4 sm:px-6 py-2 font-medium">Started</th>
+                <th className="text-left px-4 sm:px-6 py-2 font-medium">Last Activity</th>
               </tr>
             </thead>
             <tbody>
@@ -424,7 +424,7 @@ export default function UserDetail() {
               ) : (
                 sessions.map(s => (
                   <tr key={s.id} className="border-b border-[var(--color-border)]">
-                    <td className="px-6 py-2">
+                    <td className="px-4 sm:px-6 py-2">
                       <div className="flex items-center gap-2">
                         <Monitor size={14} className="text-[var(--color-text-muted)]" />
                         <span className="text-xs text-[var(--color-text)] truncate max-w-[200px]">
@@ -432,8 +432,8 @@ export default function UserDetail() {
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-2 text-xs text-[var(--color-text-muted)]">{s.ip_address || '—'}</td>
-                    <td className="px-6 py-2">
+                    <td className="px-4 sm:px-6 py-2 text-xs text-[var(--color-text-muted)]">{s.ip_address || '—'}</td>
+                    <td className="px-4 sm:px-6 py-2">
                       <span className={clsx(
                         'text-xs px-2 py-0.5 rounded-full',
                         s.is_active ? 'bg-emerald-500/15 text-emerald-400' : 'bg-gray-500/15 text-gray-400',
@@ -441,10 +441,10 @@ export default function UserDetail() {
                         {s.is_active ? 'Active' : 'Expired'}
                       </span>
                     </td>
-                    <td className="px-6 py-2 text-xs text-[var(--color-text-muted)]">
+                    <td className="px-4 sm:px-6 py-2 text-xs text-[var(--color-text-muted)]">
                       {s.created_at ? new Date(s.created_at).toLocaleString() : '—'}
                     </td>
-                    <td className="px-6 py-2 text-xs text-[var(--color-text-muted)]">
+                    <td className="px-4 sm:px-6 py-2 text-xs text-[var(--color-text-muted)]">
                       {s.last_activity_at ? new Date(s.last_activity_at).toLocaleString() : '—'}
                     </td>
                   </tr>
@@ -458,7 +458,7 @@ export default function UserDetail() {
       {tab === 'security' && (
         <div className="space-y-6">
           {/* MFA Status */}
-          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6">
+          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-4 sm:p-6">
             <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Multi-Factor Authentication</h3>
             <div className="flex items-center gap-3">
               {user.mfa_enabled ? (
@@ -476,7 +476,7 @@ export default function UserDetail() {
           </div>
 
           {/* Password Reset */}
-          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6">
+          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-4 sm:p-6">
             <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Reset Password</h3>
             <div className="flex items-center gap-3">
               <div className="relative flex-1 max-w-sm">
@@ -508,7 +508,7 @@ export default function UserDetail() {
           </div>
 
           {/* Recent Login Attempts */}
-          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6">
+          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-4 sm:p-6">
             <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Recent Login Attempts</h3>
             <div className="space-y-2">
               {user.recent_login_attempts.length === 0 ? (
@@ -544,7 +544,7 @@ export default function UserDetail() {
 
           {/* Danger zone */}
           {user.status !== 'deactivated' && (
-            <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-6">
+            <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-4 sm:p-6">
               <h3 className="text-sm font-semibold text-red-400 mb-2">Danger Zone</h3>
               <p className="text-xs text-[var(--color-text-muted)] mb-4">
                 Deactivating a user permanently disables their access. This action revokes all sessions.
@@ -617,8 +617,8 @@ export function CreateUserForm() {
         <h1 className="text-xl font-bold text-[var(--color-text)]">Create New User</h1>
       </div>
 
-      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6 space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-4 sm:p-6 space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">First Name *</label>
             <input
@@ -658,7 +658,7 @@ export function CreateUserForm() {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Phone</label>
             <input
@@ -677,7 +677,7 @@ export function CreateUserForm() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Department</label>
             <input
@@ -749,7 +749,7 @@ export function CreateUserForm() {
           <button
             onClick={handleSubmit}
             disabled={saving || !form.email || !form.password || !form.first_name || !form.last_name}
-            className="flex items-center gap-2 px-6 py-2 rounded-lg bg-[var(--color-primary)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50"
+            className="flex items-center gap-2 px-4 sm:px-6 py-2 rounded-lg bg-[var(--color-primary)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50"
           >
             {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
             {saving ? 'Creating...' : 'Create User'}

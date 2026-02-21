@@ -121,10 +121,8 @@ export default function ChampionChallenger() {
     },
   });
 
-  const activeStrategies = strategies.filter((s) => s.status === 'active' || s.status === 'approved');
-
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-[var(--color-text)]">Champion-Challenger</h1>
@@ -146,7 +144,7 @@ export default function ChampionChallenger() {
           style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}
         >
           <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Configure Test</h3>
-          <div className="grid grid-cols-2 gap-3 mb-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
             <div>
               <label className="text-xs text-[var(--color-text-secondary)] block mb-1">Champion</label>
               <select
@@ -186,7 +184,7 @@ export default function ChampionChallenger() {
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3 mb-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
             <div>
               <label className="text-xs text-[var(--color-text-secondary)] block mb-1">
                 Traffic %
@@ -267,7 +265,7 @@ export default function ChampionChallenger() {
             </div>
           </div>
 
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <MetricCard
               icon={<Target size={18} />}
               label="Total Evaluated"
@@ -290,7 +288,7 @@ export default function ChampionChallenger() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
             <div
               className={`px-3 py-2 rounded text-sm ${
                 comparison.min_volume_met ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600'

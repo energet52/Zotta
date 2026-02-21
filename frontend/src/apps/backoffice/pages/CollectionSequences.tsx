@@ -551,12 +551,12 @@ export default function CollectionSequences() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-[var(--color-border)]">
+      <div className="flex flex-nowrap gap-1 border-b border-[var(--color-border)] overflow-x-auto max-w-full">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            className={`shrink-0 flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               activeTab === tab.id
                 ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
                 : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
@@ -581,7 +581,7 @@ export default function CollectionSequences() {
           {showCreateSeq && (
             <Card>
               <h3 className="font-medium mb-3">New Sequence</h3>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <input value={newSeq.name} onChange={e => setNewSeq(p => ({ ...p, name: e.target.value }))}
                   placeholder="Sequence name" className="px-3 py-2 text-sm bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg" />
                 <select value={newSeq.delinquency_stage} onChange={e => setNewSeq(p => ({ ...p, delinquency_stage: e.target.value }))}
@@ -705,7 +705,7 @@ export default function CollectionSequences() {
                               <Pencil size={14} className="text-[var(--color-primary)]" />
                               <span className="text-xs font-medium text-[var(--color-primary)]">Editing Sequence</span>
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                               <input value={editSeqForm.name} onChange={e => setEditSeqForm(p => ({ ...p, name: e.target.value }))}
                                 placeholder="Sequence name" className="px-3 py-2 text-sm bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg" />
                               <select value={editSeqForm.delinquency_stage} onChange={e => setEditSeqForm(p => ({ ...p, delinquency_stage: e.target.value }))}
@@ -756,7 +756,7 @@ export default function CollectionSequences() {
                                       <Pencil size={12} className="text-[var(--color-primary)]" />
                                       <span className="text-[var(--color-primary)] font-medium">Editing Step #{step.step_number}</span>
                                     </div>
-                                    <div className="grid grid-cols-4 gap-2">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                                       <label className="space-y-1">
                                         <span className="text-[var(--color-text-muted)]">Day offset</span>
                                         <input type="number" value={editStepForm.day_offset} onChange={e => setEditStepForm(p => ({ ...p, day_offset: parseInt(e.target.value) || 0 }))}
@@ -837,7 +837,7 @@ export default function CollectionSequences() {
                               <Plus size={12} className="text-[var(--color-primary)]" />
                               <span className="text-xs font-medium text-[var(--color-primary)]">New Step</span>
                             </div>
-                            <div className="grid grid-cols-4 gap-2 text-xs">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
                               <label className="space-y-1">
                                 <span className="text-[var(--color-text-muted)]">Day offset</span>
                                 <input type="number" value={newStep.day_offset} onChange={e => setNewStep(p => ({ ...p, day_offset: parseInt(e.target.value) || 0 }))}
@@ -912,7 +912,7 @@ export default function CollectionSequences() {
           {showCreateTmpl && !editingTmpl && (
             <Card>
               <h3 className="font-medium mb-3">New Message Template</h3>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <input value={newTmpl.name} onChange={e => setNewTmpl(p => ({ ...p, name: e.target.value }))}
                   placeholder="Template name" className="col-span-3 px-3 py-2 text-sm bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg" />
                 <select value={newTmpl.channel} onChange={e => setNewTmpl(p => ({ ...p, channel: e.target.value }))}
@@ -969,7 +969,7 @@ export default function CollectionSequences() {
                 <Pencil size={14} className="text-[var(--color-primary)]" />
                 <h3 className="font-medium">Edit Template: <span className="text-[var(--color-primary)]">{editingTmpl.name}</span></h3>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <input value={editTmplForm.name} onChange={e => setEditTmplForm(p => ({ ...p, name: e.target.value }))}
                   placeholder="Template name" className="col-span-3 px-3 py-2 text-sm bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg" />
                 <select value={editTmplForm.channel} onChange={e => setEditTmplForm(p => ({ ...p, channel: e.target.value }))}
@@ -1030,7 +1030,7 @@ export default function CollectionSequences() {
               </p>
             </Card>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-w-full">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
@@ -1104,7 +1104,7 @@ export default function CollectionSequences() {
               </p>
             </Card>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-w-full">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
@@ -1163,7 +1163,7 @@ export default function CollectionSequences() {
           ) : analytics ? (
             <>
               {/* KPI Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
                 {[
                   { label: 'Active Sequences', value: analytics.total_sequences, icon: <Zap size={16} className="text-sky-400" /> },
                   { label: 'Active Enrollments', value: analytics.active_enrollments, icon: <Users size={16} className="text-green-400" /> },
@@ -1184,7 +1184,7 @@ export default function CollectionSequences() {
                   <h3 className="font-medium mb-3 flex items-center gap-2">
                     <BarChart3 size={16} className="text-sky-400" /> Channel Performance (30d)
                   </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                     {analytics.channel_stats.map(cs => (
                       <div key={cs.channel} className="px-3 py-2 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)]">
                         <div className="flex items-center gap-1.5 mb-1">

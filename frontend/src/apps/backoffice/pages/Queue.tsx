@@ -215,7 +215,7 @@ export default function Applications() {
             {search ? 'No applications match your search' : 'No applications found'}
           </p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-w-full">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-border)]">

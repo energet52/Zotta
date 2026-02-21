@@ -33,10 +33,10 @@ export default function ConsumerLayout() {
   ];
 
   return (
-    <div className="theme-consumer min-h-screen bg-[var(--color-bg)]">
+    <div className="theme-consumer min-h-screen bg-[var(--color-bg)] responsive-shell">
       {/* Header */}
       <header className="bg-[var(--color-surface)] border-b border-[var(--color-border)]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Link to="/dashboard" className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-[var(--color-primary)] rounded-lg flex items-center justify-center font-bold text-lg text-white">
@@ -80,7 +80,7 @@ export default function ConsumerLayout() {
                   </span>
                 )}
               </Link>
-              <span className="text-sm text-[var(--color-text-muted)]">
+              <span className="hidden sm:inline text-sm text-[var(--color-text-muted)]">
                 {user?.first_name} {user?.last_name}
               </span>
               <button onClick={handleLogout} className="p-2 hover:bg-[var(--color-surface-hover)] rounded-lg transition-colors text-[var(--color-text-muted)] hover:text-[var(--color-text)]" title="Logout">
@@ -92,7 +92,7 @@ export default function ConsumerLayout() {
       </header>
 
       {/* Mobile nav */}
-      <nav className="md:hidden bg-[var(--color-surface)] border-b border-[var(--color-border)] px-4 py-2 flex space-x-1 overflow-x-auto">
+      <nav className="md:hidden bg-[var(--color-surface)] border-b border-[var(--color-border)] px-4 py-2 flex space-x-1 overflow-x-auto max-w-full">
         {navItems.map(({ to, icon: Icon, label }) => (
           <Link
             key={to}
@@ -128,7 +128,7 @@ export default function ConsumerLayout() {
       </nav>
 
       {/* Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-4 sm:px-6 lg:px-8 py-4 sm:py-4 sm:py-6 lg:py-8">
         <Outlet />
       </main>
     </div>

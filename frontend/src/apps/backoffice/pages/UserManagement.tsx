@@ -94,14 +94,14 @@ export default function UserManagement() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-[var(--color-text)]">User Management</h1>
           <p className="text-sm text-[var(--color-text-muted)] mt-1">
             Manage users, roles, permissions, and access control
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <Link
             to="/backoffice/users/roles"
             className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--color-border)] text-sm text-[var(--color-text)] hover:bg-[var(--color-surface-hover)] transition-colors"
@@ -120,7 +120,7 @@ export default function UserManagement() {
       </div>
 
       {/* Status cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
         {[
           { key: '', label: 'Total', count: counts.total, color: 'text-[var(--color-text)]', icon: <Users size={18} /> },
           { key: 'active', label: 'Active', count: counts.by_status.active || 0, color: 'text-emerald-400', icon: <UserCheck size={18} /> },
@@ -146,8 +146,8 @@ export default function UserManagement() {
       </div>
 
       {/* Search & filters */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-md">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-0 w-full md:max-w-md">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
           <input
             value={search}
@@ -167,7 +167,7 @@ export default function UserManagement() {
 
       {/* Table */}
       <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-w-full">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)]">

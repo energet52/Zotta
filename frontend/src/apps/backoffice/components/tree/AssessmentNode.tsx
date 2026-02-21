@@ -49,7 +49,7 @@ function AssessmentNodeInner({ id, data, selected }: NodeProps) {
   if (editing) {
     return (
       <div
-        className="relative px-3 py-3 min-w-[220px] max-w-[280px] rounded-lg border-2 border-orange-500 shadow-lg shadow-orange-500/20 nopan nodrag nowheel"
+        className="relative px-3 py-3 min-w-0 sm:min-w-[220px] max-w-[280px] rounded-lg border-2 border-orange-500 shadow-lg shadow-orange-500/20 nopan nodrag nowheel"
         style={{ background: 'var(--color-surface)' }}
         onMouseDown={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
@@ -93,7 +93,7 @@ function AssessmentNodeInner({ id, data, selected }: NodeProps) {
 
   return (
     <div
-      className={`relative px-4 py-3 min-w-[180px] max-w-[260px] rounded-lg border-2 transition-shadow ${
+      className={`relative px-4 py-3 min-w-0 sm:min-w-[180px] max-w-[260px] rounded-lg border-2 transition-shadow ${
         selected ? 'border-orange-500 shadow-lg shadow-orange-500/20' : 'border-[var(--color-border)] shadow-sm'
       }`}
       style={{ background: 'var(--color-surface)' }}

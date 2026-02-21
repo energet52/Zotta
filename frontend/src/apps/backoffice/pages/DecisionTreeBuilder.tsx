@@ -501,7 +501,7 @@ export default function DecisionTreeBuilder() {
             {!activeTree && (
               <Panel position="top-center">
                 <div
-                  className="mt-20 px-6 py-4 rounded-lg border text-center"
+                  className="mt-20 px-4 sm:px-6 py-4 rounded-lg border text-center"
                   style={{
                     background: 'var(--color-surface)',
                     borderColor: 'var(--color-border)',
@@ -549,7 +549,7 @@ export default function DecisionTreeBuilder() {
             </div>
 
             {validationResult.stats && (
-              <div className="grid grid-cols-2 gap-2 mb-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
                 {Object.entries(validationResult.stats).map(([k, v]) => (
                   <div key={k} className="px-2 py-1 rounded bg-[var(--color-bg)] text-xs">
                     <div className="text-[var(--color-text-secondary)]">{k.replace(/_/g, ' ')}</div>

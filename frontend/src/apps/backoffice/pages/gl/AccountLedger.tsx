@@ -102,7 +102,7 @@ export default function AccountLedger() {
       <Card padding="sm">
         <div className="flex flex-wrap items-end gap-4">
           {/* Account picker */}
-          <div className="flex-1 min-w-[260px]">
+          <div className="flex-1 min-w-0 sm:min-w-[260px]">
             <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">Account</label>
             {loadingAccounts ? (
               <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] py-2">
@@ -215,7 +215,7 @@ export default function AccountLedger() {
           {/* Transactions table */}
           <Card padding="none">
             {filteredTxns && filteredTxns.length > 0 ? (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto max-w-full">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs uppercase tracking-wider">

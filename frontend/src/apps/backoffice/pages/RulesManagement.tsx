@@ -502,12 +502,12 @@ export default function RulesManagement() {
       )}
 
       {/* Tab navigation */}
-      <div className="flex gap-1 border-b border-[var(--color-border)]">
+      <div className="flex flex-nowrap gap-1 border-b border-[var(--color-border)] overflow-x-auto max-w-full">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            className={`shrink-0 flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               activeTab === tab.id
                 ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
                 : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
@@ -798,7 +798,7 @@ export default function RulesManagement() {
                       <CheckCircle size={16} /> Generated Rule Preview
                     </div>
 
-                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
                       <div>
                         <span className="text-[var(--color-text-muted)]">ID:</span>{' '}
                         <span className="font-mono">{aiResult.rule.rule_id as string}</span>

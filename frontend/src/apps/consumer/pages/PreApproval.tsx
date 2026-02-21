@@ -238,7 +238,7 @@ export default function PreApproval() {
         </div>
       </header>
 
-      <div className="max-w-lg mx-auto px-4 py-6">
+      <div className="max-w-lg mx-auto px-4 py-4 sm:py-6">
       {/* Progress bar */}
       {step < 3 && (
         <div className="mb-6">
@@ -346,7 +346,7 @@ export default function PreApproval() {
               </select>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               <div className="col-span-2">
                 <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Price *</label>
                 <input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="0.00" min="0" step="0.01"
@@ -403,7 +403,7 @@ export default function PreApproval() {
           <p className="text-sm text-[var(--color-text-muted)] mb-5">A few quick details so we can check your eligibility</p>
 
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
                 <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">First Name *</label>
                 <input type="text" value={firstName} onChange={e => setFirstName(e.target.value)} className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm bg-[var(--color-surface)] text-[var(--color-text)] focus:ring-2 focus:ring-[var(--color-primary)] focus:outline-none" />
@@ -441,7 +441,7 @@ export default function PreApproval() {
             <hr className="border-[var(--color-border)]" />
             <p className="text-sm font-medium text-[var(--color-text)]">Financial Information</p>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               <div className="col-span-2">
                 <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Total Income (before tax) *</label>
                 <input type="number" value={monthlyIncome} onChange={e => setMonthlyIncome(e.target.value)} placeholder="0.00" min="0"

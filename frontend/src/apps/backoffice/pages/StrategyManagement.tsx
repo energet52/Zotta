@@ -19,11 +19,9 @@ import {
   Sparkles,
   HelpCircle,
   ClipboardCheck,
-  ExternalLink,
   Undo2,
   Maximize2,
   Minimize2,
-  Inbox,
 } from 'lucide-react';
 import {
   ReactFlow,
@@ -35,7 +33,7 @@ import {
   useEdgesState,
   addEdge,
   type Connection,
-  type Node,
+  type Node as FlowNode,
   type Edge,
   type NodeTypes,
 } from '@xyflow/react';
@@ -133,18 +131,6 @@ const modeIcons: Record<string, typeof Shield> = {
   dual_path: GitBranch,
   scoring: BarChart3,
   hybrid: AlertTriangle,
-};
-
-const EMPTY_RULE: RuleEntry = {
-  rule_id: '',
-  name: '',
-  field: '',
-  operator: 'gte',
-  threshold: '',
-  severity: 'hard',
-  outcome: 'decline',
-  reason_code: '',
-  enabled: true,
 };
 
 const FIELD_GROUPS: { label: string; fields: { value: string; label: string }[] }[] = [
@@ -279,8 +265,6 @@ export default function StrategyManagement() {
     },
   });
 
-  const fallbackStrategy = strategies.find((s) => s.is_fallback);
-
   const getLinkedProducts = (s: Strategy) => {
     const directlyLinked = products.filter((p) => p.default_strategy_id === s.id);
     if (s.is_fallback) {
@@ -347,7 +331,7 @@ export default function StrategyManagement() {
   const fallbackStrategies = filtered.filter((s) => s.is_fallback);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-[var(--color-text)]">Decision Strategies</h1>
@@ -402,7 +386,7 @@ export default function StrategyManagement() {
           data-testid="create-strategy-form"
         >
           <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Create Strategy</h3>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input
               placeholder="Strategy name"
               value={createForm.name}
@@ -703,7 +687,7 @@ function StrategyEditPanel({
       )}
 
       {/* Basic info */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="text-xs text-[var(--color-text-secondary)] block mb-1">Name</label>
           <input
@@ -801,7 +785,7 @@ function NoTreePlaceholder({ strategyId, onTreeCreated }: { strategyId: number; 
         </h4>
       </div>
       <div
-        className="rounded-lg border px-4 py-6 text-center"
+        className="rounded-lg border px-4 py-4 sm:py-6 text-center"
         style={{ borderColor: 'var(--color-border)', background: 'var(--color-bg)' }}
       >
         <GitBranch size={24} className="mx-auto mb-2 text-[var(--color-text-secondary)]" />
@@ -832,7 +816,7 @@ function EmbeddedTreeViewer({ treeId, strategyId, assessments }: { treeId: numbe
     },
   });
 
-  const [nodes, setNodes, onNodesChange] = useNodesState([] as Node[]);
+  const [nodes, setNodes, onNodesChange] = useNodesState([] as FlowNode[]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([] as Edge[]);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -863,7 +847,7 @@ function EmbeddedTreeViewer({ treeId, strategyId, assessments }: { treeId: numbe
     const idToKey: Record<number, string> = {};
     tree.nodes.forEach((n) => { idToKey[n.id] = n.node_key; });
 
-    const flowNodes: Node[] = tree.nodes.map((n) => {
+    const flowNodes: FlowNode[] = tree.nodes.map((n) => {
       let type = 'condition';
       if (n.node_type === 'strategy') type = 'strategy';
       else if (n.node_type === 'assessment') type = 'assessment';
@@ -1107,7 +1091,7 @@ function EmbeddedTreeViewer({ treeId, strategyId, assessments }: { treeId: numbe
       style={{ left: editingEdge.x, top: editingEdge.y }}
     >
       <div
-        className="rounded-lg border shadow-xl p-2 min-w-[180px]"
+        className="rounded-lg border shadow-xl p-2 min-w-0 sm:min-w-[180px]"
         style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
       >
         <div className="text-[10px] font-semibold text-[var(--color-text-secondary)] uppercase mb-1.5 px-1">
@@ -1616,7 +1600,9 @@ function FieldPicker({
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && e.target instanceof Node && !ref.current.contains(e.target)) {
+        setOpen(false);
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -1811,12 +1797,16 @@ function AiRuleGenerator({
   const handleAddGeneratedRule = () => {
     if (!aiResult?.rule) return;
     const r = aiResult.rule;
+    const threshold =
+      typeof r.threshold === 'string' || typeof r.threshold === 'number' || typeof r.threshold === 'boolean'
+        ? r.threshold
+        : null;
     const newRule: RuleEntry = {
       rule_id: (r.rule_id as string) || `R${Date.now()}`,
       name: (r.name as string) || 'AI Rule',
       field: (r.field as string) || '',
       operator: (r.operator as string) || 'gte',
-      threshold: r.threshold ?? null,
+      threshold,
       severity: (r.severity as string) || 'hard',
       outcome: (r.outcome as string) || 'decline',
       reason_code: (r.reason_code as string) || '',
@@ -1935,7 +1925,7 @@ function AiRuleGenerator({
               <div className="flex items-center gap-1.5 text-sky-400 text-xs font-medium">
                 <CheckCircle size={12} /> Generated Rule Preview
               </div>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs">
                 <div>
                   <span className="text-[var(--color-text-secondary)]">ID:</span>{' '}
                   <span className="font-mono">{aiResult.rule.rule_id as string}</span>

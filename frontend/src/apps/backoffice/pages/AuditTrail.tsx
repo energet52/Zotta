@@ -361,7 +361,7 @@ export default function AuditTrail() {
                   {isExpanded && hasPayload && (
                     <div className="px-5 pb-4 pl-[4.25rem]">
                       <div className="bg-[var(--color-bg)] rounded-lg p-4 space-y-3 text-xs">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                           <div>
                             <span className="text-[var(--color-text-muted)] block mb-0.5">Timestamp</span>
                             <span className="text-[var(--color-text)] font-mono">{formatFullDate(entry.created_at)}</span>
@@ -383,7 +383,7 @@ export default function AuditTrail() {
                         {entry.old_values && Object.keys(entry.old_values).length > 0 && (
                           <div>
                             <span className="text-[var(--color-text-muted)] block mb-1">Previous Values</span>
-                            <pre className="bg-[var(--color-surface)] rounded p-2 overflow-x-auto text-[var(--color-text)] font-mono text-[11px]">
+                            <pre className="bg-[var(--color-surface)] rounded p-2 overflow-x-auto max-w-full text-[var(--color-text)] font-mono text-[11px]">
                               {JSON.stringify(entry.old_values, null, 2)}
                             </pre>
                           </div>
@@ -392,7 +392,7 @@ export default function AuditTrail() {
                         {entry.new_values && Object.keys(entry.new_values).length > 0 && (
                           <div>
                             <span className="text-[var(--color-text-muted)] block mb-1">New Values</span>
-                            <pre className="bg-[var(--color-surface)] rounded p-2 overflow-x-auto text-[var(--color-text)] font-mono text-[11px]">
+                            <pre className="bg-[var(--color-surface)] rounded p-2 overflow-x-auto max-w-full text-[var(--color-text)] font-mono text-[11px]">
                               {JSON.stringify(entry.new_values, null, 2)}
                             </pre>
                           </div>

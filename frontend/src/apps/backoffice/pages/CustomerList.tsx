@@ -99,7 +99,7 @@ export default function CustomerList() {
 
       {!loading && results.length > 0 && (
         <Card padding="none">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-w-full">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-border)] text-left text-[var(--color-text-muted)]">

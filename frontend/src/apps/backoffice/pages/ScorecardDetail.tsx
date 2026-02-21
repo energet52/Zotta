@@ -270,7 +270,7 @@ export function CreateScorecardForm() {
         </div>
       )}
 
-      <Card className="p-6">
+      <Card className="p-4 sm:p-6">
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Name */}
           <div>
@@ -298,7 +298,7 @@ export function CreateScorecardForm() {
           </div>
 
           {/* Score Parameters */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1.5">Base Score</label>
               <Input
@@ -671,12 +671,12 @@ export default function ScorecardDetail() {
       </div>
 
       {/* ── Tabs ── */}
-      <div className="flex gap-1 p-1 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)]">
+      <div className="flex flex-nowrap gap-1 p-1 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] overflow-x-auto max-w-full">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+            className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
               activeTab === tab.id
                 ? 'bg-[var(--color-primary)] text-white shadow-lg'
                 : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg)]'
@@ -691,7 +691,7 @@ export default function ScorecardDetail() {
       {activeTab === 'overview' && (
         <div className="space-y-6">
           {/* ── KPI Row ── */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <Card padding="sm">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-blue-500/15">
@@ -1137,7 +1137,7 @@ export default function ScorecardDetail() {
 
             {whatIfResult && (
               <div className="mt-6 pt-4 border-t border-[var(--color-border)] space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
                   <div className="text-center p-3 rounded-lg bg-[var(--color-bg)]">
                     <div className="text-2xl font-bold text-[var(--color-text)]">{fmt(whatIfResult.base_score)}</div>
                     <div className="text-xs text-[var(--color-text-muted)]">Base Score</div>
@@ -1212,7 +1212,7 @@ export default function ScorecardDetail() {
           ) : perfSnapshot ? (
             <>
               {/* ── KPIs ── */}
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
                 {[
                   { label: 'Total Scored', value: fmt(perfSnapshot.total_scored), icon: <Hash size={16} />, color: 'blue' },
                   { label: 'Avg Score', value: fmt(perfSnapshot.avg_score), icon: <Target size={16} />, color: 'purple' },

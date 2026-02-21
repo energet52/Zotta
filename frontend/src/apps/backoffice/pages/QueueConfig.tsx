@@ -218,7 +218,7 @@ export default function QueueConfigPage() {
           </div>
 
           {/* Business hours */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1">Business Hours Start</label>
               <input type="time" value={config.business_hours_start.substring(0, 5)} onChange={e => updateField('business_hours_start', e.target.value)}
@@ -264,7 +264,7 @@ export default function QueueConfigPage() {
 
                 {showNewStage && (
                   <div className="p-3 rounded-lg border border-dashed border-[var(--color-border)] space-y-2 bg-[var(--color-surface)]">
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <input placeholder="Stage name" value={newStage.name} onChange={e => setNewStage({ ...newStage, name: e.target.value, slug: e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') })}
                         className="px-3 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-surface)] text-[var(--color-text)] text-sm" />
                       <input placeholder="Slug" value={newStage.slug} onChange={e => setNewStage({ ...newStage, slug: e.target.value })}

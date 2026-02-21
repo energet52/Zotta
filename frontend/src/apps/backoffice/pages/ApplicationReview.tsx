@@ -471,7 +471,7 @@ export default function ApplicationReview() {
         <ArrowLeft size={16} className="mr-1" /> Back to Queue
       </Link>
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-[var(--color-text)]">{app.reference_number}</h1>
           <p className="text-sm text-[var(--color-text-muted)]">Application Review</p>
@@ -487,7 +487,7 @@ export default function ApplicationReview() {
       )}
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <Card padding="sm">
           <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Amount Requested</p>
           <p className="text-xl font-bold text-[var(--color-text)]">{formatCurrency(app.amount_requested)}</p>
@@ -519,12 +519,12 @@ export default function ApplicationReview() {
         {/* Main Content (3 cols) */}
         <div className="lg:col-span-3">
           {/* Tab Navigation */}
-          <div className="flex space-x-1 mb-4 border-b border-[var(--color-border)] overflow-x-auto">
+          <div className="flex flex-nowrap space-x-1 mb-4 border-b border-[var(--color-border)] overflow-x-auto max-w-full">
             {tabs.map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
                 onClick={() => setActiveTab(key)}
-                className={`flex items-center space-x-2 px-4 py-2.5 text-sm whitespace-nowrap border-b-2 transition-colors ${
+                className={`shrink-0 flex items-center space-x-2 px-4 py-2.5 text-sm whitespace-nowrap border-b-2 transition-colors ${
                   activeTab === key
                     ? 'border-[var(--color-primary)] text-[var(--color-primary)] font-medium'
                     : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
@@ -560,7 +560,7 @@ export default function ApplicationReview() {
 
                 {/* Personal Info */}
                 <h4 className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-3">Personal</h4>
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6 text-sm">
                   <InfoField label="ID Type" value={profile?.id_type === 'drivers_license' ? "Driver's License" : profile?.id_type === 'passport' ? 'Passport' : profile?.id_type === 'tax_number' ? 'Tax Number' : profile?.id_type === 'national_id' ? 'National ID' : profile?.id_type} />
                   <InfoField label="ID Number" value={profile?.national_id} />
                   <InfoField label="Date of Birth" value={profile?.date_of_birth} />
@@ -574,7 +574,7 @@ export default function ApplicationReview() {
 
                 {/* Contact Details */}
                 <h4 className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-3">Contact Details</h4>
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6 text-sm">
                   <EditableField label="WhatsApp" field="whatsapp_number" value={profile?.whatsapp_number} editing={editing} editValues={editValues} setEditValues={setEditValues} />
                   <EditableField label="Contact Email" field="contact_email" value={profile?.contact_email} editing={editing} editValues={editValues} setEditValues={setEditValues} />
                   <EditableField label="Mobile Phone" field="mobile_phone" value={profile?.mobile_phone} editing={editing} editValues={editValues} setEditValues={setEditValues} />
@@ -584,7 +584,7 @@ export default function ApplicationReview() {
 
                 {/* Employment */}
                 <h4 className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-3">Employment & Financials</h4>
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6 text-sm">
                   <EditableField label="Employer" field="employer_name" value={profile?.employer_name} editing={editing} editValues={editValues} setEditValues={setEditValues} />
                   {editing ? (
                     <SearchableSelect
@@ -628,14 +628,14 @@ export default function ApplicationReview() {
                   {(app.merchant_name || app.branch_name || (app.items && app.items.length > 0)) && (
                     <div className="p-3 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)]">
                       <h5 className="text-xs font-medium text-[var(--color-text-muted)] uppercase mb-2">Shopping Context</h5>
-                      <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm mb-3">
                         <InfoField label="Merchant" value={app.merchant_name || '—'} />
                         <InfoField label="Branch" value={app.branch_name || '—'} />
                       </div>
                       {app.items && app.items.length > 0 && (
                         <>
                           <h5 className="text-xs font-medium text-[var(--color-text-muted)] uppercase mb-2">Items</h5>
-                          <div className="overflow-x-auto">
+                          <div className="overflow-x-auto max-w-full">
                             <table className="w-full text-sm">
                               <thead>
                                 <tr className="text-left text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
@@ -672,7 +672,7 @@ export default function ApplicationReview() {
                   {/* Plan Selection */}
                   <div className="p-3 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)]">
                     <h5 className="text-xs font-medium text-[var(--color-text-muted)] uppercase mb-2">Plan Selection</h5>
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
                       <InfoField label="Credit Product" value={app.credit_product_name || '—'} />
                       <EditableField label="Term" field="term_months" value={app.term_months} editing={editing} editValues={editValues} setEditValues={setEditValues} type="number" suffix="months" />
                       <InfoField label="Total Financed" value={formatCurrency(app.total_financed)} />
@@ -681,7 +681,7 @@ export default function ApplicationReview() {
                     </div>
                   </div>
                   {/* Standard fields */}
-                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
                     <InfoField label="Amount Requested" value={formatCurrency(app.amount_requested)} />
                     <InfoField label="Submitted" value={app.submitted_at ? new Date(app.submitted_at).toLocaleString() : '-'} />
                     {app.amount_approved && <InfoField label="Amount Approved" value={formatCurrency(app.amount_approved)} highlight="success" />}
@@ -723,7 +723,7 @@ export default function ApplicationReview() {
                       {isProjected && <Badge variant="warning" className="ml-2 text-[10px]">Projected</Badge>}
                     </h3>
                     {/* Summary totals */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                       <div className="p-3 rounded-lg bg-[var(--color-bg)]">
                         <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider">Loan Amount</p>
                         <p className="text-lg font-bold text-[var(--color-text)]">{formatCurrency(loanAmt)}</p>
@@ -742,7 +742,7 @@ export default function ApplicationReview() {
                       </div>
                     </div>
                     {/* Schedule table */}
-                    <div className="overflow-x-auto max-h-72 overflow-y-auto border border-[var(--color-border)] rounded-lg">
+                    <div className="overflow-x-auto max-w-full max-h-72 overflow-y-auto border border-[var(--color-border)] rounded-lg">
                       <table className="min-w-full text-xs">
                         <thead className="bg-[var(--color-bg)] sticky top-0">
                           <tr>
@@ -794,7 +794,7 @@ export default function ApplicationReview() {
                   <Shield size={18} className="mr-2 text-[var(--color-primary)]" />
                   Score & Risk Assessment
                 </h3>
-                <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                   <div className="text-center p-4 rounded-lg bg-[var(--color-bg)]">
                     <p className="text-4xl font-bold" style={{ color: riskColors[decision.risk_band || ''] || 'var(--color-text)' }}>
                       {decision.credit_score || '-'}
@@ -831,7 +831,7 @@ export default function ApplicationReview() {
                             {decision.scoring_breakdown.scorecard_score}
                           </div>
                         </div>
-                        {(decision.scoring_breakdown as Record<string, unknown>).scorecard_decision && (
+                        {Boolean((decision.scoring_breakdown as Record<string, unknown>).scorecard_decision) && (
                           <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                             String((decision.scoring_breakdown as Record<string, unknown>).scorecard_decision).includes('APPROVE') ? 'bg-emerald-500/10 text-emerald-500' :
                             String((decision.scoring_breakdown as Record<string, unknown>).scorecard_decision).includes('DECLINE') ? 'bg-red-500/10 text-red-500' :
@@ -867,7 +867,7 @@ export default function ApplicationReview() {
                 )}
 
                 {decision.suggested_rate && (
-                  <div className="grid grid-cols-2 gap-4 p-3 rounded-lg bg-[var(--color-bg)]">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 rounded-lg bg-[var(--color-bg)]">
                     <div>
                       <span className="text-xs text-[var(--color-text-muted)]">Suggested Rate</span>
                       <p className="font-bold text-[var(--color-primary)]">{decision.suggested_rate}%</p>
@@ -1053,7 +1053,7 @@ export default function ApplicationReview() {
                       <option value="other">Other</option>
                     </select>
                   </div>
-                  <div className="flex-1 min-w-[180px]">
+                  <div className="flex-1 min-w-0 sm:min-w-[180px]">
                     <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">File</label>
                     <input
                       type="file"
@@ -1142,7 +1142,7 @@ export default function ApplicationReview() {
                 </div>
                 {data.contract ? (
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                       <InfoField label="Typed Name" value={data.contract.typed_name} />
                       <InfoField label="Signed At" value={data.contract.signed_at ? new Date(data.contract.signed_at).toLocaleString() : '-'} />
                     </div>
@@ -1185,7 +1185,7 @@ export default function ApplicationReview() {
                 <p className="text-sm text-[var(--color-text-muted)]">Loading schedule...</p>
               ) : schedule.length > 0 ? (
                 <>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                     <div className="p-3 rounded-lg bg-[var(--color-bg)]">
                       <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider">Loan Amount</p>
                       <p className="text-lg font-bold text-[var(--color-text)]">{formatCurrency(app.amount_approved || app.amount_requested)}</p>
@@ -1203,7 +1203,7 @@ export default function ApplicationReview() {
                       <p className="text-lg font-bold text-[var(--color-primary)]">{formatCurrency(schedule.reduce((s: number, r: any) => s + Number(r.amount_due || 0), 0))}</p>
                     </div>
                   </div>
-                  <div className="overflow-x-auto max-h-96 overflow-y-auto border border-[var(--color-border)] rounded-lg">
+                  <div className="overflow-x-auto max-w-full max-h-96 overflow-y-auto border border-[var(--color-border)] rounded-lg">
                     <table className="min-w-full text-xs">
                       <thead className="bg-[var(--color-bg)] sticky top-0">
                         <tr>
@@ -1352,7 +1352,7 @@ export default function ApplicationReview() {
 
                 {/* Transactions Table */}
                 {transactions.length > 0 ? (
-                  <div className="overflow-x-auto max-h-96 overflow-y-auto border border-[var(--color-border)] rounded-lg">
+                  <div className="overflow-x-auto max-w-full max-h-96 overflow-y-auto border border-[var(--color-border)] rounded-lg">
                     <table className="min-w-full text-xs">
                       <thead className="bg-[var(--color-bg)] sticky top-0">
                         <tr>
@@ -1525,7 +1525,7 @@ export default function ApplicationReview() {
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-2">Action</label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {[
                     { value: 'approve', label: 'Approve', variant: 'success' },
                     { value: 'decline', label: 'Decline', variant: 'danger' },
@@ -2407,7 +2407,7 @@ function AVKnowlesTab({
         {result.search_summary && Object.keys(result.search_summary).length > 0 && (
           <Card>
             <h4 className="font-semibold text-[var(--color-text)] mb-3">Search Criteria Summary</h4>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2">
               {Object.entries(result.search_summary).map(([key, val]) => (
                 <div key={key} className="flex justify-between py-1 border-b border-[var(--color-border)]/40">
                   <span className="text-xs text-[var(--color-text-muted)]">{key}</span>
@@ -2424,7 +2424,7 @@ function AVKnowlesTab({
             <div className="p-4 border-b border-[var(--color-border)]">
               <h4 className="font-semibold text-[var(--color-text)]">Search Results ({result.result_entries.length})</h4>
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-w-full">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs">
@@ -2495,7 +2495,7 @@ function AVKnowlesTab({
                 <summary className="text-xs text-[var(--color-text-muted)] cursor-pointer hover:text-[var(--color-text)]">
                   Raw scraped text
                 </summary>
-                <pre className="mt-2 p-3 text-xs bg-[var(--color-bg)] rounded-lg border border-[var(--color-border)] overflow-x-auto whitespace-pre-wrap text-[var(--color-text-muted)] max-h-96 overflow-y-auto">
+                <pre className="mt-2 p-3 text-xs bg-[var(--color-bg)] rounded-lg border border-[var(--color-border)] overflow-x-auto max-w-full whitespace-pre-wrap text-[var(--color-text-muted)] max-h-96 overflow-y-auto">
                   {result.detail.text}
                 </pre>
               </details>
@@ -2510,7 +2510,7 @@ function AVKnowlesTab({
               <summary className="text-sm font-medium text-[var(--color-text)] cursor-pointer hover:text-[var(--color-primary)]">
                 Raw Bureau Response Text
               </summary>
-              <pre className="mt-3 p-3 text-xs bg-[var(--color-bg)] rounded-lg border border-[var(--color-border)] overflow-x-auto whitespace-pre-wrap text-[var(--color-text-muted)] max-h-96 overflow-y-auto">
+              <pre className="mt-3 p-3 text-xs bg-[var(--color-bg)] rounded-lg border border-[var(--color-border)] overflow-x-auto max-w-full whitespace-pre-wrap text-[var(--color-text-muted)] max-h-96 overflow-y-auto">
                 {result.page_text}
               </pre>
             </details>
@@ -2794,7 +2794,7 @@ function CreditBureauTab({ applicationId }: { applicationId: number }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
           {/* Score */}
           <div className="text-center p-3 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)]">
             <p className="text-xs text-[var(--color-text-muted)] mb-1">EveryData Score</p>
@@ -2864,7 +2864,7 @@ function CreditBureauTab({ applicationId }: { applicationId: number }) {
             </span>
           )}
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-w-full">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs">
@@ -2911,7 +2911,7 @@ function CreditBureauTab({ applicationId }: { applicationId: number }) {
         <div className="p-4 border-b border-[var(--color-border)]">
           <SectionTitle>Closed Contracts ({closedContracts.length})</SectionTitle>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-w-full">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs">
@@ -2949,7 +2949,7 @@ function CreditBureauTab({ applicationId }: { applicationId: number }) {
           <div className="p-4 border-b border-[var(--color-border)]">
             <SectionTitle>Score History</SectionTitle>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-w-full">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs">
@@ -2994,7 +2994,7 @@ function CreditBureauTab({ applicationId }: { applicationId: number }) {
             </div>
           )}
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-w-full">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs">
@@ -3244,7 +3244,7 @@ function BankStatementAnalysisTab({
         )}
 
         {/* Key Metrics Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 sm:grid-cols-5 gap-3">
           <div className="text-center p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
             <p className="text-[10px] uppercase font-bold text-green-600 dark:text-green-400 tracking-wider">Avg Monthly In</p>
             <p className="text-lg font-bold text-green-600 dark:text-green-400">{fmt(analysis.avg_monthly_inflow)}</p>
@@ -3324,7 +3324,7 @@ function BankStatementAnalysisTab({
       {analysis.monthly_stats && analysis.monthly_stats.length > 0 && (
         <Card>
           <h3 className="font-semibold text-[var(--color-text)] mb-3">Monthly Cashflow</h3>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-w-full">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-border)]">
@@ -3366,7 +3366,7 @@ function BankStatementAnalysisTab({
                       {expandedMonth === row.month && analysis.cashflow_data && (
                         <tr>
                           <td colSpan={6} className="px-3 py-2 bg-[var(--color-bg)]">
-                            <div className="grid grid-cols-2 gap-4 py-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
                               <div>
                                 <p className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase mb-1">Inflows</p>
                                 {Object.entries(analysis.cashflow_data.inflows || {}).filter(([, v]) => v > 0).map(([k, v]) => (
@@ -3409,7 +3409,7 @@ function BankStatementAnalysisTab({
       {analysis.cashflow_data && (
         <Card>
           <h3 className="font-semibold text-[var(--color-text)] mb-3">Overall Category Breakdown</h3>
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div>
               <p className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase mb-2">Inflows</p>
               <div className="space-y-1">
@@ -3468,5 +3468,3 @@ function BankStatementAnalysisTab({
     </div>
   );
 }
-
-

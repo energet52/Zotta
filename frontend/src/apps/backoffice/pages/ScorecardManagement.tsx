@@ -536,7 +536,7 @@ export default function ScorecardManagement() {
       <Card padding="none">
         {/* Filters */}
         <div className="px-5 py-4 border-b border-[var(--color-border)] flex items-center gap-3 flex-wrap">
-          <div className="relative flex-1 min-w-[220px]">
+          <div className="relative flex-1 min-w-0 sm:min-w-[220px]">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
             <input
               type="text"
@@ -575,7 +575,7 @@ export default function ScorecardManagement() {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-w-full">
           <table className="w-full text-sm" style={{ minWidth: '1000px' }}>
             <thead>
               <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs uppercase tracking-wider">
@@ -744,7 +744,7 @@ export default function ScorecardManagement() {
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)]">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-[var(--color-border)]">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.12)' }}>
                   <Upload size={16} className="text-blue-400" />
@@ -760,10 +760,10 @@ export default function ScorecardManagement() {
             </div>
 
             {/* Body */}
-            <div className="px-6 py-5 space-y-4">
+            <div className="px-4 sm:px-6 py-5 space-y-4">
               {/* File upload area */}
               <div
-                className="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer hover:border-[var(--color-primary)]/50 transition-colors"
+                className="border-2 border-dashed rounded-xl p-4 sm:p-6 text-center cursor-pointer hover:border-[var(--color-primary)]/50 transition-colors"
                 style={{ borderColor: importFile ? 'var(--color-primary)' : 'var(--color-border)', background: 'var(--color-bg)' }}
                 onClick={() => fileInputRef.current?.click()}
               >
@@ -818,7 +818,7 @@ export default function ScorecardManagement() {
             </div>
 
             {/* Footer */}
-            <div className="flex justify-end gap-2 px-6 py-4 border-t border-[var(--color-border)]">
+            <div className="flex justify-end gap-2 px-4 sm:px-6 py-4 border-t border-[var(--color-border)]">
               <Button variant="ghost" size="sm" onClick={() => setShowImport(false)}>
                 Cancel
               </Button>
@@ -843,7 +843,7 @@ export default function ScorecardManagement() {
             style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)]">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-[var(--color-border)]">
               <div className="flex items-center gap-2">
                 <Copy size={16} className="text-[var(--color-primary)]" />
                 <h3 className="font-semibold text-sm">Clone Scorecard</h3>
@@ -852,7 +852,7 @@ export default function ScorecardManagement() {
                 <X size={18} />
               </button>
             </div>
-            <div className="px-6 py-5 space-y-4">
+            <div className="px-4 sm:px-6 py-5 space-y-4">
               <p className="text-sm text-[var(--color-text-muted)]">
                 Create a copy of <strong className="text-[var(--color-text)]">{cloneTarget.name}</strong> (v{cloneTarget.version}) with a new name.
               </p>
@@ -863,7 +863,7 @@ export default function ScorecardManagement() {
                 placeholder="Enter a name for the clone"
               />
             </div>
-            <div className="flex justify-end gap-2 px-6 py-4 border-t border-[var(--color-border)]">
+            <div className="flex justify-end gap-2 px-4 sm:px-6 py-4 border-t border-[var(--color-border)]">
               <Button variant="ghost" size="sm" onClick={() => setCloneTarget(null)}>Cancel</Button>
               <Button
                 size="sm"
@@ -886,7 +886,7 @@ export default function ScorecardManagement() {
             style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)]">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-[var(--color-border)]">
               <div className="flex items-center gap-2">
                 <Trophy size={16} className="text-emerald-400" />
                 <h3 className="font-semibold text-sm">Promote to Champion</h3>
@@ -895,7 +895,7 @@ export default function ScorecardManagement() {
                 <X size={18} />
               </button>
             </div>
-            <div className="px-6 py-5 space-y-4">
+            <div className="px-4 sm:px-6 py-5 space-y-4">
               <div
                 className="flex items-center gap-3 p-3 rounded-lg"
                 style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)' }}
@@ -932,7 +932,7 @@ export default function ScorecardManagement() {
                 />
               </div>
             </div>
-            <div className="flex justify-end gap-2 px-6 py-4 border-t border-[var(--color-border)]">
+            <div className="flex justify-end gap-2 px-4 sm:px-6 py-4 border-t border-[var(--color-border)]">
               <Button variant="ghost" size="sm" onClick={() => setPromoteTarget(null)}>Cancel</Button>
               <Button
                 variant="success"

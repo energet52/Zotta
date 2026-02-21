@@ -379,7 +379,7 @@ export default function SmartQueue() {
     <div className="space-y-4">
       {/* ── Ambient Stats Bar ── */}
       {awareness && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
           {[
             { label: 'Pending', value: awareness.pending, icon: <Inbox size={15} className="text-sky-400" />, sub: trendIcon('stable') },
             { label: 'My Active', value: awareness.my_active, icon: <UserCheck size={15} className="text-green-400" /> },
@@ -396,9 +396,9 @@ export default function SmartQueue() {
       )}
 
       {/* ── Header + Actions ── */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <h1 className="text-2xl font-bold">Applications Queue</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {config?.assignment_mode !== 'pull' && (
             <Button size="sm" variant="ghost" onClick={handleNeedHelp}>
               <Hand size={14} className="mr-1" /> Need Help
@@ -419,12 +419,12 @@ export default function SmartQueue() {
       )}
 
       {/* ── Tabs ── */}
-      <div className="flex gap-1 border-b border-[var(--color-border)]">
+      <div className="flex flex-nowrap gap-1 border-b border-[var(--color-border)] overflow-x-auto max-w-full">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            className={`shrink-0 flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               activeTab === tab.id
                 ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
                 : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
@@ -482,7 +482,7 @@ export default function SmartQueue() {
                 {allAppsSearch ? 'No applications match your search' : 'No applications found'}
               </p>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto max-w-full">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[var(--color-border)]">

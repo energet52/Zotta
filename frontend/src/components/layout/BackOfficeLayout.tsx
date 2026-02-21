@@ -28,6 +28,7 @@ import {
   PieChart,
   Target,
   ChevronRight,
+  Menu,
   Search,
   X,
   Zap,
@@ -209,6 +210,7 @@ export default function BackOfficeLayout() {
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(loadCollapsed);
   const [search, setSearch] = useState('');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = () => { logout(); navigate('/login'); };
 
@@ -255,18 +257,21 @@ export default function BackOfficeLayout() {
 
   const visibleSections = filteredSections.filter(s => !s.adminOnly || isAdmin);
 
-  /* ── Mobile nav items (flat) ── */
-  const allMobileItems = useMemo(() => {
-    const items: NavItem[] = [{ to: '/backoffice', icon: LayoutDashboard, label: 'Dashboard' }];
-    for (const section of SECTIONS) {
-      if (section.adminOnly && !isAdmin) continue;
-      items.push(...section.items);
-    }
-    return items;
-  }, [isAdmin]);
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [mobileMenuOpen]);
 
   return (
-    <div className="theme-dark min-h-screen bg-[var(--color-bg)] text-[var(--color-text)] flex">
+    <div className="theme-dark min-h-screen bg-[var(--color-bg)] text-[var(--color-text)] flex responsive-shell">
       {/* ═══ Sidebar ═══ */}
       <aside className="w-64 bg-[var(--color-surface)] border-r border-[var(--color-border)] hidden md:flex flex-col">
         {/* Logo */}
@@ -386,7 +391,7 @@ export default function BackOfficeLayout() {
 
           {/* Empty state for search */}
           {isSearching && visibleSections.length === 0 && !('dashboard'.includes(search.trim().toLowerCase())) && (
-            <div className="text-center py-6 text-xs text-[var(--color-text-muted)]">
+            <div className="text-center py-4 sm:py-6 text-xs text-[var(--color-text-muted)]">
               No menu items match "<span className="text-[var(--color-text)]">{search}</span>"
             </div>
           )}
@@ -416,45 +421,148 @@ export default function BackOfficeLayout() {
       </aside>
 
       {/* ═══ Main content ═══ */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile header */}
-        <header className="md:hidden bg-[var(--color-surface)] border-b border-[var(--color-border)] text-[var(--color-text)] p-4 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
+        <header className="md:hidden bg-[var(--color-surface)] border-b border-[var(--color-border)] text-[var(--color-text)] px-3 py-2.5 flex items-center justify-between">
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="p-2 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-hover)] transition-colors"
+            aria-label="Open menu"
+          >
+            <Menu size={18} />
+          </button>
+          <div className="flex items-center space-x-2 min-w-0">
             <div className="w-7 h-7 bg-gradient-to-br from-sky-400 to-cyan-300 rounded-lg flex items-center justify-center font-bold text-sm text-[#0a1628]">
               Z
             </div>
-            <span className="font-bold">Zotta</span>
+            <span className="font-bold truncate">Zotta Back Office</span>
           </div>
-          <button onClick={handleLogout} className="text-[var(--color-text-muted)]">
+          <button
+            onClick={handleLogout}
+            className="p-2 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-hover)] transition-colors"
+            aria-label="Logout"
+          >
             <LogOut size={18} />
           </button>
         </header>
 
-        {/* Mobile nav */}
-        <nav className="md:hidden bg-[var(--color-surface)] border-b border-[var(--color-border)] px-4 py-2 flex space-x-2 overflow-x-auto">
-          {allMobileItems.map(({ to, icon: Icon, label }) => {
-            const active = to === '/backoffice'
-              ? location.pathname === '/backoffice'
-              : location.pathname.startsWith(to);
-            return (
-              <Link
-                key={to}
-                to={to}
-                className={clsx(
-                  'flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs whitespace-nowrap',
-                  active
-                    ? 'bg-[var(--color-primary)]/15 text-[var(--color-primary)]'
-                    : 'text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)]'
-                )}
-              >
-                <Icon size={14} />
-                <span>{label}</span>
-              </Link>
-            );
-          })}
-        </nav>
+        {/* Mobile menu drawer */}
+        {mobileMenuOpen && (
+          <>
+            <button
+              className="md:hidden fixed inset-0 z-40 bg-black/50"
+              onClick={() => setMobileMenuOpen(false)}
+              aria-label="Close menu backdrop"
+            />
+            <aside className="md:hidden fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] bg-[var(--color-surface)] border-r border-[var(--color-border)] flex flex-col">
+              <div className="p-4 border-b border-[var(--color-border)] flex items-center justify-between">
+                <Link to="/backoffice" className="flex items-center space-x-3" onClick={() => setMobileMenuOpen(false)}>
+                  <div className="w-8 h-8 bg-gradient-to-br from-sky-400 to-cyan-300 rounded-lg flex items-center justify-center font-bold text-sm text-[#0a1628]">
+                    Z
+                  </div>
+                  <div>
+                    <div className="font-bold text-[var(--color-text)]">Zotta</div>
+                    <div className="text-xs text-[var(--color-text-muted)]">Back Office</div>
+                  </div>
+                </Link>
+                <button
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="p-2 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-hover)]"
+                  aria-label="Close menu"
+                >
+                  <X size={16} />
+                </button>
+              </div>
 
-        <main className="flex-1 p-6 overflow-auto">
+              <div className="px-3 pt-3 pb-2">
+                <div className="relative">
+                  <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] pointer-events-none" />
+                  <input
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    placeholder="Search menu..."
+                    className="w-full h-8 pl-8 pr-7 text-xs rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]/50 transition-shadow"
+                  />
+                  {search && (
+                    <button
+                      onClick={() => setSearch('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <nav className="flex-1 overflow-y-auto px-3 pb-4 space-y-3">
+                {(!isSearching || 'dashboard'.includes(search.trim().toLowerCase())) && (
+                  <Link
+                    to="/backoffice"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={clsx(
+                      'flex items-center space-x-3 px-3 py-2 rounded-lg text-sm transition-all',
+                      dashboardActive
+                        ? 'bg-[var(--color-primary)]/15 text-[var(--color-primary)] font-medium'
+                        : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-hover)]'
+                    )}
+                  >
+                    <LayoutDashboard size={16} />
+                    <span>Dashboard</span>
+                  </Link>
+                )}
+
+                {visibleSections.map(section => (
+                  <div key={`mobile-${section.id}`} className="space-y-1">
+                    <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+                      {section.label}
+                    </div>
+                    {section.items.map(({ to, icon: Icon, label }) => {
+                      const itemActive = isItemActive(to, location.pathname);
+                      return (
+                        <Link
+                          key={`mobile-${to}`}
+                          to={to}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className={clsx(
+                            'flex items-center space-x-3 px-3 py-2 rounded-lg text-sm transition-all',
+                            itemActive
+                              ? 'bg-[var(--color-primary)]/15 text-[var(--color-primary)] font-medium'
+                              : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-hover)]'
+                          )}
+                        >
+                          <Icon size={16} />
+                          <span>{label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ))}
+
+                {isSearching && visibleSections.length === 0 && !('dashboard'.includes(search.trim().toLowerCase())) && (
+                  <div className="text-center py-4 text-xs text-[var(--color-text-muted)]">
+                    No menu items match "<span className="text-[var(--color-text)]">{search}</span>"
+                  </div>
+                )}
+              </nav>
+
+              <div className="p-4 border-t border-[var(--color-border)] flex items-center justify-between">
+                <div className="min-w-0">
+                  <div className="font-medium text-sm text-[var(--color-text)] truncate">{user?.first_name} {user?.last_name}</div>
+                  <div className="text-xs text-[var(--color-text-muted)] capitalize truncate">{user?.role?.replace('_', ' ')}</div>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="p-2 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:bg-[var(--color-surface-hover)] transition-colors"
+                  title="Logout"
+                >
+                  <LogOut size={16} />
+                </button>
+              </div>
+            </aside>
+          </>
+        )}
+
+        <main className="flex-1 p-3 sm:p-4 md:p-6 overflow-y-auto overflow-x-hidden">
           <Outlet />
         </main>
       </div>

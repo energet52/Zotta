@@ -997,11 +997,11 @@ export default function CollectionDetail() {
       {/* ═══════════════════════════════════════════════════════
           3-PANEL LAYOUT
           ═══════════════════════════════════════════════════════ */}
-      <div className="flex-1 flex overflow-hidden gap-4 mt-4 min-h-0">
+      <div className="flex-1 flex flex-col xl:flex-row overflow-hidden gap-4 mt-4 min-h-0">
         {/* ═══════════════════════════════════════════
             LEFT PANEL — AI Command Center (~30%)
             ═══════════════════════════════════════════ */}
-        <div className="w-[30%] min-w-[280px] overflow-y-auto space-y-3 pr-1 pb-4">
+        <div className="w-full xl:w-[30%] min-w-0 sm:min-w-[280px] overflow-y-auto space-y-3 xl:pr-1 pb-4">
           {/* ── AI Recommendation Card ── */}
           <Card
             padding="sm"
@@ -1285,7 +1285,7 @@ export default function CollectionDetail() {
                 <BarChart3 size={14} className="text-[var(--color-primary)]" />
                 Similar Outcomes
               </h3>
-              <div className="grid grid-cols-2 gap-3 text-center">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-center">
                 <div className="p-2 rounded-lg bg-[var(--color-bg)]">
                   <div className="text-2xl font-bold text-emerald-400">
                     {Math.round(
@@ -1322,7 +1322,7 @@ export default function CollectionDetail() {
         {/* ═══════════════════════════════════════════
             CENTER PANEL — Timeline + Communication (~40%)
             ═══════════════════════════════════════════ */}
-        <div className="w-[40%] min-w-[340px] flex flex-col overflow-hidden">
+        <div className="w-full xl:w-[40%] min-w-0 sm:min-w-[340px] flex flex-col overflow-hidden">
           {/* ── Filter Bar ── */}
           <div className="flex items-center gap-1 mb-3 shrink-0 flex-wrap">
             {(
@@ -1554,14 +1554,14 @@ export default function CollectionDetail() {
         {/* ═══════════════════════════════════════════
             RIGHT PANEL — Account Details + Tools (~30%)
             ═══════════════════════════════════════════ */}
-        <div className="w-[30%] min-w-[280px] overflow-y-auto space-y-3 pl-1 pb-4">
+        <div className="w-full xl:w-[30%] min-w-0 sm:min-w-[280px] overflow-y-auto space-y-3 xl:pl-1 pb-4">
           {/* ── Loan Details ── */}
           <Card padding="sm">
             <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
               <CreditCard size={14} className="text-[var(--color-primary)]" />
               Loan Details
             </h3>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
               <div>
                 <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">
                   Amount
@@ -1685,7 +1685,7 @@ export default function CollectionDetail() {
               Recent Payments
             </h3>
             {payments?.length > 0 ? (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto max-w-full">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
@@ -1741,7 +1741,7 @@ export default function CollectionDetail() {
                 <Calendar size={14} className="text-[var(--color-primary)]" />
                 Payment Heatmap
               </h3>
-              <div className="grid grid-cols-6 gap-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-1.5">
                 {payment_heatmap.slice(-12).map((h, i) => (
                   <div
                     key={i}
@@ -1811,7 +1811,7 @@ export default function CollectionDetail() {
                 onSubmit={handleCreatePtp}
                 className="space-y-2 mb-2.5 p-3 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)]"
               >
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <input
                     type="number"
                     required
@@ -1928,7 +1928,7 @@ export default function CollectionDetail() {
               <Zap size={14} className="text-amber-400" />
               Quick Actions
             </h3>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button
                 onClick={() =>
                   handleToggleFlag(
@@ -2041,7 +2041,7 @@ export default function CollectionDetail() {
           onClick={() => setShowOverride(false)}
         >
           <div
-            className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-6 w-[420px] shadow-2xl"
+            className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-4 sm:p-6 w-full max-w-[420px] shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">

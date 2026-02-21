@@ -96,7 +96,6 @@ function ConditionNodeInner({ id, data, selected }: NodeProps) {
   if (editing && d.onDataChange) {
     return (
       <ConditionEditor
-        id={id}
         data={d}
         onSave={(updates) => { d.onDataChange!(id, updates); setEditing(false); }}
         onCancel={() => setEditing(false)}
@@ -106,7 +105,7 @@ function ConditionNodeInner({ id, data, selected }: NodeProps) {
 
   return (
     <div
-      className={`relative px-4 py-3 min-w-[200px] max-w-[280px] rounded-lg border-2 transition-shadow ${
+      className={`relative px-4 py-3 min-w-0 sm:min-w-[200px] max-w-[280px] rounded-lg border-2 transition-shadow ${
         selected ? 'border-blue-500 shadow-lg shadow-blue-500/20' : 'border-[var(--color-border)] shadow-sm'
       }`}
       style={{ background: 'var(--color-surface)' }}
@@ -166,12 +165,10 @@ function ConditionNodeInner({ id, data, selected }: NodeProps) {
 }
 
 function ConditionEditor({
-  id,
   data,
   onSave,
   onCancel,
 }: {
-  id: string;
   data: ConditionNodeData;
   onSave: (updates: Record<string, unknown>) => void;
   onCancel: () => void;
@@ -254,7 +251,7 @@ function ConditionEditor({
 
   return (
     <div
-      className="relative px-3 py-3 min-w-[280px] max-w-[340px] rounded-lg border-2 border-blue-500 shadow-lg shadow-blue-500/20 nopan nodrag nowheel"
+      className="relative px-3 py-3 min-w-0 sm:min-w-[280px] max-w-[340px] rounded-lg border-2 border-blue-500 shadow-lg shadow-blue-500/20 nopan nodrag nowheel"
       style={{ background: 'var(--color-surface)' }}
       onMouseDown={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}

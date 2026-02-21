@@ -192,7 +192,7 @@ export default function HirePurchaseAgreementText({
         <p className={sectionClass}>The Hirer agrees that the Owner has handed me a complete copy of this Agreement. I have been informed of the cash price of the goods before entering into this Agreement, and I understand the contents of this Agreement and of this Schedule.</p>
 
         {/* Items table */}
-        <div className="overflow-x-auto border border-[var(--color-border)] rounded-lg mt-2">
+        <div className="overflow-x-auto max-w-full border border-[var(--color-border)] rounded-lg mt-2">
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-[var(--color-surface-hover)] text-[var(--color-text-muted)]">
@@ -220,12 +220,12 @@ export default function HirePurchaseAgreementText({
         </div>
 
         {/* Financial summary */}
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-3 pl-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs mt-3 pl-2">
           <span className="text-[var(--color-text-muted)]">Downpayment / Deposit:</span><span className="text-right font-medium">{fmt(downpayment)}</span>
           <span className="text-[var(--color-text-muted)]">Credit Charges:</span><span className="text-right font-medium">{fmt(interestAndFees)}</span>
           <span className="text-[var(--color-text-muted)]">Hire Purchase Price:</span><span className="text-right font-bold">{fmt(hirePrice)}</span>
         </div>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-2 pl-2 pt-2 border-t border-[var(--color-border)]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs mt-2 pl-2 pt-2 border-t border-[var(--color-border)]">
           <span className="text-[var(--color-text-muted)]">Period of Hire:</span><span className="text-right">{termMonths} Months</span>
           <span className="text-[var(--color-text-muted)]">Commencement Date:</span><span className="text-right">{dateStr}</span>
           <span className="text-[var(--color-text-muted)]">Expiry Date:</span><span className="text-right">{expiryStr}</span>

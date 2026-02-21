@@ -236,6 +236,99 @@ The AI chat is embedded inline in the hero section (below CTA buttons, always vi
 2. SES receives email → matches `INBOUND_MAIL` receipt rule for `zotta-lms.com`
 3. SES → WorkMail organization → `info@zotta-lms.com` mailbox
 
+## AI Chat Logs (Visitor Questions & Answers)
+
+Every question a visitor asks through the AI chat widget — and the answer they receive — is logged to **AWS CloudWatch Logs**. Logs are stored in the log group `/aws/lambda/zotta-landing-chat`.
+
+### Viewing logs in the AWS Console
+
+1. Open [CloudWatch Logs — Log groups](https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#logsV2:log-groups/log-group/$252Faws$252Flambda$252Fzotta-landing-chat)
+2. Click on the latest **Log stream** (streams are created per Lambda instance)
+3. Each chat interaction is a single JSON line with the event type `"chat"`:
+
+```json
+{
+  "event": "chat",
+  "timestamp": "2026-02-19T14:30:00+00:00",
+  "question": "How does Zotta handle credit scoring?",
+  "answer": "Great question! The biggest win is...",
+  "history_length": 2,
+  "model": "gpt-4o-mini",
+  "tokens": { "prompt": 1850, "completion": 120, "total": 1970 }
+}
+```
+
+Errors are logged with event type `"chat_error"`.
+
+### Searching across all logs (CloudWatch Logs Insights)
+
+1. Open [CloudWatch Logs Insights](https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#logsV2:logs-insights)
+2. Select log group `/aws/lambda/zotta-landing-chat`
+3. Use these example queries:
+
+**All questions and answers (last 7 days):**
+```
+fields @timestamp, question, answer
+| filter event = "chat"
+| sort @timestamp desc
+| limit 200
+```
+
+**Most common questions:**
+```
+fields question
+| filter event = "chat"
+| stats count() as times by question
+| sort times desc
+| limit 50
+```
+
+**Token usage (cost monitoring):**
+```
+fields @timestamp, tokens.total
+| filter event = "chat"
+| stats sum(tokens.total) as total_tokens, count() as conversations by bin(1d)
+```
+
+**Errors only:**
+```
+fields @timestamp, error, question
+| filter event = "chat_error"
+| sort @timestamp desc
+```
+
+### Searching via CLI
+
+```bash
+# Recent conversations (last 1 hour)
+aws logs filter-log-events \
+  --log-group-name /aws/lambda/zotta-landing-chat \
+  --start-time $(date -v-1H +%s000) \
+  --filter-pattern '"event":"chat"' \
+  --region us-east-1 \
+  --query 'events[*].message' --output text
+
+# Search for a specific keyword in questions
+aws logs filter-log-events \
+  --log-group-name /aws/lambda/zotta-landing-chat \
+  --start-time $(date -v-7d +%s000) \
+  --filter-pattern '"scoring"' \
+  --region us-east-1 \
+  --query 'events[*].message' --output text
+```
+
+### Log retention
+
+By default, CloudWatch Logs are retained **indefinitely**. To set a retention policy (and control costs):
+
+```bash
+# Keep logs for 90 days
+aws logs put-retention-policy \
+  --log-group-name /aws/lambda/zotta-landing-chat \
+  --retention-in-days 90 \
+  --region us-east-1
+```
+
 ## Cost Estimate
 
 | Service | Estimated Monthly Cost |

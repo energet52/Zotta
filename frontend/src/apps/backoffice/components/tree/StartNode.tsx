@@ -5,7 +5,7 @@ import { Inbox } from 'lucide-react';
 function StartNodeInner({ selected }: NodeProps) {
   return (
     <div
-      className={`relative px-5 py-4 min-w-[200px] rounded-lg border-2 transition-shadow text-center ${
+      className={`relative px-5 py-4 min-w-0 sm:min-w-[200px] rounded-lg border-2 transition-shadow text-center ${
         selected ? 'border-gray-400 shadow-lg shadow-gray-400/20' : 'border-[var(--color-border)] shadow-sm'
       }`}
       style={{ background: 'var(--color-surface)' }}

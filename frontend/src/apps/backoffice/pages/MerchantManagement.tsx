@@ -215,7 +215,7 @@ export default function MerchantManagement() {
                         placeholder="Add category..."
                         value={newCategory[m.id] || ''}
                         onChange={(e) => setNewCategory((prev) => ({ ...prev, [m.id]: e.target.value }))}
-                        className="flex-1 min-w-[160px] px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg"
+                        className="flex-1 min-w-0 sm:min-w-[160px] px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg"
                       />
                       <Button
                         size="sm"
@@ -315,7 +315,7 @@ export default function MerchantManagement() {
                           ))}
                           {(!categoriesByMerchant[m.id] || categoriesByMerchant[m.id].length === 0) && (
                             <tr>
-                              <td colSpan={2} className="px-3 py-6 text-center text-[var(--color-text-muted)]">
+                              <td colSpan={2} className="px-3 py-4 sm:py-6 text-center text-[var(--color-text-muted)]">
                                 No categories. Add one or import from CSV (semicolon delimiter).
                               </td>
                             </tr>

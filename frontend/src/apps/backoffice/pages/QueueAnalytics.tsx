@@ -123,7 +123,7 @@ export default function QueueAnalytics() {
 
       {/* ── KPI Cards ── */}
       {ambient && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
           {[
             {
               label: 'Pending',
@@ -169,17 +169,17 @@ export default function QueueAnalytics() {
           <h3 className="text-sm font-medium mb-3 flex items-center gap-1.5">
             <BarChart3 size={14} className="text-sky-400" /> Pipeline
           </h3>
-          <div className="flex items-end gap-2 overflow-x-auto pb-2">
+          <div className="flex items-end gap-2 overflow-x-auto max-w-full pb-2">
             {/* Unassigned */}
             {pipeline.unassigned_stage > 0 && (
-              <div className="flex flex-col items-center min-w-[80px]">
+              <div className="flex flex-col items-center min-w-0 sm:min-w-[80px]">
                 <div className="text-sm font-bold mb-1">{pipeline.unassigned_stage}</div>
                 <div className="w-full bg-gray-600 rounded-t" style={{ height: `${Math.max(20, Math.min(120, pipeline.unassigned_stage * 10))}px` }} />
                 <div className="text-[10px] text-[var(--color-text-muted)] mt-1 text-center">Unassigned</div>
               </div>
             )}
             {pipeline.stages.map((stage: any) => (
-              <div key={stage.id} className="flex flex-col items-center min-w-[80px]">
+              <div key={stage.id} className="flex flex-col items-center min-w-0 sm:min-w-[80px]">
                 <div className="text-sm font-bold mb-1">{stage.entry_count}</div>
                 <div
                   className="w-full bg-sky-500 rounded-t"
@@ -198,14 +198,14 @@ export default function QueueAnalytics() {
           <h3 className="text-sm font-medium mb-3 flex items-center gap-1.5">
             <TrendingUp size={14} className="text-green-400" /> Throughput (Last 30 Days)
           </h3>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <div className="text-xs text-[var(--color-text-muted)] mb-2">Submitted ({throughput.submitted_by_day.reduce((s, d) => s + d.count, 0)} total)</div>
               <div className="flex items-end gap-[2px] h-16">
                 {throughput.submitted_by_day.slice(-14).map((d, i) => {
                   const maxCount = Math.max(1, ...throughput.submitted_by_day.map(x => x.count));
                   return (
-                    <div key={i} className="flex-1 bg-sky-500 rounded-t min-w-[4px]"
+                    <div key={i} className="flex-1 bg-sky-500 rounded-t min-w-0 sm:min-w-[4px]"
                       style={{ height: `${(d.count / maxCount) * 100}%` }}
                       title={`${d.date}: ${d.count}`} />
                   );
@@ -218,7 +218,7 @@ export default function QueueAnalytics() {
                 {throughput.decided_by_day.slice(-14).map((d, i) => {
                   const maxCount = Math.max(1, ...throughput.decided_by_day.map(x => x.count));
                   return (
-                    <div key={i} className="flex-1 bg-emerald-500 rounded-t min-w-[4px]"
+                    <div key={i} className="flex-1 bg-emerald-500 rounded-t min-w-0 sm:min-w-[4px]"
                       style={{ height: `${(d.count / maxCount) * 100}%` }}
                       title={`${d.date}: ${d.count}`} />
                   );
@@ -235,7 +235,7 @@ export default function QueueAnalytics() {
           <h3 className="text-sm font-medium mb-3 flex items-center gap-1.5">
             <Users size={14} className="text-purple-400" /> Team Performance (30d)
           </h3>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-w-full">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)]">

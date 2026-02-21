@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { BookOpen, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronRight, Calendar, DollarSign, AlertTriangle, X } from 'lucide-react';
 import Card from '../../../components/ui/Card';
 import Badge from '../../../components/ui/Badge';
+import ResponsiveTable from '../../../components/ui/ResponsiveTable';
 import { underwriterApi, paymentsApi } from '../../../api/endpoints';
 
 interface LoanEntry {
@@ -173,8 +174,8 @@ export default function LoanBook() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
           <div className="p-2 bg-[var(--color-cyan)]/15 rounded-lg">
             <BookOpen className="text-[var(--color-cyan)]" size={24} />
           </div>
@@ -189,8 +190,8 @@ export default function LoanBook() {
 
       {/* Arrears filter banner */}
       {arrearsOnly && (
-        <div className="flex items-center justify-between rounded-lg border-2 border-red-400/50 bg-red-50 dark:bg-red-950/30 px-4 py-2.5">
-          <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-start justify-between gap-2 rounded-lg border-2 border-red-400/50 bg-red-50 dark:bg-red-950/30 px-4 py-2.5">
+          <div className="flex items-center gap-2">
             <AlertTriangle size={16} className="text-red-500" />
             <span className="text-sm font-semibold text-red-700 dark:text-red-400">
               Showing only loans in arrears ({displayed.length} loan{displayed.length !== 1 ? 's' : ''})
@@ -208,8 +209,8 @@ export default function LoanBook() {
 
       {/* Filters */}
       <Card>
-        <div className="flex flex-wrap gap-4 items-center">
-          <div className="flex-1 min-w-[200px] relative">
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className="flex-1 min-w-0 sm:min-w-[200px] relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
             <input
               type="text"
@@ -233,8 +234,7 @@ export default function LoanBook() {
 
       {/* Table */}
       <Card padding="none">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <ResponsiveTable>
             <thead>
               <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)]">
                 <th className="px-2 py-3 w-8"></th>
@@ -391,8 +391,7 @@ export default function LoanBook() {
                 </tr>
               )}
             </tbody>
-          </table>
-        </div>
+          </ResponsiveTable>
       </Card>
     </div>
   );

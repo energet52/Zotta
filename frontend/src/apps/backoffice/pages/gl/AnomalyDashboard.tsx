@@ -37,7 +37,7 @@ function RiskBar({ score }: { score: number }) {
   const pct = Math.min(100, score);
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-2 rounded-full bg-[var(--color-surface-hover)] overflow-hidden min-w-[60px] max-w-[100px]">
+      <div className="flex-1 h-2 rounded-full bg-[var(--color-surface-hover)] overflow-hidden min-w-0 sm:min-w-[60px] max-w-[100px]">
         <div
           className="h-full rounded-full transition-all"
           style={{ width: `${pct}%`, backgroundColor: color }}
@@ -210,7 +210,7 @@ export default function AnomalyDashboard() {
             No anomalies match your filters.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-w-full">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs uppercase tracking-wider">

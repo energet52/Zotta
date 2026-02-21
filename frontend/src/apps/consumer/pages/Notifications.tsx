@@ -182,7 +182,7 @@ export default function Notifications() {
                         Application {group.reference}
                       </h3>
                       {unreadInGroup > 0 && (
-                        <span className="min-w-[20px] h-[20px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
+                        <span className="min-w-0 sm:min-w-[20px] h-[20px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
                           {unreadInGroup}
                         </span>
                       )}

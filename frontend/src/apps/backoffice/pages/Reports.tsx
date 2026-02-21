@@ -174,7 +174,7 @@ export default function Reports() {
         ) : history.length === 0 ? (
           <p className="text-[var(--color-text-muted)] text-center py-4">No reports generated yet</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-w-full">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)]">

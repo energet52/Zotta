@@ -343,7 +343,7 @@ export default function ApplicationStatus() {
                 {application.items && application.items.length > 0 && (
                   <>
                     <h5 className="text-xs font-medium text-[var(--color-text-muted)] uppercase mb-2">Items</h5>
-                    <div className="overflow-x-auto mb-2">
+                    <div className="overflow-x-auto max-w-full mb-2">
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="text-left text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
@@ -639,7 +639,7 @@ export default function ApplicationStatus() {
       {/* Cancel Confirmation Dialog */}
       {showCancelDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[var(--color-surface)] rounded-xl shadow-xl max-w-md w-full p-6">
+          <div className="bg-[var(--color-surface)] rounded-xl shadow-xl max-w-md w-full p-4 sm:p-6">
             <h3 className="text-lg font-semibold text-[var(--color-text)] mb-2 flex items-center">
               <AlertTriangle size={20} className="mr-2 text-orange-500" />
               Cancel Application
@@ -722,7 +722,7 @@ export default function ApplicationStatus() {
               Payment Schedule
               {isProjected && <Badge variant="warning" className="ml-2 text-[10px]">Estimated</Badge>}
             </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-4">
               <div className="p-3 rounded-lg bg-[var(--color-bg)]">
                 <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider">Loan Amount</p>
                 <p className="text-lg font-bold text-[var(--color-text)]">TTD {loanAmt.toLocaleString()}</p>
@@ -740,7 +740,7 @@ export default function ApplicationStatus() {
                 <p className="text-lg font-bold text-[var(--color-primary)]">TTD {displaySchedule.reduce((s: number, r: any) => s + Number(r.amount_due || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
             </div>
-            <div className="overflow-x-auto max-h-72 overflow-y-auto border border-[var(--color-border)] rounded-lg">
+            <div className="overflow-x-auto max-w-full max-h-72 overflow-y-auto border border-[var(--color-border)] rounded-lg">
               <table className="min-w-full text-xs">
                 <thead className="bg-[var(--color-bg)] sticky top-0">
                   <tr>
@@ -811,7 +811,7 @@ export default function ApplicationStatus() {
                   <option value="other">Other</option>
                 </select>
               </div>
-              <div className="flex-1 min-w-[180px]">
+              <div className="flex-1 min-w-0 sm:min-w-[180px]">
                 <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">File</label>
                 <input
                   type="file"

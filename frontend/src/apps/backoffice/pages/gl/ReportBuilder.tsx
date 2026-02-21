@@ -333,7 +333,7 @@ export default function ReportBuilder() {
       <div className="flex gap-4 flex-1 min-h-0" style={{ height: 'calc(100% - 5rem)' }}>
         {/* Left: Configuration Panel (~40%) */}
         <div
-          className="w-[40%] min-w-[320px] flex flex-col gap-3 shrink-0"
+          className="w-[40%] min-w-0 sm:min-w-[320px] flex flex-col gap-3 shrink-0"
           style={{ maxHeight: '100%' }}
         >
           <Card padding="sm" className="flex flex-col gap-3 flex-1 min-h-0 overflow-hidden">
@@ -602,7 +602,7 @@ export default function ReportBuilder() {
                   </p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto max-w-full">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-[var(--color-surface-hover)] z-[1]">
                       <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs uppercase tracking-wider">

@@ -17,7 +17,7 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
           {
             'p-0': padding === 'none',
             'p-4': padding === 'sm',
-            'p-6': padding === 'md',
+            'p-4 sm:p-6': padding === 'md',
             'p-8': padding === 'lg',
           },
           className

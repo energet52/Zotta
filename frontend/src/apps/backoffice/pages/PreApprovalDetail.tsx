@@ -72,7 +72,7 @@ export default function PreApprovalDetail() {
         {/* Consumer Info */}
         <Card>
           <h3 className="font-semibold text-[var(--color-text)] mb-3 flex items-center"><User size={16} className="mr-2 text-[var(--color-primary)]" /> Consumer</h3>
-          <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             <div><span className="text-xs text-[var(--color-text-muted)]">Name</span><p className="text-[var(--color-text)] font-medium">{pa.first_name} {pa.last_name}</p></div>
             <div><span className="text-xs text-[var(--color-text-muted)]">Phone</span><p className="text-[var(--color-text)]">{pa.phone || '—'}</p></div>
             {pa.national_id && <div><span className="text-xs text-[var(--color-text-muted)]">National ID</span><p className="text-[var(--color-text)]">{pa.national_id}</p></div>}
@@ -84,7 +84,7 @@ export default function PreApprovalDetail() {
         {/* Item Info */}
         <Card>
           <h3 className="font-semibold text-[var(--color-text)] mb-3 flex items-center"><ShoppingBag size={16} className="mr-2 text-[var(--color-primary)]" /> Item</h3>
-          <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             <div className="col-span-2"><span className="text-xs text-[var(--color-text-muted)]">Description</span><p className="text-[var(--color-text)]">{pa.item_description || '—'}</p></div>
             <div><span className="text-xs text-[var(--color-text-muted)]">Price</span><p className="text-[var(--color-text)] font-bold">{fmtCurrency(pa.price)}</p></div>
             <div><span className="text-xs text-[var(--color-text-muted)]">Financing Amount</span><p className="text-[var(--color-text)] font-bold">{fmtCurrency(pa.financing_amount)}</p></div>
@@ -97,7 +97,7 @@ export default function PreApprovalDetail() {
       {pa.monthly_income != null && (
         <Card>
           <h3 className="font-semibold text-[var(--color-text)] mb-3 flex items-center"><Banknote size={16} className="mr-2 text-[var(--color-primary)]" /> Financial Assessment</h3>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
             <div><span className="text-xs text-[var(--color-text-muted)]">Monthly Income</span><p className="text-[var(--color-text)] font-medium">{fmtCurrency(pa.monthly_income)}</p></div>
             <div><span className="text-xs text-[var(--color-text-muted)]">Monthly Expenses</span><p className="text-[var(--color-text)]">{fmtCurrency(pa.monthly_expenses)}</p></div>
             <div><span className="text-xs text-[var(--color-text-muted)]">Existing Loans</span><p className="text-[var(--color-text)]">{fmtCurrency(pa.existing_loan_payments)}</p></div>

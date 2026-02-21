@@ -108,7 +108,7 @@ function AccountRow({
               <span className="mr-2 w-5" />
             )}
 
-            <span className="font-mono text-xs text-[var(--color-text-muted)] mr-3 min-w-[72px]">
+            <span className="font-mono text-xs text-[var(--color-text-muted)] mr-3 min-w-0 sm:min-w-[72px]">
               {node.account_code}
             </span>
             <span className="font-medium text-[var(--color-text)]">{node.name}</span>
@@ -229,12 +229,12 @@ function AccountModal({ account, accounts, onClose, onSave, saving }: ModalProps
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input label="Account Name" value={name} onChange={(e) => setName(e.target.value)} required />
             <Input label="Account Code" value={code} onChange={(e) => setCode(e.target.value)} disabled={!!account} placeholder="Auto-generated" />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="w-full">
               <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">Category</label>
               <select
@@ -418,7 +418,7 @@ export default function ChartOfAccounts() {
       {/* Filters */}
       <Card padding="sm">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[220px]">
+          <div className="relative flex-1 min-w-0 sm:min-w-[220px]">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
             <input
               type="text"
@@ -481,7 +481,7 @@ export default function ChartOfAccounts() {
             <p className="text-sm mt-1">Create your first GL account to get started.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-w-full">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs uppercase tracking-wider">

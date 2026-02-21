@@ -70,7 +70,7 @@ export default function Register() {
             <div className="mb-4 p-3 bg-red-500/20 text-red-400 rounded-lg text-sm border border-red-500/30">{error}</div>
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input label="First Name" name="first_name" value={form.first_name} onChange={handleChange} required />
               <Input label="Last Name" name="last_name" value={form.last_name} onChange={handleChange} required />
             </div>

@@ -120,7 +120,7 @@ export default function TrialBalance() {
       {/* Filters */}
       <Card padding="sm">
         <div className="flex flex-wrap items-end gap-4">
-          <div className="min-w-[200px]">
+          <div className="min-w-0 sm:min-w-[200px]">
             <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">
               <Filter size={13} className="inline mr-1" /> Period
             </label>
@@ -186,7 +186,7 @@ export default function TrialBalance() {
         </Card>
       ) : tb ? (
         <Card padding="none">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-w-full">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs uppercase tracking-wider">

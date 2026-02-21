@@ -149,7 +149,11 @@ async function findQueueRow(page: Page, reference: string) {
 }
 
 async function waitForLoanInLoanBook(page: Page, reference: string) {
+  await expect(page).toHaveURL(/\/backoffice\/loans/, { timeout: 30000 });
+  await expect(page.getByText(/Loading loan book/i)).toBeHidden({ timeout: 30000 });
+
   const search = page.getByPlaceholder(/Search by reference or name/i);
+  await expect(search).toBeVisible({ timeout: 30000 });
   const row = page.locator('tbody tr', { hasText: reference }).first();
 
   for (let attempt = 0; attempt < 10; attempt += 1) {
@@ -279,7 +283,6 @@ test.describe('Smoke - E2E-001', () => {
       await expect(page.getByText(/Loan Disbursed/i).first()).toBeVisible({ timeout: 25000 });
 
       await page.goto(`${BASE}/backoffice/loans`);
-      await expect(page.getByRole('heading', { name: 'Loan Book' })).toBeVisible();
       const loanRow = await waitForLoanInLoanBook(page, reference);
       await expect(loanRow).toContainText(reference);
       console.log(`[E2E-001] Loan Book includes ${reference}`);

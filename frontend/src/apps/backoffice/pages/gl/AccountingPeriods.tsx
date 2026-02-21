@@ -225,7 +225,7 @@ export default function AccountingPeriods() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: 'Open', value: stats.open, color: 'emerald' },
           { label: 'Soft Close', value: stats.softClose, color: 'yellow' },
@@ -278,7 +278,7 @@ export default function AccountingPeriods() {
                 {/* Year header */}
                 <button
                   onClick={() => toggleYear(year)}
-                  className="w-full flex items-center justify-between px-6 py-4 hover:bg-[var(--color-surface-hover)] transition-colors"
+                  className="w-full flex items-center justify-between px-4 sm:px-6 py-4 hover:bg-[var(--color-surface-hover)] transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     {isOpen ? (
@@ -312,7 +312,7 @@ export default function AccountingPeriods() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs uppercase tracking-wider">
-                          <th className="py-2.5 px-6 text-left font-medium">Period</th>
+                          <th className="py-2.5 px-4 sm:px-6 text-left font-medium">Period</th>
                           <th className="py-2.5 px-3 text-left font-medium">Date Range</th>
                           <th className="py-2.5 px-3 text-center font-medium">Status</th>
                           <th className="py-2.5 px-3 text-right font-medium">Actions</th>
@@ -328,7 +328,7 @@ export default function AccountingPeriods() {
                               key={p.id}
                               className="border-b border-[var(--color-border)] last:border-b-0 hover:bg-[var(--color-surface-hover)] transition-colors group"
                             >
-                              <td className="py-3 px-6">
+                              <td className="py-3 px-4 sm:px-6">
                                 <div className="flex items-center gap-2">
                                   <div className={`w-1.5 h-1.5 rounded-full ${si.dot}`} />
                                   <span className="font-medium text-[var(--color-text)]">{p.name}</span>

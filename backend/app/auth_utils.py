@@ -8,7 +8,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -132,17 +132,18 @@ async def get_current_user(
     token_jti = payload.get("jti")
     if token_jti:
         from app.models.session import UserSession
-        sess_result = await db.execute(
-            select(UserSession).where(
+        # Avoid ORM stale-row flush errors when sessions are concurrently revoked:
+        # update heartbeat directly and treat zero updated rows as invalid session.
+        update_result = await db.execute(
+            update(UserSession)
+            .where(
                 UserSession.token_jti == token_jti,
                 UserSession.is_active.is_(True),
             )
+            .values(last_activity_at=datetime.now(timezone.utc))
         )
-        session = sess_result.scalar_one_or_none()
-        if session is None:
+        if update_result.rowcount == 0:
             raise credentials_exception
-        # Update last activity
-        session.last_activity_at = datetime.now(timezone.utc)
 
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()

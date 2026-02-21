@@ -789,7 +789,7 @@ export default function Collections() {
 
       {/* ──────────── 4. MAIN QUEUE TABLE ──────────── */}
       <Card padding="none">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-w-full">
           <table className="w-full text-sm" style={{ minWidth: '1400px' }}>
             <thead>
               <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs uppercase tracking-wider">
@@ -802,7 +802,7 @@ export default function Collections() {
                   />
                 </th>
                 <th className="px-2 py-3 w-14 text-center">#</th>
-                <th className="px-3 py-3 text-left min-w-[180px]">Borrower</th>
+                <th className="px-3 py-3 text-left min-w-0 sm:min-w-[180px]">Borrower</th>
                 <SortHeader field="days_past_due" label="DPD" current={sortBy} dir={sortDir} onClick={(f) => { setSortBy(f); setSortDir(d => sortBy === f ? (d === 'asc' ? 'desc' : 'asc') : 'desc'); resetPage(); }} />
                 <SortHeader field="outstanding_balance" label="Balance" current={sortBy} dir={sortDir} onClick={(f) => { setSortBy(f); setSortDir(d => sortBy === f ? (d === 'asc' ? 'desc' : 'asc') : 'desc'); resetPage(); }} />
                 <SortHeader field="amount_due" label="Arrears" current={sortBy} dir={sortDir} onClick={(f) => { setSortBy(f); setSortDir(d => sortBy === f ? (d === 'asc' ? 'desc' : 'asc') : 'desc'); resetPage(); }} />

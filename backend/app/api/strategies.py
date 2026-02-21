@@ -183,6 +183,8 @@ async def update_strategy(
         raise HTTPException(404, "Strategy not found")
     if strategy.status == StrategyStatus.ARCHIVED:
         raise HTTPException(400, "Archived strategies cannot be edited. Create a new version instead.")
+    if strategy.status == StrategyStatus.ACTIVE:
+        raise HTTPException(400, "Active strategies cannot be edited. Deactivate first or create a new version.")
 
     update_data = data.model_dump(exclude_unset=True)
 
@@ -484,12 +486,27 @@ async def delete_strategy(strategy_id: int, db: AsyncSession = Depends(get_db)):
         .where(Decision.strategy_id == strategy_id)
         .values(strategy_id=None)
     )
+    await db.execute(
+        CreditProduct.__table__.update()
+        .where(CreditProduct.default_strategy_id == strategy_id)
+        .values(default_strategy_id=None)
+    )
 
     await db.execute(
         sa_delete(DecisionAuditTrail).where(DecisionAuditTrail.strategy_id == strategy_id)
     )
 
     if strategy.decision_tree_id:
+        await db.execute(
+            CreditProduct.__table__.update()
+            .where(CreditProduct.decision_tree_id == strategy.decision_tree_id)
+            .values(decision_tree_id=None)
+        )
+        await db.execute(
+            DecisionStrategy.__table__.update()
+            .where(DecisionStrategy.decision_tree_id == strategy.decision_tree_id)
+            .values(decision_tree_id=None)
+        )
         await db.execute(
             sa_delete(DecisionTreeNode).where(DecisionTreeNode.tree_id == strategy.decision_tree_id)
         )

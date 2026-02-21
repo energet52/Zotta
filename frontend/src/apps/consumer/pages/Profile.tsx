@@ -62,7 +62,7 @@ export default function Profile() {
             ID: {verificationStatus}
           </Badge>
         </div>
-        <div className="grid grid-cols-2 gap-4 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div><span className="text-[var(--color-text-muted)]">Name:</span> <span className="text-[var(--color-text)]">{user?.first_name} {user?.last_name}</span></div>
           <div><span className="text-[var(--color-text-muted)]">Email:</span> <span className="text-[var(--color-text)]">{user?.email}</span></div>
           <div><span className="text-[var(--color-text-muted)]">Phone:</span> <span className="text-[var(--color-text)]">{user?.phone || 'Not set'}</span></div>

@@ -195,7 +195,7 @@ export default function ProductManagement() {
 
       {/* Portfolio Overview */}
       {portfolio && !portfolioLoading && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
           <div className="p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)]">
             <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] mb-1"><BarChart3 size={14} /> Active Products</div>
             <div className="text-xl font-semibold">{portfolio.total_products}</div>
@@ -248,7 +248,7 @@ export default function ProductManagement() {
         <Card>
           <h3 className="font-semibold text-sm mb-3">AI Comparison Analysis</h3>
           <p className="text-sm mb-3">{compareResult.analysis.summary}</p>
-          <div className="grid grid-cols-3 gap-3 mb-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
             <div className="p-2 rounded bg-[var(--color-surface-hover)] text-center">
               <div className="text-xs text-[var(--color-text-muted)]">Best Product</div>
               <div className="text-sm font-semibold">{compareResult.analysis.winner}</div>
@@ -277,7 +277,7 @@ export default function ProductManagement() {
 
       {/* Product Table */}
       <Card padding="none">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-w-full">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)]">

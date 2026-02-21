@@ -208,7 +208,7 @@ function CreateTemplateModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               label="Template Name"
               value={name}
@@ -232,7 +232,7 @@ function CreateTemplateModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               label="Credit Product ID (optional)"
               type="number"
@@ -423,7 +423,7 @@ function DryRunPreview({ accountMap }: { accountMap: Map<number, GLAccount> }) {
         <h3 className="text-sm font-semibold text-[var(--color-text)]">Dry-Run Preview</h3>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         <div className="w-full">
           <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Event Type</label>
           <select
@@ -672,7 +672,7 @@ export default function GLMappings() {
             <p className="text-sm mt-1">Create your first template to map loan events to journal entries.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-w-full">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs uppercase tracking-wider">
@@ -732,7 +732,7 @@ export default function GLMappings() {
                       {isExpanded && (
                         <tr>
                           <td colSpan={6} className="p-0">
-                            <div className="bg-[var(--color-surface-hover)]/40 border-t border-[var(--color-border)] px-6 py-4">
+                            <div className="bg-[var(--color-surface-hover)]/40 border-t border-[var(--color-border)] px-4 sm:px-6 py-4">
                               {tpl.description && (
                                 <p className="text-sm text-[var(--color-text-muted)] mb-3">{tpl.description}</p>
                               )}

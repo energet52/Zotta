@@ -117,7 +117,7 @@ export default function UnderwriterDashboard() {
                 <p className="text-[11px] text-[var(--color-text-muted)]">Real-time profit & loss based on actual collections</p>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               <div className="text-center p-4 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
                 <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">Interest Earned</p>
                 <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{fmt(data.interest_collected)}</p>
@@ -147,7 +147,7 @@ export default function UnderwriterDashboard() {
       </div>
 
       {/* KPI Cards - Clickable */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <div onClick={() => navigate('/backoffice/loans')} className="cursor-pointer group">
           <Card padding="sm" className="transition-all group-hover:border-[var(--color-primary)]/50">
             <p className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-2">Total Applications</p>
@@ -209,7 +209,7 @@ export default function UnderwriterDashboard() {
               <p className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider">Profit & Loss Projection</p>
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
               <p className="text-xs text-[var(--color-text-muted)]">Total Disbursed</p>
               <p className="text-lg font-bold text-[var(--color-success)]">
@@ -270,7 +270,7 @@ export default function UnderwriterDashboard() {
             {data.arrears_summary.total_delinquent_loans > 0 ? (
               <>
                 {/* Summary stats row */}
-                <div className="grid grid-cols-3 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                   <div
                     onClick={() => navigate('/backoffice/loans?arrears=1')}
                     className="cursor-pointer rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-3 text-center hover:border-red-400 transition-colors"
@@ -293,7 +293,7 @@ export default function UnderwriterDashboard() {
                 </div>
 
                 {/* Aged buckets */}
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   {data.arrears_summary.buckets.map((bucket) => {
                     const colors = {
                       '1–30 days': { bg: 'bg-yellow-50 dark:bg-yellow-950/20', border: 'border-yellow-300 dark:border-yellow-800', text: 'text-yellow-600 dark:text-yellow-400', bar: 'bg-yellow-400' },
@@ -424,7 +424,7 @@ export default function UnderwriterDashboard() {
       {/* Status Breakdown */}
       <Card>
         <h3 className="font-semibold text-[var(--color-text)] mb-4">Applications by Status</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {Object.entries(data.applications_by_status)
             .filter(([status]) =>
               ['draft', 'disbursed', 'declined', 'decision_pending', 'rejected_by_applicant', 'approved', 'cancelled', 'counter_proposed'].includes(status)

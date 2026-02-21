@@ -17,7 +17,7 @@ function ScorecardGateNodeInner({ data, selected }: NodeProps) {
 
   return (
     <div
-      className={`relative px-4 py-3 min-w-[180px] max-w-[260px] border-2 transition-shadow ${
+      className={`relative px-4 py-3 min-w-0 sm:min-w-[180px] max-w-[260px] border-2 transition-shadow ${
         selected
           ? 'border-purple-500 shadow-lg shadow-purple-500/20'
           : 'border-[var(--color-border)] shadow-sm'

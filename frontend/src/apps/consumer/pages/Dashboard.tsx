@@ -165,7 +165,7 @@ export default function Dashboard() {
                   </div>
 
                   {/* Key Metrics */}
-                  <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                     {/* Next Payment */}
                     <div className={`rounded-lg p-3 ${
                       isOverdue
@@ -376,7 +376,7 @@ export default function Dashboard() {
             </Link>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-w-full">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-border)]">

@@ -139,7 +139,7 @@ function NewEntryModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <Input label="Description" value={description} onChange={(e) => setDescription(e.target.value)} required />
             <Input label="Transaction Date" type="date" value={transactionDate} onChange={(e) => setTransactionDate(e.target.value)} />
             <div className="w-full">
@@ -317,7 +317,7 @@ function EntryDetail({
   return (
     <tr>
       <td colSpan={7} className="p-0">
-        <div className="bg-[var(--color-surface-hover)]/40 border-t border-[var(--color-border)] px-6 py-4 space-y-4">
+        <div className="bg-[var(--color-surface-hover)]/40 border-t border-[var(--color-border)] px-4 sm:px-6 py-4 space-y-4">
           {/* Lines table */}
           <div className="border border-[var(--color-border)] rounded-lg overflow-hidden">
             <table className="w-full text-sm">
@@ -505,7 +505,7 @@ export default function JournalEntries() {
               </button>
             ))}
           </div>
-          <div className="relative flex-1 min-w-[200px]">
+          <div className="relative flex-1 min-w-0 sm:min-w-[200px]">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
             <input
               type="text"
@@ -536,7 +536,7 @@ export default function JournalEntries() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-w-full">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs uppercase tracking-wider">

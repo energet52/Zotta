@@ -130,7 +130,7 @@ export default function SectorDashboard() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
         <Card className="p-4">
           <div className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider">Total Exposure</div>
           <div className="text-xl font-bold text-[var(--color-text)] mt-1">{fmt(data.total_outstanding)}</div>
@@ -160,7 +160,7 @@ export default function SectorDashboard() {
       {/* Main content grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Sector Distribution Chart */}
-        <Card className="lg:col-span-2 p-6">
+        <Card className="lg:col-span-2 p-4 sm:p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-[var(--color-text)]">
               <PieIcon size={18} className="inline mr-2 text-[var(--color-primary)]" />
@@ -230,7 +230,7 @@ export default function SectorDashboard() {
         </Card>
 
         {/* Recent Alerts */}
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <h2 className="font-semibold text-[var(--color-text)] mb-4">
             <Bell size={18} className="inline mr-2 text-[var(--color-primary)]" />
             Recent Alerts
@@ -269,12 +269,12 @@ export default function SectorDashboard() {
       </div>
 
       {/* Sector Heatmap Table */}
-      <Card className="p-6">
+      <Card className="p-4 sm:p-6">
         <h2 className="font-semibold text-[var(--color-text)] mb-4">
           <Activity size={18} className="inline mr-2 text-[var(--color-primary)]" />
           Sector Risk Heatmap
         </h2>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-w-full">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-[var(--color-text-muted)] uppercase tracking-wider border-b border-[var(--color-border)]">
@@ -358,7 +358,7 @@ export default function SectorDashboard() {
 
       {/* Top / Bottom Sectors */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <h2 className="font-semibold text-[var(--color-text)] mb-3">
             <TrendingUp size={18} className="inline mr-2 text-green-400" />
             Top 5 Sectors by Exposure
@@ -385,7 +385,7 @@ export default function SectorDashboard() {
           </div>
         </Card>
 
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <h2 className="font-semibold text-[var(--color-text)] mb-3">
             <TrendingDown size={18} className="inline mr-2 text-red-400" />
             Bottom 5 Sectors by Exposure

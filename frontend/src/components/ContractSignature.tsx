@@ -150,7 +150,7 @@ export default function ContractSignature({
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
       <div className="bg-[var(--color-surface)] rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <h2 className="text-xl font-bold mb-1 text-[var(--color-text)]">Hire Purchase Agreement</h2>
           <p className="text-sm text-[var(--color-text-muted)] mb-4">Please read the full agreement carefully and sign below to accept.</p>
 
