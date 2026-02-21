@@ -25,6 +25,16 @@ from app.models.error_log import ErrorLog, ErrorSeverity
 logger = logging.getLogger("zotta.errors")
 
 
+def _sanitize_text(value: object, *, max_len: Optional[int] = None) -> str:
+    """Normalize control characters before persisting/serializing text."""
+    text = str(value)
+    # Keep common whitespace but strip other control chars.
+    text = "".join(ch if (ch >= " " or ch in "\n\r\t") else " " for ch in text)
+    if max_len is not None:
+        return text[:max_len]
+    return text
+
+
 async def log_error(
     exc: Exception,
     *,
@@ -49,8 +59,11 @@ async def log_error(
     """
 
     error_type = type(exc).__name__
-    message = str(exc)[:2000]  # cap message length
-    traceback_str = "".join(tb_module.format_exception(type(exc), exc, exc.__traceback__))
+    message = _sanitize_text(exc, max_len=2000)
+    traceback_str = _sanitize_text(
+        "".join(tb_module.format_exception(type(exc), exc, exc.__traceback__)),
+        max_len=10000,
+    )
 
     # Auto-detect module/function/line from traceback if not provided
     if exc.__traceback__ and not module:
@@ -75,18 +88,18 @@ async def log_error(
             severity=severity,
             error_type=error_type,
             message=message,
-            traceback=traceback_str[:10000],  # cap traceback
-            module=module[:300] if module else None,
-            function_name=function_name[:200] if function_name else None,
+            traceback=traceback_str,
+            module=_sanitize_text(module, max_len=300) if module else None,
+            function_name=_sanitize_text(function_name, max_len=200) if function_name else None,
             line_number=line_number,
             request_method=request_method,
-            request_path=request_path[:500] if request_path else None,
-            request_body=request_body[:5000] if request_body else None,
+            request_path=_sanitize_text(request_path, max_len=500) if request_path else None,
+            request_body=_sanitize_text(request_body, max_len=5000) if request_body else None,
             status_code=status_code,
             response_time_ms=response_time_ms,
             user_id=user_id,
-            user_email=user_email,
-            ip_address=ip_address,
+            user_email=_sanitize_text(user_email, max_len=200) if user_email else None,
+            ip_address=_sanitize_text(ip_address, max_len=45) if ip_address else None,
         )
         db.add(entry)
         await db.flush()

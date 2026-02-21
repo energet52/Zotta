@@ -75,27 +75,12 @@ class ErrorCaptureMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
             elapsed_ms = round((time.time() - start) * 1000, 2)
 
-            # Log 5xx errors as ERROR severity
+            # Log only server-side failures (5xx). Client-side 4xx outcomes
+            # are often expected validation/business responses.
             if response.status_code >= 500:
                 await log_error_standalone(
                     Exception(f"HTTP {response.status_code} on {request.method} {request.url.path}"),
                     severity=ErrorSeverity.ERROR,
-                    module="middleware.error_capture",
-                    function_name="dispatch",
-                    request_method=request.method,
-                    request_path=str(request.url.path),
-                    request_body=request_body,
-                    status_code=response.status_code,
-                    response_time_ms=elapsed_ms,
-                    user_id=user_id,
-                    user_email=user_email,
-                    ip_address=ip_address,
-                )
-            # Log 4xx client errors as WARNING severity (skip 401/403 auth noise)
-            elif response.status_code >= 400 and response.status_code not in (401, 403):
-                await log_error_standalone(
-                    Exception(f"HTTP {response.status_code} on {request.method} {request.url.path}"),
-                    severity=ErrorSeverity.WARNING,
                     module="middleware.error_capture",
                     function_name="dispatch",
                     request_method=request.method,

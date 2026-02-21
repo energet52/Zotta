@@ -77,7 +77,7 @@ async def list_error_logs(
         "total": total,
         "offset": offset,
         "limit": limit,
-        "items": [_log_to_dict(log) for log in logs],
+        "items": [_log_to_dict(log, include_traceback=False) for log in logs],
     }
 
 
@@ -179,7 +179,7 @@ async def get_error_log(
     log = q.scalar_one_or_none()
     if not log:
         raise HTTPException(404, "Error log not found")
-    return _log_to_dict(log)
+    return _log_to_dict(log, include_traceback=True)
 
 
 # ── Resolve ─────────────────────────────────────────────────
@@ -276,27 +276,34 @@ async def cleanup_old_logs(
 
 # ── Serializer ──────────────────────────────────────────────
 
-def _log_to_dict(log: ErrorLog) -> dict:
+def _safe_text(value: Optional[str], *, max_len: Optional[int] = None) -> Optional[str]:
+    if value is None:
+        return None
+    cleaned = "".join(ch if (ch >= " " or ch in "\n\r\t") else " " for ch in value)
+    return cleaned[:max_len] if max_len is not None else cleaned
+
+
+def _log_to_dict(log: ErrorLog, *, include_traceback: bool = True) -> dict:
     return {
         "id": log.id,
         "severity": log.severity.value if hasattr(log.severity, "value") else log.severity,
         "error_type": log.error_type,
-        "message": log.message,
-        "traceback": log.traceback,
-        "module": log.module,
-        "function_name": log.function_name,
+        "message": _safe_text(log.message, max_len=2000),
+        "traceback": _safe_text(log.traceback, max_len=10000) if include_traceback else None,
+        "module": _safe_text(log.module, max_len=300),
+        "function_name": _safe_text(log.function_name, max_len=200),
         "line_number": log.line_number,
-        "request_method": log.request_method,
-        "request_path": log.request_path,
-        "request_body": log.request_body,
+        "request_method": _safe_text(log.request_method, max_len=10),
+        "request_path": _safe_text(log.request_path, max_len=500),
+        "request_body": _safe_text(log.request_body, max_len=5000),
         "status_code": log.status_code,
         "response_time_ms": log.response_time_ms,
         "user_id": log.user_id,
-        "user_email": log.user_email,
-        "ip_address": log.ip_address,
+        "user_email": _safe_text(log.user_email, max_len=200),
+        "ip_address": _safe_text(log.ip_address, max_len=45),
         "resolved": log.resolved,
         "resolved_by": log.resolved_by,
         "resolved_at": log.resolved_at.isoformat() if log.resolved_at else None,
-        "resolution_notes": log.resolution_notes,
+        "resolution_notes": _safe_text(log.resolution_notes, max_len=5000),
         "created_at": log.created_at.isoformat() if log.created_at else None,
     }

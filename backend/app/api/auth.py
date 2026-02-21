@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from jose import JWTError
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy import select, update
@@ -533,6 +534,9 @@ async def refresh_token(
         await _create_session(db, user, jti, request, refresh_jti=refresh_jti)
 
         return TokenResponse(access_token=access_token, refresh_token=new_refresh)
+    except (JWTError, ValueError, TypeError):
+        # Invalid/expired/garbled refresh token should be a 401, not a server error.
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
     except HTTPException:
         raise
     except Exception as e:

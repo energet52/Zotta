@@ -4,10 +4,12 @@ Strategies, Decision Trees, Champion-Challenger, Simulation, Explanation.
 """
 
 from datetime import datetime
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func, and_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -40,6 +42,7 @@ from app.services.decision_engine.simulation import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 async def _reload_strategy(db: AsyncSession, strategy_id: int) -> DecisionStrategy:
@@ -107,40 +110,43 @@ async def create_strategy(
         raise HTTPException(409, f"Strategy '{data.name}' version {next_version} already exists")
 
     try:
-        products_q = await db.execute(select(func.min(CreditProduct.id)))
-        default_product_id = products_q.scalar() or 1
+        # Keep strategy creation resilient: if auto-tree generation fails,
+        # preserve the strategy row without poisoning the transaction state.
+        async with db.begin_nested():
+            products_q = await db.execute(select(func.min(CreditProduct.id)))
+            default_product_id = products_q.scalar() or 1
 
-        tree_ver_q = await db.execute(
-            select(func.max(DecisionTree.version)).where(DecisionTree.product_id == default_product_id)
-        )
-        tree_version = (tree_ver_q.scalar() or 0) + 1
+            tree_ver_q = await db.execute(
+                select(func.max(DecisionTree.version)).where(DecisionTree.product_id == default_product_id)
+            )
+            tree_version = (tree_ver_q.scalar() or 0) + 1
 
-        tree = DecisionTree(
-            product_id=default_product_id,
-            name=f"{data.name} - Decision Tree",
-            description="Auto-created with strategy",
-            version=tree_version,
-            status=TreeStatus.DRAFT,
-        )
-        db.add(tree)
-        await db.flush()
+            tree = DecisionTree(
+                product_id=default_product_id,
+                name=f"{data.name} - Decision Tree",
+                description="Auto-created with strategy",
+                version=tree_version,
+                status=TreeStatus.DRAFT,
+            )
+            db.add(tree)
+            await db.flush()
 
-        root_node = DecisionTreeNode(
-            tree_id=tree.id,
-            node_key="application_received",
-            node_type=NodeType.ANNOTATION,
-            label="Application Received",
-            is_root=True,
-            position_x=300,
-            position_y=50,
-        )
-        db.add(root_node)
-        await db.flush()
+            root_node = DecisionTreeNode(
+                tree_id=tree.id,
+                node_key="application_received",
+                node_type=NodeType.ANNOTATION,
+                label="Application Received",
+                is_root=True,
+                position_x=300,
+                position_y=50,
+            )
+            db.add(root_node)
+            await db.flush()
 
-        strategy.decision_tree_id = tree.id
-        await db.flush()
-    except Exception:
-        pass
+            strategy.decision_tree_id = tree.id
+            await db.flush()
+    except Exception as exc:
+        logger.warning("Auto tree generation failed for strategy %s: %s", strategy.id, exc)
 
     result = await db.execute(
         select(DecisionStrategy)
@@ -473,6 +479,11 @@ async def delete_strategy(strategy_id: int, db: AsyncSession = Depends(get_db)):
         .where(DecisionTree.default_strategy_id == strategy_id)
         .values(default_strategy_id=None)
     )
+    await db.execute(
+        Decision.__table__.update()
+        .where(Decision.strategy_id == strategy_id)
+        .values(strategy_id=None)
+    )
 
     await db.execute(
         sa_delete(DecisionAuditTrail).where(DecisionAuditTrail.strategy_id == strategy_id)
@@ -494,8 +505,15 @@ async def delete_strategy(strategy_id: int, db: AsyncSession = Depends(get_db)):
     )
     await db.execute(sa_delete(Assessment).where(Assessment.strategy_id == strategy_id))
 
-    await db.delete(strategy)
-    await db.flush()
+    try:
+        await db.delete(strategy)
+        await db.flush()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Strategy is still referenced and cannot be deleted.",
+        )
     return {"deleted": True, "id": strategy_id}
 
 
