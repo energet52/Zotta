@@ -959,6 +959,19 @@ async def tree_versions(tree_id: int, db: AsyncSession = Depends(get_db)):
 
 # ── Champion-Challenger ────────────────────────────────────────────
 
+@router.get("/champion-challenger")
+async def list_challenger_tests(
+    status: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    query = select(ChampionChallengerTest).order_by(ChampionChallengerTest.id.desc())
+    if status:
+        query = query.where(ChampionChallengerTest.status == status)
+    result = await db.execute(query)
+    tests = result.scalars().all()
+    return [ChampionChallengerResponse.model_validate(t) for t in tests]
+
+
 @router.post("/champion-challenger", response_model=ChampionChallengerResponse, status_code=201)
 async def start_challenger_test(
     data: ChampionChallengerCreate,

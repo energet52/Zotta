@@ -74,8 +74,8 @@ export default function ChampionChallenger() {
   const { data: tests = [] } = useQuery({
     queryKey: ['challenger-tests'],
     queryFn: async () => {
-      await api.get('/strategies?status=active');
-      return [] as ChallengerTest[];
+      const res = await api.get('/champion-challenger');
+      return res.data as ChallengerTest[];
     },
   });
 
@@ -157,9 +157,9 @@ export default function ChampionChallenger() {
                 className="w-full px-3 py-2 text-sm rounded border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text)]"
               >
                 <option value={0}>Select champion...</option>
-                {activeStrategies.map((s) => (
+                {strategies.filter((s) => s.status !== 'archived').map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.name} ({s.evaluation_mode})
+                    {s.name} ({s.status})
                   </option>
                 ))}
               </select>
@@ -177,10 +177,10 @@ export default function ChampionChallenger() {
               >
                 <option value={0}>Select challenger...</option>
                 {strategies
-                  .filter((s) => s.id !== form.champion_strategy_id)
+                  .filter((s) => s.id !== form.champion_strategy_id && s.status !== 'archived')
                   .map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.name} ({s.evaluation_mode})
+                      {s.name} ({s.status})
                     </option>
                   ))}
               </select>
@@ -310,6 +310,65 @@ export default function ChampionChallenger() {
                 : `${comparison.days_running} days running`}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Tests list */}
+      {tests.length > 0 && (
+        <div className="space-y-2 mb-6">
+          <h3 className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider mb-2">
+            Tests ({tests.length})
+          </h3>
+          {tests.map((t) => {
+            const champion = strategies.find((s) => s.id === t.champion_strategy_id);
+            const challenger = strategies.find((s) => s.id === t.challenger_strategy_id);
+            const isSelected = selectedTest === t.id;
+            return (
+              <div
+                key={t.id}
+                onClick={() => setSelectedTest(isSelected ? null : t.id)}
+                className={`flex items-center gap-4 px-4 py-3 rounded-lg border cursor-pointer transition-colors ${
+                  isSelected ? 'border-blue-500/50 bg-blue-500/5' : 'hover:border-blue-500/30'
+                }`}
+                style={isSelected ? {} : { borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}
+              >
+                <div className="p-2 rounded-lg bg-[var(--color-bg)]">
+                  <Swords size={18} className="text-blue-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-sm text-[var(--color-text)]">
+                      {champion?.name || `#${t.champion_strategy_id}`}
+                    </span>
+                    <span className="text-xs text-[var(--color-text-secondary)]">vs</span>
+                    <span className="font-medium text-sm text-[var(--color-text)]">
+                      {challenger?.name || `#${t.challenger_strategy_id}`}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                      t.status === 'active' ? 'text-emerald-500 bg-emerald-500/10' :
+                      t.status === 'completed' ? 'text-blue-500 bg-blue-500/10' :
+                      'text-gray-400 bg-gray-400/10'
+                    }`}>
+                      {t.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 mt-1 text-xs text-[var(--color-text-secondary)]">
+                    <span>{t.traffic_pct}% traffic</span>
+                    <span>{t.total_evaluated} evaluated</span>
+                    <span>{t.agreement_count} agreed</span>
+                    <span>{t.disagreement_count} disagreed</span>
+                  </div>
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); discardMutation.mutate(t.id); }}
+                  className="p-1.5 rounded text-red-400 hover:bg-red-400/10"
+                  title="Discard test"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
 
