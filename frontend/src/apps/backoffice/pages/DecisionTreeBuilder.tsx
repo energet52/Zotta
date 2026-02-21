@@ -303,6 +303,29 @@ export default function DecisionTreeBuilder() {
     );
   }, [updateNodeData, strategies, setNodes]);
 
+  const onEdgeDoubleClick = useCallback(
+    (_: React.MouseEvent, edge: Edge) => {
+      const sourceNode = nodes.find((n) => n.id === edge.source);
+      const sourceData = sourceNode?.data as Record<string, unknown> | undefined;
+      const branches = sourceData?.branches as Record<string, unknown> | undefined;
+      const branchKeys = branches ? Object.keys(branches) : [];
+
+      let newLabel: string | null = null;
+      if (branchKeys.length > 0) {
+        newLabel = window.prompt(
+          `Change branch label.\nAvailable: ${branchKeys.join(', ')}\n\nCurrent: "${edge.label || ''}"`,
+          (edge.label as string) || '',
+        );
+      } else {
+        newLabel = window.prompt('Edit branch label:', (edge.label as string) || '');
+      }
+      if (newLabel !== null) {
+        setEdges((eds) => eds.map((e) => e.id === edge.id ? { ...e, label: newLabel || undefined } : e));
+      }
+    },
+    [nodes, setEdges],
+  );
+
   const deleteSelectedNode = useCallback(() => {
     if (!selectedNode) return;
     setNodes((nds) => nds.filter((n) => n.id !== selectedNode));
@@ -450,6 +473,7 @@ export default function DecisionTreeBuilder() {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            onEdgeDoubleClick={onEdgeDoubleClick}
             onNodeClick={(_, node) => setSelectedNode(node.id)}
             onPaneClick={() => setSelectedNode(null)}
             nodeTypes={nodeTypes}
