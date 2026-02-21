@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Shield, Plus, Save, Search, ChevronDown, ChevronRight,
-  Users, RefreshCw, Trash2, Edit3, Check, AlertTriangle, X,
+  RefreshCw, Trash2, AlertTriangle, X,
 } from 'lucide-react';
 import { userApi } from '../../../api/endpoints';
 import { clsx } from 'clsx';
@@ -213,7 +213,7 @@ export function RoleDetailPage() {
     });
   };
 
-  const toggleModuleAll = (mod: string, perms: PermissionRow[]) => {
+  const toggleModuleAll = (_mod: string, perms: PermissionRow[]) => {
     const allSelected = perms.every(p => selectedPerms.has(p.code));
     setSelectedPerms(prev => {
       const next = new Set(prev);

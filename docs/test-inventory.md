@@ -1,0 +1,859 @@
+# Test Inventory
+
+Generated on: 2026-02-21 00:10:35Z
+
+- API tests: 527 total
+  - Playwright API tests in e2e/zotta.spec.ts: 458
+  - Python API tests: 69
+- UI tests (Playwright): 306 total
+  - Playwright UI tests in e2e/zotta.spec.ts: 207
+  - Python Playwright UI tests: 99
+
+## API tests
+
+### e2e/zotta.spec.ts (Playwright API)
+- e2e/zotta.spec.ts:402 | [Backoffice – admin pages] Loan Statement requires Application ID – backend returns 400
+- e2e/zotta.spec.ts:436 | [Backoffice – admin pages] disbursement API: disburse accepted loan creates schedule
+- e2e/zotta.spec.ts:526 | [Backoffice – admin pages] create-on-behalf with extended fields (marital_status, address_line2, dependents)
+- e2e/zotta.spec.ts:631 | [Loan lifecycle – Accept & Disburse] full lifecycle: create → submit → approve → disburse → verify transactions & schedule
+- e2e/zotta.spec.ts:794 | [Consent signing – API tests] submit-with-consent: creates draft, signs and submits in one step
+- e2e/zotta.spec.ts:829 | [Consent signing – API tests] submit-with-consent: rejects when agreed is false
+- e2e/zotta.spec.ts:859 | [Consent signing – API tests] submit-with-consent: rejects already submitted app
+- e2e/zotta.spec.ts:898 | [Consent signing – API tests] consent-pdf: download after signing (docx format)
+- e2e/zotta.spec.ts:937 | [Consent signing – API tests] consent-pdf: admin can also download (docx format)
+- e2e/zotta.spec.ts:971 | [Consent signing – API tests] consent-pdf: returns 400 when not signed
+- e2e/zotta.spec.ts:1001 | [Consumer portal – consent PDF visible on status page] approve decision uses engine values (ignores approved_amount override)
+- e2e/zotta.spec.ts:1066 | [Consumer portal – consent PDF visible on status page] full application returns merchant_name, items for hire-purchase
+- e2e/zotta.spec.ts:1266 | [Loan lifecycle – Decline] full lifecycle: create → submit → decline → verify status & cannot disburse
+- e2e/zotta.spec.ts:1364 | [Contract generation – API tests] generate-contract: returns docx for existing application
+- e2e/zotta.spec.ts:1404 | [Contract generation – API tests] generate-contract: returns 404 for non-existent application
+- e2e/zotta.spec.ts:1415 | [Contract generation – API tests] generate-contract: requires admin/underwriter role
+- e2e/zotta.spec.ts:1448 | [Contract generation – API tests] generate-contract: includes applicant details in docx with items
+- e2e/zotta.spec.ts:1526 | [Customer search – API tests] search by name returns matching applicants with profile data
+- e2e/zotta.spec.ts:1550 | [Customer search – API tests] search requires min 2 characters
+- e2e/zotta.spec.ts:1562 | [Customer search – API tests] search requires staff role
+- e2e/zotta.spec.ts:1579 | [Payment schedule on application page] payment schedule returns data for disbursed loan
+- e2e/zotta.spec.ts:1664 | [Payment schedule on application page] monthly_payment is populated on approved application
+- e2e/zotta.spec.ts:1731 | [Application notes – API tests] add and list notes on an application
+- e2e/zotta.spec.ts:1768 | [Application notes – API tests] notes require staff role
+- e2e/zotta.spec.ts:1780 | [Application notes – API tests] add note requires content
+- e2e/zotta.spec.ts:1810 | [Rules Management – API tests] GET /admin/rules returns rules list with allowed fields
+- e2e/zotta.spec.ts:1826 | [Rules Management – API tests] PUT /admin/rules saves and increments version
+- e2e/zotta.spec.ts:1860 | [Rules Management – API tests] PUT /admin/rules with custom rule, then DELETE it
+- e2e/zotta.spec.ts:1903 | [Rules Management – API tests] DELETE built-in rule soft-deletes it (superadmin allowed)
+- e2e/zotta.spec.ts:1931 | [Rules Management – API tests] rules require admin role
+- e2e/zotta.spec.ts:1943 | [Rules Management – API tests] POST /admin/rules/generate refuses discriminatory prompts
+- e2e/zotta.spec.ts:2005 | [Custom rule affects real decisions] AI-created rule (decline income < 500) causes decline on new application
+- e2e/zotta.spec.ts:2123 | [Comments / Messaging – API tests] consumer can add comment and underwriter can reply
+- e2e/zotta.spec.ts:2174 | [Comments / Messaging – API tests] mark comments as read
+- e2e/zotta.spec.ts:2200 | [Notifications – API tests] consumer can fetch notifications
+- e2e/zotta.spec.ts:2214 | [Notifications – API tests] consumer can mark all notifications read
+- e2e/zotta.spec.ts:2242 | [References – API tests] add, list, update, and delete references on an application
+- e2e/zotta.spec.ts:2317 | [Manual Repayment – API tests] record manual repayment and verify it appears in history
+- e2e/zotta.spec.ts:2409 | [Dashboard Metrics – API tests] backoffice dashboard returns arrears summary
+- e2e/zotta.spec.ts:2434 | [Dashboard Metrics – API tests] consumer loan summary returns data
+- e2e/zotta.spec.ts:2522 | [Bank Statement Analysis – API tests] GET bank-analysis returns 404 when no analysis exists
+- e2e/zotta.spec.ts:2533 | [Bank Statement Analysis – API tests] POST analyze-bank-statement returns 404 when no bank statement uploaded
+- e2e/zotta.spec.ts:2546 | [Bank Statement Analysis – API tests] POST analyze-bank-statement with uploaded statement triggers analysis
+- e2e/zotta.spec.ts:2592 | [Bank Statement Analysis – API tests] GET bank-analysis after analysis returns saved result
+- e2e/zotta.spec.ts:2631 | [Bank Statement Analysis – API tests] POST analyze-bank-statement with corrupt file handles gracefully
+- e2e/zotta.spec.ts:2665 | [Bank Statement Analysis – API tests] applicant cannot access bank analysis endpoints
+- e2e/zotta.spec.ts:2681 | [Bank Statement Analysis – API tests] analyze-bank-statement returns 404 for non-existent application
+- e2e/zotta.spec.ts:2690 | [Bank Statement Analysis – API tests] POST analyze-bank-statement with PDF statement triggers analysis
+- e2e/zotta.spec.ts:2803 | [Chatbot – API tests] create conversation returns 201 with initial state
+- e2e/zotta.spec.ts:2821 | [Chatbot – API tests] create conversation resumes existing active conversation for same user
+- e2e/zotta.spec.ts:2842 | [Chatbot – API tests] get conversation returns full detail with messages
+- e2e/zotta.spec.ts:2861 | [Chatbot – API tests] get conversation returns 404 for non-existent id
+- e2e/zotta.spec.ts:2869 | [Chatbot – API tests] send message returns assistant response
+- e2e/zotta.spec.ts:2895 | [Chatbot – API tests] send message to non-existent conversation returns 404
+- e2e/zotta.spec.ts:2906 | [Chatbot – API tests] send empty message is rejected
+- e2e/zotta.spec.ts:2923 | [Chatbot – API tests] messages are persisted and returned on get
+- e2e/zotta.spec.ts:2957 | [Chatbot – API tests] admin can list conversations
+- e2e/zotta.spec.ts:2973 | [Chatbot – API tests] admin can list conversations with status filter
+- e2e/zotta.spec.ts:2989 | [Chatbot – API tests] applicant cannot list conversations (requires staff role)
+- e2e/zotta.spec.ts:2997 | [Chatbot – API tests] admin can view any conversation detail
+- e2e/zotta.spec.ts:3016 | [Chatbot – API tests] start-application from conversation creates linked draft
+- e2e/zotta.spec.ts:3055 | [Chatbot – API tests] start-application rejects duplicate for same conversation
+- e2e/zotta.spec.ts:3078 | [Chatbot – API tests] start-application requires authentication
+- e2e/zotta.spec.ts:3086 | [Chatbot – API tests] create conversation with entry_point pre_qualified
+- e2e/zotta.spec.ts:3258 | [WhatsApp Notifications – API tests] approving an application does not error (WhatsApp fires in background)
+- e2e/zotta.spec.ts:3334 | [WhatsApp Notifications – API tests] collection send-whatsapp returns outbound message
+- e2e/zotta.spec.ts:3377 | [WhatsApp Notifications – API tests] collection chat history returns previous messages
+- e2e/zotta.spec.ts:3445 | [Collections – API tests] collections queue returns overdue loans
+- e2e/zotta.spec.ts:3467 | [Collections – API tests] collections queue sorted by days past due descending
+- e2e/zotta.spec.ts:3479 | [Collections – API tests] collections queue contains Derrick Wellington delinquent loans
+- e2e/zotta.spec.ts:3500 | [Collections – API tests] collections queue requires staff role
+- e2e/zotta.spec.ts:3510 | [Collections – API tests] add collection record creates interaction entry
+- e2e/zotta.spec.ts:3539 | [Collections – API tests] add collection record with promise to pay
+- e2e/zotta.spec.ts:3566 | [Collections – API tests] collection history returns all records for a loan
+- e2e/zotta.spec.ts:3587 | [Collections – API tests] collection record requires staff role
+- e2e/zotta.spec.ts:3598 | [Collections – API tests] send WhatsApp collection message to delinquent borrower
+- e2e/zotta.spec.ts:3623 | [Collections – API tests] multiple WhatsApp messages accumulate in chat history
+- e2e/zotta.spec.ts:3651 | [Collections – API tests] chat history empty for loan with no messages
+- e2e/zotta.spec.ts:3670 | [Collections – API tests] WhatsApp send requires staff role
+- e2e/zotta.spec.ts:3681 | [Collections – API tests] inbound webhook routes reply to collection chat
+- e2e/zotta.spec.ts:3721 | [Collections – API tests] inbound webhook does not create chat for loan with no outbound messages
+- e2e/zotta.spec.ts:3753 | [Collections – API tests] consumer can see collection messages via notifications endpoint
+- e2e/zotta.spec.ts:3788 | [Collections – API tests] consumer can see collection messages for a specific application
+- e2e/zotta.spec.ts:3813 | [Collections – API tests] consumer cannot see collection messages for another user application
+- e2e/zotta.spec.ts:3829 | [Collections – API tests] consumer collection messages empty when no messages exist
+- e2e/zotta.spec.ts:3846 | [Collections – API tests] full collection lifecycle: queue → interact → WhatsApp → reply → consumer sees
+- e2e/zotta.spec.ts:3922 | [Collections – API tests] add collection record with escalation outcome
+- e2e/zotta.spec.ts:3943 | [Collections – API tests] add collection record with payment arranged
+- e2e/zotta.spec.ts:3969 | [Collections – API tests] collection record with disputed outcome
+- e2e/zotta.spec.ts:3991 | [Collections – API tests] collection WhatsApp message with long body
+- e2e/zotta.spec.ts:4112 | [TC Suite – Auth & RBAC] TC-002: login with invalid password returns 401
+- e2e/zotta.spec.ts:4122 | [TC Suite – Auth & RBAC] TC-002b: login with non-existent email returns 401
+- e2e/zotta.spec.ts:4130 | [TC Suite – Auth & RBAC] TC-005: applicant cannot access admin endpoints
+- e2e/zotta.spec.ts:4149 | [TC Suite – Auth & RBAC] TC-005b: applicant cannot access underwriter endpoints
+- e2e/zotta.spec.ts:4164 | [TC Suite – Auth & RBAC] TC-005c: applicant cannot access collections endpoints
+- e2e/zotta.spec.ts:4176 | [TC Suite – Auth & RBAC] TC-005d: applicant cannot access report endpoints
+- e2e/zotta.spec.ts:4206 | [TC Suite – Origination Validation] TC-012: application with missing mandatory fields returns 422
+- e2e/zotta.spec.ts:4225 | [TC Suite – Origination Validation] TC-018: loan amount zero or negative returns 422
+- e2e/zotta.spec.ts:4243 | [TC Suite – Origination Validation] TC-019: loan amount above maximum (500,000) returns 422
+- e2e/zotta.spec.ts:4255 | [TC Suite – Origination Validation] TC-121: term months below minimum (< 3) returns 422
+- e2e/zotta.spec.ts:4279 | [TC Suite – Origination Validation] TC-019b: term months above maximum (> 84) returns 422
+- e2e/zotta.spec.ts:4310 | [TC Suite – Document Management] TC-016: upload document, list, and download
+- e2e/zotta.spec.ts:4354 | [TC Suite – Document Management] TC-017: upload without required document type is rejected
+- e2e/zotta.spec.ts:4402 | [TC Suite – Decision Engine] TC-028: DTI calculation — high DSR triggers refer
+- e2e/zotta.spec.ts:4474 | [TC Suite – Decision Engine] TC-027: borderline applicant gets referred to manual review
+- e2e/zotta.spec.ts:4546 | [TC Suite – Decision Engine] TC-032: manager can override engine recommendation and approve
+- e2e/zotta.spec.ts:4624 | [TC Suite – Disbursement Guards] TC-038: double-disbursement is prevented
+- e2e/zotta.spec.ts:4718 | [TC Suite – Repayment Edge Cases] TC-041: partial payment is accepted and reflected
+- e2e/zotta.spec.ts:4748 | [TC Suite – Repayment Edge Cases] TC-042: overpayment is accepted
+- e2e/zotta.spec.ts:4777 | [TC Suite – Repayment Edge Cases] TC-045: payment to non-existent loan returns 404
+- e2e/zotta.spec.ts:4813 | [TC Suite – Interest Calculation] TC-049: reducing balance schedule has decreasing interest
+- e2e/zotta.spec.ts:4869 | [TC Suite – Interest Calculation] TC-122: low interest rate produces valid schedule
+- e2e/zotta.spec.ts:4926 | [TC Suite – Collections Aging] TC-056: delinquent loans appear in correct DPD ranges
+- e2e/zotta.spec.ts:4954 | [TC Suite – Collections Aging] TC-057: collections queue spans multiple aging tiers
+- e2e/zotta.spec.ts:4996 | [TC Suite – Reporting] TC-078: dashboard returns valid metrics
+- e2e/zotta.spec.ts:5013 | [TC Suite – Reporting] TC-079: loan book export returns CSV with expected columns
+- e2e/zotta.spec.ts:5034 | [TC Suite – Reporting] TC-081: aged report generates with bucket data
+- e2e/zotta.spec.ts:5053 | [TC Suite – Reporting] TC-083: portfolio summary respects date range
+- e2e/zotta.spec.ts:5075 | [TC Suite – Reporting] TC-079b: report types returns available report list
+- e2e/zotta.spec.ts:5105 | [TC Suite – API Security] TC-088: invalid JWT token returns 401
+- e2e/zotta.spec.ts:5114 | [TC Suite – API Security] TC-088b: garbage token returns 401
+- e2e/zotta.spec.ts:5121 | [TC Suite – API Security] TC-113: no auth header returns 401 or 403
+- e2e/zotta.spec.ts:5156 | [TC Suite – Online Payment] TC-091: pay-online records consumer payment
+- e2e/zotta.spec.ts:5223 | [TC Suite – GL & Audit Trail] TC-086: disbursement creates GL journal entries
+- e2e/zotta.spec.ts:5273 | [TC Suite – GL & Audit Trail] TC-097: full lifecycle produces complete audit trail
+- e2e/zotta.spec.ts:5361 | [TC Suite – Product Configuration] TC-106: create new loan product and verify in list
+- e2e/zotta.spec.ts:5394 | [TC Suite – Product Configuration] TC-107: update product parameters
+- e2e/zotta.spec.ts:5424 | [TC Suite – Product Configuration] TC-108: create product with fee structure
+- e2e/zotta.spec.ts:5467 | [TC Suite – Product Configuration] TC-109: delete product removes it from list
+- e2e/zotta.spec.ts:5512 | [TC Suite – Input Security] TC-111: SQL injection in search returns no data leakage
+- e2e/zotta.spec.ts:5535 | [TC Suite – Input Security] TC-112: XSS payload stored as plain text, not executed
+- e2e/zotta.spec.ts:5576 | [TC Suite – Input Security] TC-114: applicant cannot access staff-only endpoints
+- e2e/zotta.spec.ts:5603 | [TC Suite – Input Security] TC-115: applicant cannot access report/export endpoints
+- e2e/zotta.spec.ts:5637 | [TC Suite – Edge Cases] TC-123: precise decimal amount preserves precision
+- e2e/zotta.spec.ts:5651 | [TC Suite – Edge Cases] TC-124: Unicode characters stored and returned correctly
+- e2e/zotta.spec.ts:5726 | [Customer 360 – API tests] 360 returns full data for Perfect Borrower (Angela)
+- e2e/zotta.spec.ts:5815 | [Customer 360 – API tests] 360 reflects deterioration for Kevin (partial payments, collections)
+- e2e/zotta.spec.ts:5854 | [Customer 360 – API tests] 360 for Complex Case has rich data across all sections
+- e2e/zotta.spec.ts:5905 | [Customer 360 – API tests] 360 for New Customer has minimal but complete data
+- e2e/zotta.spec.ts:5933 | [Customer 360 – API tests] 360 for Recovering Customer shows recovery arc
+- e2e/zotta.spec.ts:5966 | [Customer 360 – API tests] 360 returns 404 for non-existent customer
+- e2e/zotta.spec.ts:5974 | [Customer 360 – API tests] 360 requires staff role (applicant rejected)
+- e2e/zotta.spec.ts:5985 | [Customer 360 – API tests] 360 returns 401 or 403 without auth
+- e2e/zotta.spec.ts:5992 | [Customer 360 – API tests] timeline returns chronological events for Complex Case
+- e2e/zotta.spec.ts:6026 | [Customer 360 – API tests] timeline category filter works
+- e2e/zotta.spec.ts:6043 | [Customer 360 – API tests] timeline search filter works
+- e2e/zotta.spec.ts:6061 | [Customer 360 – API tests] timeline pagination works
+- e2e/zotta.spec.ts:6089 | [Customer 360 – API tests] AI summary returns structured response for Perfect Borrower
+- e2e/zotta.spec.ts:6111 | [Customer 360 – API tests] AI summary reflects critical or concerning status for Complex Case
+- e2e/zotta.spec.ts:6128 | [Customer 360 – API tests] AI summary for New Customer notes limited data
+- e2e/zotta.spec.ts:6145 | [Customer 360 – API tests] AI summary returns 404 for non-existent customer
+- e2e/zotta.spec.ts:6155 | [Customer 360 – API tests] Ask AI returns answer for a question
+- e2e/zotta.spec.ts:6171 | [Customer 360 – API tests] Ask AI logs to audit trail
+- e2e/zotta.spec.ts:6190 | [Customer 360 – API tests] Ask AI returns 404 for non-existent customer
+- e2e/zotta.spec.ts:6201 | [Customer 360 – API tests] recording a payment reflects in Customer 360 data
+- e2e/zotta.spec.ts:6236 | [Customer 360 – API tests] adding a collection record reflects in Customer 360
+- e2e/zotta.spec.ts:6272 | [Customer 360 – API tests] adding a collection chat reflects in Customer 360
+- e2e/zotta.spec.ts:6300 | [Customer 360 – API tests] adding a note reflects in Customer 360
+- e2e/zotta.spec.ts:6325 | [Customer 360 – API tests] changes to timeline are also reflected
+- e2e/zotta.spec.ts:6928 | [Customer 360 – UI tests] Bureau Alerts API returns alerts for a customer
+- e2e/zotta.spec.ts:6950 | [Customer 360 – UI tests] Bureau Alerts API: PATCH updates alert status and action
+- e2e/zotta.spec.ts:6999 | [Performance – API response times] auth login responds within 500ms
+- e2e/zotta.spec.ts:7010 | [Performance – API response times] underwriter queue responds within 500ms
+- e2e/zotta.spec.ts:7021 | [Performance – API response times] loan book responds within 2000ms
+- e2e/zotta.spec.ts:7032 | [Performance – API response times] collections queue responds within 500ms
+- e2e/zotta.spec.ts:7043 | [Performance – API response times] dashboard metrics respond within 500ms
+- e2e/zotta.spec.ts:7054 | [Performance – API response times] Customer 360 full payload responds within 1000ms
+- e2e/zotta.spec.ts:7065 | [Performance – API response times] Customer 360 timeline responds within 500ms
+- e2e/zotta.spec.ts:7076 | [Performance – API response times] credit bureau alerts respond within 300ms
+- e2e/zotta.spec.ts:7087 | [Performance – API response times] payment schedule responds within 500ms
+- e2e/zotta.spec.ts:7106 | [Performance – API response times] customer search responds within 300ms
+- e2e/zotta.spec.ts:7118 | [Performance – API response times] consumer loan list responds within 500ms
+- e2e/zotta.spec.ts:7129 | [Performance – API response times] reports types responds within 300ms
+- e2e/zotta.spec.ts:7140 | [Performance – API response times] 10 sequential API calls complete within 3 seconds total
+- e2e/zotta.spec.ts:7165 | [Performance – API response times] 5 parallel API calls complete within 2000ms
+- e2e/zotta.spec.ts:7299 | [Performance – stress tests] 20 rapid-fire auth requests complete without errors
+- e2e/zotta.spec.ts:7313 | [Performance – stress tests] Customer 360 for all 5 personas in parallel within 3 seconds
+- e2e/zotta.spec.ts:7329 | [Performance – stress tests] 10 parallel mixed endpoint calls complete within 2 seconds
+- e2e/zotta.spec.ts:7368 | [Sector Analysis – API tests] taxonomy returns all 23 sectors
+- e2e/zotta.spec.ts:7379 | [Sector Analysis – API tests] dashboard returns sector distribution with all required fields
+- e2e/zotta.spec.ts:7405 | [Sector Analysis – API tests] sector detail returns risk metrics for a specific sector
+- e2e/zotta.spec.ts:7428 | [Sector Analysis – API tests] heatmap returns matrix with all sectors
+- e2e/zotta.spec.ts:7443 | [Sector Analysis – API tests] CRUD lifecycle for sector policies with maker-checker
+- e2e/zotta.spec.ts:7486 | [Sector Analysis – API tests] CRUD lifecycle for alert rules
+- e2e/zotta.spec.ts:7517 | [Sector Analysis – API tests] alerts can be listed and acknowledged
+- e2e/zotta.spec.ts:7539 | [Sector Analysis – API tests] alert evaluation fires rules against current portfolio
+- e2e/zotta.spec.ts:7548 | [Sector Analysis – API tests] concentration check validates sector origination
+- e2e/zotta.spec.ts:7571 | [Sector Analysis – API tests] stress test produces plausible results
+- e2e/zotta.spec.ts:7594 | [Sector Analysis – API tests] snapshots can be listed and generated
+- e2e/zotta.spec.ts:7610 | [Sector Analysis – API tests] macro indicators CRUD
+- e2e/zotta.spec.ts:7637 | [Sector Analysis – API tests] unauthorized users cannot access sector analysis
+- e2e/zotta.spec.ts:7666 | [Collections Module — API tests] GET /collections/queue returns enhanced queue
+- e2e/zotta.spec.ts:7674 | [Collections Module — API tests] GET /collections/queue with search filter
+- e2e/zotta.spec.ts:7682 | [Collections Module — API tests] GET /collections/cases returns collection cases
+- e2e/zotta.spec.ts:7697 | [Collections Module — API tests] GET /collections/cases with stage filter
+- e2e/zotta.spec.ts:7707 | [Collections Module — API tests] GET /collections/cases/{id} returns case detail
+- e2e/zotta.spec.ts:7722 | [Collections Module — API tests] PATCH /collections/cases/{id} updates flags
+- e2e/zotta.spec.ts:7744 | [Collections Module — API tests] POST /collections/cases/{id}/ptp creates PTP
+- e2e/zotta.spec.ts:7766 | [Collections Module — API tests] GET /collections/cases/{id}/ptps lists PTPs
+- e2e/zotta.spec.ts:7778 | [Collections Module — API tests] POST /collections/cases/{id}/settlement auto-calculates
+- e2e/zotta.spec.ts:7797 | [Collections Module — API tests] GET /collections/cases/{id}/settlements lists offers
+- e2e/zotta.spec.ts:7809 | [Collections Module — API tests] GET /collections/dashboard returns analytics
+- e2e/zotta.spec.ts:7821 | [Collections Module — API tests] GET /collections/dashboard/agent-performance
+- e2e/zotta.spec.ts:7829 | [Collections Module — API tests] GET /collections/compliance-rules returns rules
+- e2e/zotta.spec.ts:7841 | [Collections Module — API tests] POST /collections/compliance-rules creates/updates rule
+- e2e/zotta.spec.ts:7861 | [Collections Module — API tests] POST /collections/check-compliance checks contact permission
+- e2e/zotta.spec.ts:7879 | [Collections Module — API tests] POST /collections/sync-cases triggers sync
+- e2e/zotta.spec.ts:7888 | [Collections Module — API tests] unauthorized user cannot access collections
+- e2e/zotta.spec.ts:7940 | [Scorecard Management – API tests] GET /scorecards returns list
+- e2e/zotta.spec.ts:7953 | [Scorecard Management – API tests] GET /scorecards/:id returns detail with characteristics
+- e2e/zotta.spec.ts:8280 | [User Management – API tests] GET /users returns staff users only (no applicants)
+- e2e/zotta.spec.ts:8291 | [User Management – API tests] GET /users search by email filters correctly
+- e2e/zotta.spec.ts:8300 | [User Management – API tests] GET /users/count returns staff-only counts
+- e2e/zotta.spec.ts:8313 | [User Management – API tests] GET /users/:id returns full user detail
+- e2e/zotta.spec.ts:8327 | [User Management – API tests] GET /users/999999 returns 404
+- e2e/zotta.spec.ts:8335 | [User Management – API tests] POST /users creates a new staff user
+- e2e/zotta.spec.ts:8360 | [User Management – API tests] POST /users rejects duplicate email
+- e2e/zotta.spec.ts:8377 | [User Management – API tests] PATCH /users/:id updates user profile
+- e2e/zotta.spec.ts:8403 | [User Management – API tests] suspend → reactivate lifecycle
+- e2e/zotta.spec.ts:8439 | [User Management – API tests] deactivate user changes status
+- e2e/zotta.spec.ts:8462 | [User Management – API tests] cannot suspend yourself
+- e2e/zotta.spec.ts:8470 | [User Management – API tests] reset password sets must_change_password flag
+- e2e/zotta.spec.ts:8493 | [User Management – API tests] PUT /users/:id/roles assigns roles
+- e2e/zotta.spec.ts:8521 | [User Management – API tests] GET /users/roles/all excludes Applicant role
+- e2e/zotta.spec.ts:8535 | [User Management – API tests] POST /users/roles creates a custom role
+- e2e/zotta.spec.ts:8550 | [User Management – API tests] POST /users/roles rejects duplicate name
+- e2e/zotta.spec.ts:8559 | [User Management – API tests] PATCH /users/roles/:id updates role
+- e2e/zotta.spec.ts:8580 | [User Management – API tests] PATCH /users/roles cannot rename system role
+- e2e/zotta.spec.ts:8591 | [User Management – API tests] GET /users/roles/:id returns role detail with permissions
+- e2e/zotta.spec.ts:8604 | [User Management – API tests] GET /users/permissions/all returns all permissions
+- e2e/zotta.spec.ts:8619 | [User Management – API tests] GET /users/:id/sessions returns sessions list
+- e2e/zotta.spec.ts:8627 | [User Management – API tests] GET /users/:id/login-history returns login attempts
+- e2e/zotta.spec.ts:8639 | [User Management – API tests] POST /users/:id/sessions/revoke-all revokes sessions
+- e2e/zotta.spec.ts:8661 | [User Management – API tests] GET /users/:id/anomaly-check returns anomaly data
+- e2e/zotta.spec.ts:8674 | [User Management – API tests] POST /users/ai/recommend-roles returns recommendations
+- e2e/zotta.spec.ts:8688 | [User Management – API tests] POST /users/ai/recommend-roles for underwriting department
+- e2e/zotta.spec.ts:8701 | [User Management – API tests] POST /users/ai/query answers user count question
+- e2e/zotta.spec.ts:8713 | [User Management – API tests] POST /users/ai/query answers MFA question
+- e2e/zotta.spec.ts:8724 | [User Management – API tests] GET /users/ai/login-analytics returns analytics
+- e2e/zotta.spec.ts:8739 | [User Management – API tests] applicant cannot access user list
+- e2e/zotta.spec.ts:8749 | [User Management – API tests] applicant cannot access roles list
+- e2e/zotta.spec.ts:8759 | [User Management – API tests] applicant cannot create users
+- e2e/zotta.spec.ts:8772 | [User Management – API tests] unauthenticated request returns 401
+- e2e/zotta.spec.ts:8784 | [Auth Extensions – API tests] login returns token with must_change_password field
+- e2e/zotta.spec.ts:8795 | [Auth Extensions – API tests] GET /auth/sessions returns active sessions
+- e2e/zotta.spec.ts:8811 | [Auth Extensions – API tests] POST /auth/refresh returns new tokens
+- e2e/zotta.spec.ts:8825 | [Auth Extensions – API tests] POST /auth/mfa/setup returns provisioning data
+- e2e/zotta.spec.ts:8842 | [Auth Extensions – API tests] POST /auth/logout revokes sessions
+- e2e/zotta.spec.ts:8855 | [Auth Extensions – API tests] account lockout after multiple failed attempts
+- e2e/zotta.spec.ts:8952 | [Product Intelligence – API tests] TC-125: rate tier CRUD lifecycle
+- e2e/zotta.spec.ts:9016 | [Product Intelligence – API tests] TC-126: clone deep-copies product with fee and rate tier
+- e2e/zotta.spec.ts:9070 | [Product Intelligence – API tests] TC-127: product analytics returns health score and metrics
+- e2e/zotta.spec.ts:9096 | [Product Intelligence – API tests] TC-128: portfolio overview returns aggregated KPIs
+- e2e/zotta.spec.ts:9117 | [Product Intelligence – API tests] TC-129: new product fields persist and update
+- e2e/zotta.spec.ts:9166 | [Product Intelligence – API tests] TC-130: eligibility criteria persist and update
+- e2e/zotta.spec.ts:9212 | [Product Intelligence – API tests] TC-131: lifecycle status validates enum values
+- e2e/zotta.spec.ts:9248 | [Product Intelligence – API tests] TC-132: AI advisor returns answer
+- e2e/zotta.spec.ts:9264 | [Product Intelligence – API tests] TC-133: AI simulate returns analysis structure
+- e2e/zotta.spec.ts:9279 | [Product Intelligence – API tests] TC-134: AI generate returns product configuration
+- e2e/zotta.spec.ts:9298 | [Product Intelligence – API tests] TC-135: AI compare returns side-by-side data
+- e2e/zotta.spec.ts:9323 | [Product Intelligence – API tests] TC-136: create product with inline rate tiers
+- e2e/zotta.spec.ts:9364 | [Product Intelligence – API tests] TC-137: non-admin blocked from product intelligence endpoints
+- e2e/zotta.spec.ts:9586 | [Rules Audit & Stats – API tests] TC-200: PUT /admin/rules creates audit log entry in history
+- e2e/zotta.spec.ts:9632 | [Rules Audit & Stats – API tests] TC-201: GET /admin/rules/history supports pagination
+- e2e/zotta.spec.ts:9645 | [Rules Audit & Stats – API tests] TC-202: History entry has required fields
+- e2e/zotta.spec.ts:9666 | [Rules Audit & Stats – API tests] TC-203: GET /admin/rules/stats returns per-rule pass/fail stats
+- e2e/zotta.spec.ts:9687 | [Rules Audit & Stats – API tests] TC-204: Stats totals are internally consistent
+- e2e/zotta.spec.ts:9700 | [Rules Audit & Stats – API tests] TC-205: POST /admin/rules/ai/analyze returns analysis with required fields
+- e2e/zotta.spec.ts:9717 | [Rules Audit & Stats – API tests] TC-206: AI analyze top_decliners have correct structure
+- e2e/zotta.spec.ts:9732 | [Rules Audit & Stats – API tests] TC-207: Rules history rejects unauthenticated requests
+- e2e/zotta.spec.ts:9738 | [Rules Audit & Stats – API tests] TC-208: Rules stats rejects unauthenticated requests
+- e2e/zotta.spec.ts:9744 | [Rules Audit & Stats – API tests] TC-209: AI analyze rejects unauthenticated requests
+- e2e/zotta.spec.ts:9750 | [Rules Audit & Stats – API tests] TC-210: Audit diff detects added custom rules
+- e2e/zotta.spec.ts:9926 | [Collection Sequences – API tests] CS-001: list sequences returns array
+- e2e/zotta.spec.ts:9936 | [Collection Sequences – API tests] CS-002: create sequence with steps
+- e2e/zotta.spec.ts:9965 | [Collection Sequences – API tests] CS-003: get sequence by id
+- e2e/zotta.spec.ts:9985 | [Collection Sequences – API tests] CS-004: update sequence
+- e2e/zotta.spec.ts:10005 | [Collection Sequences – API tests] CS-005: delete (deactivate) sequence
+- e2e/zotta.spec.ts:10021 | [Collection Sequences – API tests] CS-006: duplicate sequence
+- e2e/zotta.spec.ts:10045 | [Collection Sequences – API tests] CS-007: filter sequences by stage
+- e2e/zotta.spec.ts:10065 | [Collection Sequences – API tests] CS-010: add step to sequence
+- e2e/zotta.spec.ts:10086 | [Collection Sequences – API tests] CS-011: update step
+- e2e/zotta.spec.ts:10111 | [Collection Sequences – API tests] CS-012: delete step
+- e2e/zotta.spec.ts:10132 | [Collection Sequences – API tests] CS-020: create template
+- e2e/zotta.spec.ts:10155 | [Collection Sequences – API tests] CS-021: list templates
+- e2e/zotta.spec.ts:10165 | [Collection Sequences – API tests] CS-022: update template
+- e2e/zotta.spec.ts:10185 | [Collection Sequences – API tests] CS-023: delete (deactivate) template
+- e2e/zotta.spec.ts:10201 | [Collection Sequences – API tests] CS-030: AI generate sequence
+- e2e/zotta.spec.ts:10221 | [Collection Sequences – API tests] CS-031: AI generate template
+- e2e/zotta.spec.ts:10236 | [Collection Sequences – API tests] CS-032: AI preview message renders variables
+- e2e/zotta.spec.ts:10250 | [Collection Sequences – API tests] CS-033: AI optimize sequence
+- e2e/zotta.spec.ts:10279 | [Collection Sequences – API tests] CS-040: analytics endpoint returns portfolio data
+- e2e/zotta.spec.ts:10295 | [Collection Sequences – API tests] CS-041: per-sequence analytics
+- e2e/zotta.spec.ts:10314 | [Collection Sequences – API tests] CS-050: list enrollments returns paginated data
+- e2e/zotta.spec.ts:10326 | [Collection Sequences – API tests] CS-051: auto-enroll creates enrollments for unenrolled cases
+- e2e/zotta.spec.ts:10339 | [Collection Sequences – API tests] CS-060: unauthenticated request is rejected
+- e2e/zotta.spec.ts:10344 | [Collection Sequences – API tests] CS-061: applicant cannot access sequences
+- e2e/zotta.spec.ts:10352 | [Collection Sequences – API tests] CS-062: applicant cannot create templates
+- e2e/zotta.spec.ts:10361 | [Collection Sequences – API tests] CS-063: 404 for nonexistent sequence
+- e2e/zotta.spec.ts:10502 | [Queue Management – API tests] QM-001: list shared queue returns array
+- e2e/zotta.spec.ts:10514 | [Queue Management – API tests] QM-002: list my queue returns array
+- e2e/zotta.spec.ts:10525 | [Queue Management – API tests] QM-003: list waiting queue returns array
+- e2e/zotta.spec.ts:10535 | [Queue Management – API tests] QM-004: awareness returns stats
+- e2e/zotta.spec.ts:10549 | [Queue Management – API tests] QM-005: config retrieval returns defaults
+- e2e/zotta.spec.ts:10566 | [Queue Management – API tests] QM-010: claim entry (or no entries available)
+- e2e/zotta.spec.ts:10586 | [Queue Management – API tests] QM-011: double claim returns 409
+- e2e/zotta.spec.ts:10601 | [Queue Management – API tests] QM-012: release entry back to pool
+- e2e/zotta.spec.ts:10615 | [Queue Management – API tests] QM-013: return to borrower pauses SLA
+- e2e/zotta.spec.ts:10634 | [Queue Management – API tests] QM-014: borrower responded re-queues
+- e2e/zotta.spec.ts:10648 | [Queue Management – API tests] QM-015: explain priority returns text
+- e2e/zotta.spec.ts:10665 | [Queue Management – API tests] QM-020: list staff returns array
+- e2e/zotta.spec.ts:10675 | [Queue Management – API tests] QM-021: update staff profile
+- e2e/zotta.spec.ts:10696 | [Queue Management – API tests] QM-022: manual assign entry
+- e2e/zotta.spec.ts:10714 | [Queue Management – API tests] QM-023: reassign entry
+- e2e/zotta.spec.ts:10732 | [Queue Management – API tests] QM-024: defer entry
+- e2e/zotta.spec.ts:10744 | [Queue Management – API tests] QM-025: trigger rebalance
+- e2e/zotta.spec.ts:10758 | [Queue Management – API tests] QM-030: create stage
+- e2e/zotta.spec.ts:10779 | [Queue Management – API tests] QM-031: list stages returns created stage
+- e2e/zotta.spec.ts:10793 | [Queue Management – API tests] QM-032: update stage
+- e2e/zotta.spec.ts:10811 | [Queue Management – API tests] QM-033: deactivate stage
+- e2e/zotta.spec.ts:10825 | [Queue Management – API tests] QM-040: update config toggles
+- e2e/zotta.spec.ts:10837 | [Queue Management – API tests] QM-041: enable stages
+- e2e/zotta.spec.ts:10846 | [Queue Management – API tests] QM-042: set SLA mode
+- e2e/zotta.spec.ts:10855 | [Queue Management – API tests] QM-043: toggle authority limits
+- e2e/zotta.spec.ts:10873 | [Queue Management – API tests] QM-050: ambient analytics returns data
+- e2e/zotta.spec.ts:10884 | [Queue Management – API tests] QM-051: throughput analytics returns data
+- e2e/zotta.spec.ts:10895 | [Queue Management – API tests] QM-052: AI insights returns array
+- e2e/zotta.spec.ts:10908 | [Queue Management – API tests] QM-053: pipeline endpoint returns data
+- e2e/zotta.spec.ts:10918 | [Queue Management – API tests] QM-054: team analytics returns data
+- e2e/zotta.spec.ts:10928 | [Queue Management – API tests] QM-055: timeline for entry
+- e2e/zotta.spec.ts:10942 | [Queue Management – API tests] QM-056: explain assignment
+- e2e/zotta.spec.ts:10956 | [Queue Management – API tests] QM-057: need help releases items
+- e2e/zotta.spec.ts:10972 | [Queue Management – API tests] QM-058: exceptions list (empty by default)
+- e2e/zotta.spec.ts:10984 | [Queue Management – API tests] QM-060: unauthenticated rejected
+- e2e/zotta.spec.ts:10989 | [Queue Management – API tests] QM-061: applicant cannot access queue
+- e2e/zotta.spec.ts:11001 | [Queue Management – API tests] QM-062: admin can update config
+- e2e/zotta.spec.ts:11155 | [Collections AI – API tests] CAI-001: daily briefing returns summary for current agent
+- e2e/zotta.spec.ts:11172 | [Collections AI – API tests] CAI-002: draft-message returns AI-generated text for a case
+- e2e/zotta.spec.ts:11194 | [Collections AI – API tests] CAI-003: case full view includes AI insights (nba, propensity, patterns)
+- e2e/zotta.spec.ts:11222 | [Collections AI – API tests] CAI-004: draft-message with demand template
+- e2e/zotta.spec.ts:11239 | [Collections AI – API tests] CAI-005: draft-message with invalid case returns 404
+- e2e/zotta.spec.ts:11318 | [Queue AI – additional API tests] QAI-001: explain priority returns AI explanation
+- e2e/zotta.spec.ts:11334 | [Queue AI – additional API tests] QAI-002: exception precedent analysis returns result
+- e2e/zotta.spec.ts:11367 | [Queue AI – additional API tests] QAI-003: analytics insights returns AI-generated suggestions
+- e2e/zotta.spec.ts:11414 | [Price Tag Parser – API tests] PTP-001: parse-price-tag accepts image and returns extracted data
+- e2e/zotta.spec.ts:11481 | [Error Monitor – API tests] EM-001: GET /error-logs returns paginated list
+- e2e/zotta.spec.ts:11494 | [Error Monitor – API tests] EM-002: GET /error-logs/stats returns statistics
+- e2e/zotta.spec.ts:11514 | [Error Monitor – API tests] EM-003: GET /error-logs/stats with custom hours param
+- e2e/zotta.spec.ts:11522 | [Error Monitor – API tests] EM-004: GET /error-logs with filters
+- e2e/zotta.spec.ts:11535 | [Error Monitor – API tests] EM-005: resolve and unresolve lifecycle
+- e2e/zotta.spec.ts:11574 | [Error Monitor – API tests] EM-006: bulk resolve multiple errors
+- e2e/zotta.spec.ts:11602 | [Error Monitor – API tests] EM-007: GET /error-logs/:id returns 404 for nonexistent
+- e2e/zotta.spec.ts:11608 | [Error Monitor – API tests] EM-008: cleanup old logs returns count
+- e2e/zotta.spec.ts:11619 | [Error Monitor – API tests] EM-009: unauthenticated access to error-logs is rejected
+- e2e/zotta.spec.ts:11624 | [Error Monitor – API tests] EM-010: applicant cannot access error-logs
+- e2e/zotta.spec.ts:11706 | [Registration – API tests] REG-POS-001: register new user with valid data returns tokens
+- e2e/zotta.spec.ts:11723 | [Registration – API tests] REG-NEG-001: register with duplicate email returns 400
+- e2e/zotta.spec.ts:11735 | [Registration – API tests] REG-NEG-002: register with weak password returns 400
+- e2e/zotta.spec.ts:11747 | [Registration – API tests] REG-NEG-003: register with missing required fields returns 422
+- e2e/zotta.spec.ts:11754 | [Registration – API tests] REG-NEG-004: register with invalid email format returns 422
+- e2e/zotta.spec.ts:11804 | [Change Password – API tests] CHPW-NEG-001: change password with wrong old password returns 401
+- e2e/zotta.spec.ts:11816 | [Change Password – API tests] CHPW-NEG-002: change password with weak new password returns 400
+- e2e/zotta.spec.ts:11842 | [Consumer Profile – API tests] PROF-POS-001: get profile returns user data
+- e2e/zotta.spec.ts:11852 | [Consumer Profile – API tests] PROF-POS-002: update profile fields persists changes
+- e2e/zotta.spec.ts:11865 | [Consumer Profile – API tests] PROF-NEG-001: get profile without auth returns 401
+- e2e/zotta.spec.ts:11908 | [Consumer Application Cancel – API tests] CANCEL-POS-001: consumer can cancel a draft application
+- e2e/zotta.spec.ts:11932 | [Consumer Application Cancel – API tests] CANCEL-NEG-001: cancel non-existent application returns 404
+- e2e/zotta.spec.ts:11941 | [Consumer Application Cancel – API tests] CANCEL-NEG-002: cancel without auth returns 401
+- e2e/zotta.spec.ts:11955 | [Consumer Pre-Approval – API tests] PA-POS-001: start pre-approval check returns outcome
+- e2e/zotta.spec.ts:11982 | [Consumer Pre-Approval – API tests] PA-POS-002: lookup pre-approval status by reference
+- e2e/zotta.spec.ts:12010 | [Consumer Pre-Approval – API tests] PA-NEG-001: start pre-approval with missing required fields returns 422
+- e2e/zotta.spec.ts:12017 | [Consumer Pre-Approval – API tests] PA-NEG-002: lookup status with invalid reference returns 404
+- e2e/zotta.spec.ts:12022 | [Consumer Pre-Approval – API tests] PA-NEG-003: start pre-approval with zero income returns declined/referred
+- e2e/zotta.spec.ts:12106 | [Counterproposal – API tests] CP-POS-001: underwriter can counterpropose an application
+- e2e/zotta.spec.ts:12145 | [Counterproposal – API tests] CP-POS-002: consumer can accept counterproposal
+- e2e/zotta.spec.ts:12174 | [Counterproposal – API tests] CP-POS-003: consumer can reject counterproposal
+- e2e/zotta.spec.ts:12203 | [Counterproposal – API tests] CP-NEG-001: counterpropose with invalid amount returns 422
+- e2e/zotta.spec.ts:12213 | [Counterproposal – API tests] CP-NEG-002: counterpropose non-existent application returns error
+- e2e/zotta.spec.ts:12223 | [Counterproposal – API tests] CP-NEG-003: applicant cannot counterpropose (role check)
+- e2e/zotta.spec.ts:12251 | [Void Application – API tests] VOID-POS-001: admin can void a submitted application
+- e2e/zotta.spec.ts:12273 | [Void Application – API tests] VOID-NEG-001: void without reason returns error
+- e2e/zotta.spec.ts:12292 | [Void Application – API tests] VOID-NEG-002: void non-existent application returns 404
+- e2e/zotta.spec.ts:12301 | [Void Application – API tests] VOID-NEG-003: void already voided application returns error
+- e2e/zotta.spec.ts:12324 | [Void Application – API tests] VOID-NEG-004: applicant cannot void applications
+- e2e/zotta.spec.ts:12348 | [Merchant CRUD – API tests] MERCH-POS-001: create merchant returns 201
+- e2e/zotta.spec.ts:12361 | [Merchant CRUD – API tests] MERCH-POS-002: update merchant name
+- e2e/zotta.spec.ts:12378 | [Merchant CRUD – API tests] MERCH-POS-003: create branch for merchant
+- e2e/zotta.spec.ts:12394 | [Merchant CRUD – API tests] MERCH-POS-004: create category for merchant
+- e2e/zotta.spec.ts:12410 | [Merchant CRUD – API tests] MERCH-NEG-001: create merchant with duplicate name returns 400
+- e2e/zotta.spec.ts:12418 | [Merchant CRUD – API tests] MERCH-NEG-002: create merchant with empty name returns 422
+- e2e/zotta.spec.ts:12427 | [Merchant CRUD – API tests] MERCH-NEG-003: create branch for non-existent merchant returns 404
+- e2e/zotta.spec.ts:12436 | [Merchant CRUD – API tests] MERCH-NEG-004: delete non-existent branch returns 404
+- e2e/zotta.spec.ts:12442 | [Merchant CRUD – API tests] MERCH-NEG-005: applicant cannot create merchants
+- e2e/zotta.spec.ts:12497 | [Scorecard CRUD – API tests] SC-POS-001: create scorecard returns new scorecard
+- e2e/zotta.spec.ts:12515 | [Scorecard CRUD – API tests] SC-POS-002: clone scorecard creates copy
+- e2e/zotta.spec.ts:12531 | [Scorecard CRUD – API tests] SC-POS-003: get scorecard script
+- e2e/zotta.spec.ts:12543 | [Scorecard CRUD – API tests] SC-POS-004: live calculate returns score
+- e2e/zotta.spec.ts:12556 | [Scorecard CRUD – API tests] SC-NEG-001: create scorecard with empty name returns 422
+- e2e/zotta.spec.ts:12565 | [Scorecard CRUD – API tests] SC-NEG-002: clone non-existent scorecard returns 404
+- e2e/zotta.spec.ts:12571 | [Scorecard CRUD – API tests] SC-NEG-003: get non-existent scorecard returns 404
+- e2e/zotta.spec.ts:12577 | [Scorecard CRUD – API tests] SC-NEG-004: applicant cannot create scorecards
+- e2e/zotta.spec.ts:12589 | [Scorecard CRUD – API tests] SC-NEG-005: promote non-existent scorecard returns 404
+- e2e/zotta.spec.ts:12663 | [Pre-Approval Admin – API tests] PAD-POS-001: admin analytics returns aggregate data
+- e2e/zotta.spec.ts:12672 | [Pre-Approval Admin – API tests] PAD-POS-002: admin list returns pre-approval records
+- e2e/zotta.spec.ts:12680 | [Pre-Approval Admin – API tests] PAD-POS-003: admin referred list returns referred cases
+- e2e/zotta.spec.ts:12688 | [Pre-Approval Admin – API tests] PAD-POS-004: admin can decide on referred case
+- e2e/zotta.spec.ts:12724 | [Pre-Approval Admin – API tests] PAD-NEG-001: admin decide on non-existent ref returns 404
+- e2e/zotta.spec.ts:12733 | [Pre-Approval Admin – API tests] PAD-NEG-002: applicant cannot access admin analytics
+- e2e/zotta.spec.ts:12789 | [Audit Trail – API tests] AUDIT-POS-001: get audit trail returns paginated entries
+- e2e/zotta.spec.ts:12799 | [Audit Trail – API tests] AUDIT-POS-002: audit trail supports entity_type filter
+- e2e/zotta.spec.ts:12807 | [Audit Trail – API tests] AUDIT-POS-003: audit trail supports pagination
+- e2e/zotta.spec.ts:12817 | [Audit Trail – API tests] AUDIT-POS-004: audit trail returns available filters
+- e2e/zotta.spec.ts:12826 | [Audit Trail – API tests] AUDIT-NEG-001: applicant cannot access audit trail
+- e2e/zotta.spec.ts:12837 | [Audit Trail – API tests] AUDIT-NEG-002: unauthenticated request to audit trail is rejected
+- e2e/zotta.spec.ts:12893 | [Staff Conversation – API tests] CONV-POS-001: staff can send message in conversation
+- e2e/zotta.spec.ts:12917 | [Staff Conversation – API tests] CONV-NEG-001: send message to non-existent conversation returns 404
+- e2e/zotta.spec.ts:12926 | [Staff Conversation – API tests] CONV-NEG-002: send empty message is rejected
+- e2e/zotta.spec.ts:12977 | [Collections Dashboard – API tests] CDASH-POS-001: dashboard returns delinquency metrics
+- e2e/zotta.spec.ts:12986 | [Collections Dashboard – API tests] CDASH-POS-002: dashboard supports custom period_days
+- e2e/zotta.spec.ts:12992 | [Collections Dashboard – API tests] CDASH-POS-003: agent performance returns data
+- e2e/zotta.spec.ts:12998 | [Collections Dashboard – API tests] CDASH-NEG-001: applicant cannot access collections dashboard
+- e2e/zotta.spec.ts:13075 | [Collections Actions – API tests] CA-POS-001: update case flags (dispute toggle)
+- e2e/zotta.spec.ts:13094 | [Collections Actions – API tests] CA-POS-002: create PTP for collection case
+- e2e/zotta.spec.ts:13111 | [Collections Actions – API tests] CA-POS-003: list PTPs for case
+- e2e/zotta.spec.ts:13122 | [Collections Actions – API tests] CA-POS-004: create settlement offer for case
+- e2e/zotta.spec.ts:13134 | [Collections Actions – API tests] CA-POS-005: override NBA for case
+- e2e/zotta.spec.ts:13146 | [Collections Actions – API tests] CA-NEG-001: update non-existent case returns 404
+- e2e/zotta.spec.ts:13155 | [Collections Actions – API tests] CA-NEG-002: create PTP for non-existent case returns 404
+- e2e/zotta.spec.ts:13179 | [Reports – extended API tests] RPT-POS-001: generate exposure report
+- e2e/zotta.spec.ts:13188 | [Reports – extended API tests] RPT-POS-002: generate portfolio summary report
+- e2e/zotta.spec.ts:13197 | [Reports – extended API tests] RPT-POS-003: generate aged report
+- e2e/zotta.spec.ts:13206 | [Reports – extended API tests] RPT-POS-004: report history returns generated reports
+- e2e/zotta.spec.ts:13214 | [Reports – extended API tests] RPT-NEG-001: generate report with invalid type returns error
+- e2e/zotta.spec.ts:13223 | [Reports – extended API tests] RPT-NEG-002: applicant cannot generate reports
+- e2e/zotta.spec.ts:13277 | [GL Module – extended API tests] GL-POS-001: get chart of accounts returns accounts
+- e2e/zotta.spec.ts:13286 | [GL Module – extended API tests] GL-POS-002: create GL account
+- e2e/zotta.spec.ts:13304 | [GL Module – extended API tests] GL-POS-003: get journal entries returns paginated list
+- e2e/zotta.spec.ts:13310 | [GL Module – extended API tests] GL-POS-004: get trial balance returns data
+- e2e/zotta.spec.ts:13323 | [GL Module – extended API tests] GL-POS-005: get dashboard summary
+- e2e/zotta.spec.ts:13329 | [GL Module – extended API tests] GL-NEG-001: applicant cannot access GL endpoints
+- e2e/zotta.spec.ts:13340 | [GL Module – extended API tests] GL-NEG-002: create account with duplicate code returns error
+- e2e/zotta.spec.ts:13455 | [Consumer Notifications – extended tests] NOTIF-POS-001: mark all read returns ok
+- e2e/zotta.spec.ts:13468 | [Consumer Notifications – extended tests] NOTIF-NEG-001: unauthenticated notifications request rejected
+- e2e/zotta.spec.ts:13502 | [Queue Config – extended tests] QC-POS-001: get queue config returns current settings
+- e2e/zotta.spec.ts:13510 | [Queue Config – extended tests] QC-POS-002: update config assignment mode
+- e2e/zotta.spec.ts:13521 | [Queue Config – extended tests] QC-NEG-001: applicant cannot access queue config
+- e2e/zotta.spec.ts:13570 | [Refresh Token – API tests] RT-POS-001: refresh token returns new access token
+- e2e/zotta.spec.ts:13584 | [Refresh Token – API tests] RT-NEG-001: refresh with invalid token returns error
+- e2e/zotta.spec.ts:13592 | [Refresh Token – API tests] RT-NEG-002: refresh with empty token returns error
+- e2e/zotta.spec.ts:13606 | [Session Management – API tests] SESS-POS-001: get sessions returns active sessions
+- e2e/zotta.spec.ts:13620 | [Session Management – API tests] SESS-POS-002: logout revokes session
+- e2e/zotta.spec.ts:13632 | [Session Management – API tests] SESS-NEG-001: get sessions without auth returns 401
+- e2e/zotta.spec.ts:13770 | [Compliance Rules – API tests] COMPL-POS-001: get compliance rules returns list
+- e2e/zotta.spec.ts:13778 | [Compliance Rules – API tests] COMPL-POS-002: check compliance returns permission result
+- e2e/zotta.spec.ts:13794 | [Compliance Rules – API tests] COMPL-NEG-001: applicant cannot access compliance rules
+- e2e/zotta.spec.ts:13820 | [Bulk Actions – API tests] BULK-POS-001: bulk assign collections returns result
+- e2e/zotta.spec.ts:13839 | [Bulk Actions – API tests] BULK-POS-002: collections sync cases returns result
+- e2e/zotta.spec.ts:13845 | [Bulk Actions – API tests] BULK-NEG-001: bulk assign with empty case_ids is handled
+
+### backend/tests/test_decisioning_api.py
+- backend/tests/test_decisioning_api.py:33 |     def test_list_strategies(self):
+- backend/tests/test_decisioning_api.py:38 |     def test_create_sequential_strategy(self):
+- backend/tests/test_decisioning_api.py:52 |     def test_create_dual_path_strategy(self):
+- backend/tests/test_decisioning_api.py:75 |     def test_create_scoring_strategy(self):
+- backend/tests/test_decisioning_api.py:83 |     def test_create_hybrid_strategy(self):
+- backend/tests/test_decisioning_api.py:91 |     def test_get_strategy(self):
+- backend/tests/test_decisioning_api.py:100 |     def test_get_nonexistent_strategy(self):
+- backend/tests/test_decisioning_api.py:104 |     def test_update_draft_strategy(self):
+- backend/tests/test_decisioning_api.py:127 |     def test_cannot_edit_active_strategy(self):
+- backend/tests/test_decisioning_api.py:136 |     def test_activate_strategy(self):
+- backend/tests/test_decisioning_api.py:146 |     def test_archive_strategy(self):
+- backend/tests/test_decisioning_api.py:155 |     def test_strategy_versions(self):
+- backend/tests/test_decisioning_api.py:164 |     def test_filter_by_status(self):
+- backend/tests/test_decisioning_api.py:170 |     def test_create_without_name_fails(self):
+- backend/tests/test_decisioning_api.py:181 |     def test_list_trees(self):
+- backend/tests/test_decisioning_api.py:185 |     def test_create_tree_with_nodes(self):
+- backend/tests/test_decisioning_api.py:211 |     def test_validate_valid_tree(self):
+- backend/tests/test_decisioning_api.py:236 |     def test_validate_empty_tree_fails(self):
+- backend/tests/test_decisioning_api.py:244 |     def test_activate_tree(self):
+- backend/tests/test_decisioning_api.py:265 |     def test_get_nonexistent_tree(self):
+- backend/tests/test_decisioning_api.py:269 |     def test_update_tree(self):
+- backend/tests/test_decisioning_api.py:284 |     def test_create_and_discard(self):
+- backend/tests/test_decisioning_api.py:308 |     def test_nonexistent_test(self):
+- backend/tests/test_decisioning_api.py:318 |     def test_trace(self):
+- backend/tests/test_decisioning_api.py:327 |     def test_trace_with_overrides(self):
+- backend/tests/test_decisioning_api.py:334 |     def test_replay_empty(self):
+- backend/tests/test_decisioning_api.py:340 |     def test_impact_empty(self):
+- backend/tests/test_decisioning_api.py:351 |     def test_nonexistent_decision(self):
+
+### e2e/tests/test_decisioning_ui.py
+- e2e/tests/test_decisioning_ui.py:44 |     def test_01_list_strategies_initially(self, auth_headers):
+- e2e/tests/test_decisioning_ui.py:49 |     def test_02_create_sequential_strategy(self, auth_headers, cleanup_ids):
+- e2e/tests/test_decisioning_ui.py:61 |     def test_03_create_dual_path_strategy(self, auth_headers, cleanup_ids):
+- e2e/tests/test_decisioning_ui.py:93 |     def test_04_edit_strategy_name_and_rules(self, auth_headers, cleanup_ids):
+- e2e/tests/test_decisioning_ui.py:107 |     def test_05_edit_score_cutoffs(self, auth_headers, cleanup_ids):
+- e2e/tests/test_decisioning_ui.py:115 |     def test_06_activate_strategy(self, auth_headers, cleanup_ids):
+- e2e/tests/test_decisioning_ui.py:121 |     def test_07_can_edit_active_strategy(self, auth_headers, cleanup_ids):
+- e2e/tests/test_decisioning_ui.py:129 |     def test_08_archive_strategy(self, auth_headers, cleanup_ids):
+- e2e/tests/test_decisioning_ui.py:135 |     def test_09_filter_by_status(self, auth_headers):
+- e2e/tests/test_decisioning_ui.py:141 |     def test_10_version_history(self, auth_headers, cleanup_ids):
+- e2e/tests/test_decisioning_ui.py:152 |     def test_01_create_tree_with_binary_split(self, auth_headers, cleanup_ids):
+- e2e/tests/test_decisioning_ui.py:183 |     def test_02_validate_tree(self, auth_headers, cleanup_ids):
+- e2e/tests/test_decisioning_ui.py:191 |     def test_03_update_tree_nodes(self, auth_headers, cleanup_ids):
+- e2e/tests/test_decisioning_ui.py:200 |     def test_04_activate_tree(self, auth_headers, cleanup_ids):
+- e2e/tests/test_decisioning_ui.py:206 |     def test_05_create_empty_tree_fails_validation(self, auth_headers):
+- e2e/tests/test_decisioning_ui.py:216 |     def test_06_tree_versions(self, auth_headers, cleanup_ids):
+- e2e/tests/test_decisioning_ui.py:227 |     def test_01_setup_test(self, auth_headers, cleanup_ids):
+- e2e/tests/test_decisioning_ui.py:250 |     def test_02_get_comparison(self, auth_headers, cleanup_ids):
+- e2e/tests/test_decisioning_ui.py:259 |     def test_03_discard_test(self, auth_headers, cleanup_ids):
+- e2e/tests/test_decisioning_ui.py:270 |     def test_01_trace_application(self, auth_headers):
+- e2e/tests/test_decisioning_ui.py:280 |     def test_02_trace_with_overrides(self, auth_headers):
+- e2e/tests/test_decisioning_ui.py:289 |     def test_03_replay_empty(self, auth_headers):
+- e2e/tests/test_decisioning_ui.py:295 |     def test_04_impact_empty(self, auth_headers):
+- e2e/tests/test_decisioning_ui.py:306 |     def test_invalid_strategy_id(self, auth_headers):
+- e2e/tests/test_decisioning_ui.py:310 |     def test_invalid_tree_id(self, auth_headers):
+- e2e/tests/test_decisioning_ui.py:314 |     def test_invalid_decision_explanation(self, auth_headers):
+- e2e/tests/test_decisioning_ui.py:318 |     def test_create_strategy_without_name(self, auth_headers):
+- e2e/tests/test_decisioning_ui.py:324 |     def test_unauthenticated_access(self):
+
+### e2e/tests/test_merchant_tree_routing.py
+- e2e/tests/test_merchant_tree_routing.py:73 |     def test_01_discover_products(self, auth_headers, created_ids):
+- e2e/tests/test_merchant_tree_routing.py:86 |     def test_02_create_strategy_a_decline_high_dsr(self, auth_headers, created_ids):
+- e2e/tests/test_merchant_tree_routing.py:111 |     def test_03_create_strategy_b_refer_high_dsr(self, auth_headers, created_ids):
+- e2e/tests/test_merchant_tree_routing.py:136 |     def test_04_activate_both_strategies(self, auth_headers, created_ids):
+- e2e/tests/test_merchant_tree_routing.py:145 |     def test_05_create_decision_tree(self, auth_headers, created_ids):
+- e2e/tests/test_merchant_tree_routing.py:201 |     def test_06_validate_tree(self, auth_headers, created_ids):
+- e2e/tests/test_merchant_tree_routing.py:209 |     def test_07_activate_tree(self, auth_headers, created_ids):
+- e2e/tests/test_merchant_tree_routing.py:218 |     def test_08_run_decision_for_value_optical_app(self, auth_headers, created_ids):
+- e2e/tests/test_merchant_tree_routing.py:242 |     def test_09_run_decision_for_other_merchant_app(self, auth_headers, created_ids):
+- e2e/tests/test_merchant_tree_routing.py:257 |     def test_10_verify_tree_routing_via_explanation(self, auth_headers, created_ids):
+- e2e/tests/test_merchant_tree_routing.py:277 |     def test_11_deactivate_tree(self, auth_headers, created_ids):
+- e2e/tests/test_merchant_tree_routing.py:286 |     def test_12_deactivate_strategies(self, auth_headers, created_ids):
+- e2e/tests/test_merchant_tree_routing.py:301 |     def test_13_verify_cleanup(self, auth_headers, created_ids):
+
+## UI tests (Playwright)
+
+### e2e/zotta.spec.ts (Playwright UI)
+- e2e/zotta.spec.ts:22 | [Auth] login page loads
+- e2e/zotta.spec.ts:28 | [Auth] register page loads
+- e2e/zotta.spec.ts:35 | [Auth] applicant login redirects to dashboard
+- e2e/zotta.spec.ts:40 | [Auth] admin login redirects to backoffice
+- e2e/zotta.spec.ts:47 | [Consumer portal] dashboard shows applications and stats
+- e2e/zotta.spec.ts:53 | [Consumer portal] hire-purchase flow steps – personal info through plan selection
+- e2e/zotta.spec.ts:109 | [Consumer portal] full hire-purchase flow with consent signing and submit
+- e2e/zotta.spec.ts:214 | [Consumer portal] application status page loads
+- e2e/zotta.spec.ts:228 | [Consumer portal] profile page loads
+- e2e/zotta.spec.ts:235 | [Consumer portal] My Loans page loads
+- e2e/zotta.spec.ts:243 | [Consumer portal] My Loans: disbursed loan with partial repayment shows payment calendar
+- e2e/zotta.spec.ts:354 | [Backoffice – admin pages] dashboard loads
+- e2e/zotta.spec.ts:360 | [Backoffice – admin pages] applications queue loads
+- e2e/zotta.spec.ts:367 | [Backoffice – admin pages] application review page loads
+- e2e/zotta.spec.ts:381 | [Backoffice – admin pages] loan book loads
+- e2e/zotta.spec.ts:388 | [Backoffice – admin pages] collections loads
+- e2e/zotta.spec.ts:395 | [Backoffice – admin pages] reports loads
+- e2e/zotta.spec.ts:417 | [Backoffice – admin pages] generate Aged Report and verify downloaded CSV content
+- e2e/zotta.spec.ts:518 | [Backoffice – admin pages] new application form loads
+- e2e/zotta.spec.ts:582 | [Backoffice – admin pages] products list loads
+- e2e/zotta.spec.ts:590 | [Backoffice – admin pages] product detail page loads
+- e2e/zotta.spec.ts:600 | [Backoffice – admin pages] merchants page loads with categories per merchant
+- e2e/zotta.spec.ts:1127 | [Consumer portal – consent PDF visible on status page] backoffice loan details shows Shopping Context and Plan Selection
+- e2e/zotta.spec.ts:1168 | [Consumer portal – consent PDF visible on status page] consumer loan details shows Shopping Context and Plan Selection
+- e2e/zotta.spec.ts:1205 | [Consumer portal – consent PDF visible on status page] consent PDF download card appears after signing
+- e2e/zotta.spec.ts:1957 | [Rules Management – UI tests] rules page loads for admin
+- e2e/zotta.spec.ts:1966 | [Rules Management – UI tests] rules page shows all rules with controls
+- e2e/zotta.spec.ts:1980 | [Rules Management – UI tests] AI rule generator section can be opened
+- e2e/zotta.spec.ts:1991 | [Rules Management – UI tests] rules nav item visible for admin only
+- e2e/zotta.spec.ts:2226 | [Notifications – API tests] notifications page loads in consumer portal
+- e2e/zotta.spec.ts:2455 | [Loan Book Filtering] arrears filter via URL param shows filter banner
+- e2e/zotta.spec.ts:2462 | [Loan Book Filtering] loan book without filter shows all loans
+- e2e/zotta.spec.ts:2476 | [Consumer Dashboard – enhanced UI] dashboard shows loan info sections
+- e2e/zotta.spec.ts:2745 | [Bank Statement Analysis – UI tests] Bank Analysis tab is visible in application review
+- e2e/zotta.spec.ts:2761 | [Bank Statement Analysis – UI tests] Bank Analysis tab shows empty state when no analysis exists
+- e2e/zotta.spec.ts:3110 | [Chatbot – UI tests] consumer chat page loads and shows chat interface
+- e2e/zotta.spec.ts:3122 | [Chatbot – UI tests] consumer can send a message and receive a reply
+- e2e/zotta.spec.ts:3147 | [Chatbot – UI tests] chat nav link is visible in consumer nav bar
+- e2e/zotta.spec.ts:3152 | [Chatbot – UI tests] backoffice conversations queue loads
+- e2e/zotta.spec.ts:3166 | [Chatbot – UI tests] backoffice conversations queue shows conversation entries
+- e2e/zotta.spec.ts:3187 | [Chatbot – UI tests] backoffice conversation detail page loads
+- e2e/zotta.spec.ts:3212 | [Chatbot – UI tests] backoffice conversations nav link is visible
+- e2e/zotta.spec.ts:3217 | [Chatbot – UI tests] conversations queue filter buttons switch content
+- e2e/zotta.spec.ts:4024 | [Collections – UI tests] collections page shows delinquent loans in table
+- e2e/zotta.spec.ts:4039 | [Collections – UI tests] collection detail page loads with loan info
+- e2e/zotta.spec.ts:4056 | [Collections – UI tests] WhatsApp chat tab shows messages
+- e2e/zotta.spec.ts:4076 | [Collections – UI tests] consumer notifications page shows collection messages
+- e2e/zotta.spec.ts:6378 | [Customer 360 – UI tests] Customers nav link visible in backoffice sidebar
+- e2e/zotta.spec.ts:6383 | [Customer 360 – UI tests] Customers page loads with search
+- e2e/zotta.spec.ts:6392 | [Customer 360 – UI tests] search returns results and clicking navigates to 360
+- e2e/zotta.spec.ts:6426 | [Customer 360 – UI tests] Customer 360 header shows customer identity and badges
+- e2e/zotta.spec.ts:6443 | [Customer 360 – UI tests] Customer 360 AI panel shows summary and stats
+- e2e/zotta.spec.ts:6462 | [Customer 360 – UI tests] Customer 360 Overview tab shows profile and charts
+- e2e/zotta.spec.ts:6482 | [Customer 360 – UI tests] Customer 360 Applications tab shows loan history
+- e2e/zotta.spec.ts:6501 | [Customer 360 – UI tests] Customer 360 Loans tab shows active loans with heatmap
+- e2e/zotta.spec.ts:6511 | [Customer 360 – UI tests] Customer 360 Payments tab shows payment data
+- e2e/zotta.spec.ts:6526 | [Customer 360 – UI tests] Customer 360 Collections tab shows records for Complex Case
+- e2e/zotta.spec.ts:6539 | [Customer 360 – UI tests] Customer 360 Documents tab shows uploaded documents
+- e2e/zotta.spec.ts:6550 | [Customer 360 – UI tests] Customer 360 Audit Trail tab shows log entries
+- e2e/zotta.spec.ts:6564 | [Customer 360 – UI tests] Customer 360 Communications tab shows conversations and comments
+- e2e/zotta.spec.ts:6580 | [Customer 360 – UI tests] Ask AI panel opens and can receive question
+- e2e/zotta.spec.ts:6605 | [Customer 360 – UI tests] cross-link from Loan Book to Customer 360 works
+- e2e/zotta.spec.ts:6623 | [Customer 360 – UI tests] timeline filters work in the UI
+- e2e/zotta.spec.ts:6699 | [Customer 360 – UI tests] Payments tab has clickable loan links
+- e2e/zotta.spec.ts:6711 | [Customer 360 – UI tests] Collections tab has links to collection detail pages
+- e2e/zotta.spec.ts:6729 | [Customer 360 – UI tests] Documents tab shows downloadable documents with app links
+- e2e/zotta.spec.ts:6746 | [Customer 360 – UI tests] Loans tab shows contract download and HP agreement buttons
+- e2e/zotta.spec.ts:6762 | [Customer 360 – UI tests] Communications tab has clickable conversation and app links
+- e2e/zotta.spec.ts:6780 | [Customer 360 – UI tests] Audit Trail tab has clickable entity links
+- e2e/zotta.spec.ts:6792 | [Customer 360 – UI tests] Timeline events are clickable and navigate to detail pages
+- e2e/zotta.spec.ts:6810 | [Customer 360 – UI tests] Bureau Alerts tab shows badge count and alert cards
+- e2e/zotta.spec.ts:6833 | [Customer 360 – UI tests] Bureau Alerts shows alert details and severity badges
+- e2e/zotta.spec.ts:6853 | [Customer 360 – UI tests] Bureau Alerts action buttons are present for actionable alerts
+- e2e/zotta.spec.ts:6872 | [Customer 360 – UI tests] Bureau Alerts: taking action updates alert status
+- e2e/zotta.spec.ts:6906 | [Customer 360 – UI tests] Bureau Alerts: filter by status works
+- e2e/zotta.spec.ts:7206 | [Performance – UI page load times] backoffice dashboard loads within 3 seconds
+- e2e/zotta.spec.ts:7212 | [Performance – UI page load times] applications queue loads within 3 seconds
+- e2e/zotta.spec.ts:7218 | [Performance – UI page load times] loan book loads within 5 seconds
+- e2e/zotta.spec.ts:7224 | [Performance – UI page load times] collections page loads within 3 seconds
+- e2e/zotta.spec.ts:7230 | [Performance – UI page load times] Customer 360 page loads within 60 seconds (includes AI summary)
+- e2e/zotta.spec.ts:7243 | [Performance – UI page load times] reports page loads within 3 seconds
+- e2e/zotta.spec.ts:7249 | [Performance – UI page load times] products page loads within 3 seconds
+- e2e/zotta.spec.ts:7255 | [Performance – UI page load times] Customer 360 tab switching is fast (< 500ms per tab)
+- e2e/zotta.spec.ts:7904 | [Scorecard Management – UI tests] scorecards list page loads
+- e2e/zotta.spec.ts:7911 | [Scorecard Management – UI tests] scorecard detail page loads for existing scorecard
+- e2e/zotta.spec.ts:7929 | [Scorecard Management – UI tests] create scorecard page loads
+- e2e/zotta.spec.ts:7975 | [General Ledger – UI tests] GL dashboard loads
+- e2e/zotta.spec.ts:7982 | [General Ledger – UI tests] Chart of Accounts page loads
+- e2e/zotta.spec.ts:7989 | [General Ledger – UI tests] Journal Entries page loads
+- e2e/zotta.spec.ts:7996 | [General Ledger – UI tests] Account Ledger page loads
+- e2e/zotta.spec.ts:8003 | [General Ledger – UI tests] Trial Balance page loads
+- e2e/zotta.spec.ts:8010 | [General Ledger – UI tests] Balance Sheet page loads
+- e2e/zotta.spec.ts:8017 | [General Ledger – UI tests] Income Statement page loads
+- e2e/zotta.spec.ts:8024 | [General Ledger – UI tests] Accounting Periods page loads
+- e2e/zotta.spec.ts:8031 | [General Ledger – UI tests] GL Mappings page loads
+- e2e/zotta.spec.ts:8038 | [General Ledger – UI tests] GL Reports page loads
+- e2e/zotta.spec.ts:8045 | [General Ledger – UI tests] Report Builder page loads
+- e2e/zotta.spec.ts:8052 | [General Ledger – UI tests] Anomaly Dashboard page loads
+- e2e/zotta.spec.ts:8059 | [General Ledger – UI tests] GL Chat page loads
+- e2e/zotta.spec.ts:8071 | [Sector Analysis – UI tests] Sector Dashboard page loads with concentration data
+- e2e/zotta.spec.ts:8078 | [Sector Analysis – UI tests] Sector Policies page loads
+- e2e/zotta.spec.ts:8090 | [Error Monitor – UI tests] Error Monitor page loads
+- e2e/zotta.spec.ts:8098 | [Error Monitor – UI tests] Error Monitor shows stats or empty state
+- e2e/zotta.spec.ts:8110 | [Collections Dashboard – UI tests] Collections analytics dashboard loads
+- e2e/zotta.spec.ts:8122 | [User Management – UI tests] User Management page loads with user list
+- e2e/zotta.spec.ts:8130 | [User Management – UI tests] User Management shows status cards
+- e2e/zotta.spec.ts:8138 | [User Management – UI tests] User Management search works
+- e2e/zotta.spec.ts:8149 | [User Management – UI tests] User Management does not show applicant users
+- e2e/zotta.spec.ts:8158 | [User Management – UI tests] User Detail page loads with all four tabs
+- e2e/zotta.spec.ts:8169 | [User Management – UI tests] User Detail Profile tab shows editable fields
+- e2e/zotta.spec.ts:8180 | [User Management – UI tests] User Detail Roles tab shows assigned roles but not Applicant role
+- e2e/zotta.spec.ts:8195 | [User Management – UI tests] User Detail Sessions tab shows active sessions
+- e2e/zotta.spec.ts:8205 | [User Management – UI tests] User Detail Security tab shows MFA and password controls
+- e2e/zotta.spec.ts:8217 | [User Management – UI tests] Create User page loads with form fields
+- e2e/zotta.spec.ts:8224 | [User Management – UI tests] Roles & Permissions page loads without Applicant role
+- e2e/zotta.spec.ts:8241 | [User Management – UI tests] Role Detail page loads for System Administrator
+- e2e/zotta.spec.ts:8249 | [User Management – UI tests] Create Role page loads
+- e2e/zotta.spec.ts:8256 | [User Management – UI tests] User Management nav link visible for admin
+- e2e/zotta.spec.ts:8894 | [Consumer Portal – extended UI tests] consumer profile page shows user info
+- e2e/zotta.spec.ts:8901 | [Consumer Portal – extended UI tests] consumer chat page loads
+- e2e/zotta.spec.ts:8908 | [Consumer Portal – extended UI tests] consumer notifications page loads
+- e2e/zotta.spec.ts:8915 | [Consumer Portal – extended UI tests] consumer loans page loads
+- e2e/zotta.spec.ts:8922 | [Consumer Portal – extended UI tests] consumer apply page loads with form
+- e2e/zotta.spec.ts:9395 | [Product Intelligence – UI tests] products list shows portfolio KPI cards
+- e2e/zotta.spec.ts:9407 | [Product Intelligence – UI tests] product detail renders all new tabs
+- e2e/zotta.spec.ts:9429 | [Product Intelligence – UI tests] Risk Pricing tab shows tier form
+- e2e/zotta.spec.ts:9449 | [Product Intelligence – UI tests] Eligibility tab shows criteria form
+- e2e/zotta.spec.ts:9472 | [Product Intelligence – UI tests] Analytics tab loads health score and metrics
+- e2e/zotta.spec.ts:9490 | [Product Intelligence – UI tests] AI Advisor tab shows quick prompts and input
+- e2e/zotta.spec.ts:9508 | [Product Intelligence – UI tests] Simulator tab shows parameter inputs
+- e2e/zotta.spec.ts:9526 | [Product Intelligence – UI tests] Clone button creates product copy
+- e2e/zotta.spec.ts:9559 | [Product Intelligence – UI tests] lifecycle status badge visible on product list
+- e2e/zotta.spec.ts:9792 | [Rules Audit & Stats – UI tests] TC-211: Rules page shows three tabs
+- e2e/zotta.spec.ts:9804 | [Rules Audit & Stats – UI tests] TC-212: Per-rule stats badges visible on rules tab
+- e2e/zotta.spec.ts:9816 | [Rules Audit & Stats – UI tests] TC-213: History tab loads audit entries
+- e2e/zotta.spec.ts:9832 | [Rules Audit & Stats – UI tests] TC-214: History entry expands to show changes
+- e2e/zotta.spec.ts:9853 | [Rules Audit & Stats – UI tests] TC-215: AI Analysis tab shows Analyze Rules button
+- e2e/zotta.spec.ts:9867 | [Rules Audit & Stats – UI tests] TC-216: AI Analysis runs and displays results
+- e2e/zotta.spec.ts:9884 | [Rules Audit & Stats – UI tests] TC-217: Saving rules still shows stat badges
+- e2e/zotta.spec.ts:10376 | [Collection Sequences – UI tests] CS-100: sequences page loads with tabs
+- e2e/zotta.spec.ts:10389 | [Collection Sequences – UI tests] CS-101: sequences tab shows AI generator
+- e2e/zotta.spec.ts:10400 | [Collection Sequences – UI tests] CS-102: create sequence button shows form
+- e2e/zotta.spec.ts:10411 | [Collection Sequences – UI tests] CS-103: templates tab loads
+- e2e/zotta.spec.ts:10422 | [Collection Sequences – UI tests] CS-104: template form shows AI generate button
+- e2e/zotta.spec.ts:10437 | [Collection Sequences – UI tests] CS-105: enrollments tab loads with auto-enroll button
+- e2e/zotta.spec.ts:10449 | [Collection Sequences – UI tests] CS-106: analytics tab loads with KPI cards
+- e2e/zotta.spec.ts:10463 | [Collection Sequences – UI tests] CS-107: navigation link exists in sidebar
+- e2e/zotta.spec.ts:11029 | [Queue Management – UI tests] QM-100: smart queue page loads with tabs and ambient stats
+- e2e/zotta.spec.ts:11041 | [Queue Management – UI tests] QM-101: ambient stats show pending count
+- e2e/zotta.spec.ts:11051 | [Queue Management – UI tests] QM-102: my queue tab loads
+- e2e/zotta.spec.ts:11064 | [Queue Management – UI tests] QM-103: waiting tab loads
+- e2e/zotta.spec.ts:11076 | [Queue Management – UI tests] QM-104: config page loads with progressive sections
+- e2e/zotta.spec.ts:11091 | [Queue Management – UI tests] QM-105: analytics page loads with KPI cards
+- e2e/zotta.spec.ts:11104 | [Queue Management – UI tests] QM-106: navigation link exists in sidebar
+- e2e/zotta.spec.ts:11110 | [Queue Management – UI tests] QM-107: team workload visible on queue page
+- e2e/zotta.spec.ts:11119 | [Queue Management – UI tests] QM-108: search bar functional on queue page
+- e2e/zotta.spec.ts:11256 | [Collections AI – UI tests] CAI-UI-001: collection detail page shows AI insights panel
+- e2e/zotta.spec.ts:11391 | [Queue AI – UI tests (additional)] QAI-UI-001: queue analytics page shows AI insights section
+- e2e/zotta.spec.ts:11448 | [Price Tag Parser – UI tests] PTP-UI-001: pre-approval page renders with price tag upload option
+- e2e/zotta.spec.ts:11643 | [Error Monitor – UI tests (extended)] EM-UI-001: error monitor page shows stats cards
+- e2e/zotta.spec.ts:11661 | [Error Monitor – UI tests (extended)] EM-UI-002: error monitor shows error list or empty state
+- e2e/zotta.spec.ts:11676 | [Error Monitor – UI tests (extended)] EM-UI-003: error monitor severity filter is present
+- e2e/zotta.spec.ts:11771 | [Registration – UI tests] REG-UI-POS-001: registration form has all required fields
+- e2e/zotta.spec.ts:11781 | [Registration – UI tests] REG-UI-NEG-001: register with empty fields shows validation errors
+- e2e/zotta.spec.ts:11875 | [Consumer Profile – UI tests] PROF-UI-POS-001: profile page shows editable fields and save button
+- e2e/zotta.spec.ts:12052 | [Consumer Pre-Approval – UI tests] PA-UI-POS-001: pre-approval page loads with step wizard
+- e2e/zotta.spec.ts:12064 | [Consumer Pre-Approval – UI tests] PA-UI-POS-002: pre-approval status page loads with lookup form
+- e2e/zotta.spec.ts:12075 | [Consumer Pre-Approval – UI tests] PA-UI-NEG-001: status page stays on page when no reference provided
+- e2e/zotta.spec.ts:12459 | [Merchant Management – UI tests] MERCH-UI-POS-001: merchant page shows add merchant input and existing merchants
+- e2e/zotta.spec.ts:12470 | [Merchant Management – UI tests] MERCH-UI-POS-002: merchant page shows branches section
+- e2e/zotta.spec.ts:12603 | [Scorecard – extended UI tests] SC-UI-POS-001: scorecard list shows action buttons (Clone, Promote, etc.)
+- e2e/zotta.spec.ts:12616 | [Scorecard – extended UI tests] SC-UI-POS-002: scorecard detail shows tabs (overview, characteristics, script, etc.)
+- e2e/zotta.spec.ts:12634 | [Scorecard – extended UI tests] SC-UI-POS-003: scorecards page has tabs including champion-challenger
+- e2e/zotta.spec.ts:12749 | [Pre-Approval Admin – UI tests] PAD-UI-POS-001: pre-approval dashboard loads with KPI cards
+- e2e/zotta.spec.ts:12762 | [Pre-Approval Admin – UI tests] PAD-UI-POS-002: pre-approval dashboard has tabs (overview, referred, all)
+- e2e/zotta.spec.ts:12847 | [Audit Trail – UI tests] AUDIT-UI-POS-001: audit trail page loads with entries
+- e2e/zotta.spec.ts:12860 | [Audit Trail – UI tests] AUDIT-UI-POS-002: audit trail has filter controls
+- e2e/zotta.spec.ts:12949 | [Conversation Detail – UI tests] CONV-UI-POS-001: conversation detail page navigable from queue
+- e2e/zotta.spec.ts:13014 | [Collection Detail – extended UI tests] CD-UI-POS-001: collections page shows queue with action columns
+- e2e/zotta.spec.ts:13027 | [Collection Detail – extended UI tests] CD-UI-POS-002: collections page shows search and filters
+- e2e/zotta.spec.ts:13041 | [Collection Detail – extended UI tests] CD-UI-POS-003: collections dashboard shows KPI cards
+- e2e/zotta.spec.ts:13240 | [Reports – extended UI tests] RPT-UI-POS-001: reports page shows all report types
+- e2e/zotta.spec.ts:13253 | [Reports – extended UI tests] RPT-UI-POS-002: reports page has generate buttons
+- e2e/zotta.spec.ts:13359 | [Application Review Actions – UI tests] AR-UI-POS-001: queue page shows all application tabs
+- e2e/zotta.spec.ts:13372 | [Application Review Actions – UI tests] AR-UI-POS-002: queue page shows action buttons
+- e2e/zotta.spec.ts:13385 | [Application Review Actions – UI tests] AR-UI-POS-003: queue shows team workload section
+- e2e/zotta.spec.ts:13403 | [New Application (Backoffice) – UI tests] NEWAPP-UI-POS-001: new application form has all wizard steps
+- e2e/zotta.spec.ts:13416 | [New Application (Backoffice) – UI tests] NEWAPP-UI-POS-002: new application has search existing customer button
+- e2e/zotta.spec.ts:13433 | [Consumer My Loans – extended UI tests] LOANS-UI-POS-001: my loans page shows payment and dispute buttons
+- e2e/zotta.spec.ts:13473 | [Consumer Notifications – extended tests] NOTIF-UI-POS-001: notifications page shows mark-all-read button
+- e2e/zotta.spec.ts:13537 | [Queue Config – extended UI tests] QC-UI-POS-001: config page shows assignment mode selector
+- e2e/zotta.spec.ts:13551 | [Queue Config – extended UI tests] QC-UI-POS-002: config page shows process stages section
+- e2e/zotta.spec.ts:13642 | [Consumer Application Status – extended UI tests] APPSTAT-UI-POS-001: application status page shows progress tracker
+- e2e/zotta.spec.ts:13662 | [Consumer Application Status – extended UI tests] APPSTAT-UI-POS-002: application status shows documents section
+- e2e/zotta.spec.ts:13679 | [Consumer Application Status – extended UI tests] APPSTAT-UI-POS-003: application status shows comments section
+- e2e/zotta.spec.ts:13702 | [Sector Policies – extended UI tests] SP-UI-POS-001: sector policies page shows tabs
+- e2e/zotta.spec.ts:13715 | [Sector Policies – extended UI tests] SP-UI-POS-002: create policy button is visible
+- e2e/zotta.spec.ts:13733 | [Consumer Chat – extended tests] CHAT-UI-POS-001: chat page shows message input and send button
+- e2e/zotta.spec.ts:13747 | [Consumer Chat – extended tests] CHAT-UI-POS-002: chat page has back to dashboard link
+- e2e/zotta.spec.ts:13859 | [Consumer Dashboard Buttons – UI tests] DASH-UI-POS-001: dashboard shows Chat with Zotta button
+- e2e/zotta.spec.ts:13868 | [Consumer Dashboard Buttons – UI tests] DASH-UI-POS-002: dashboard has New Application action
+- e2e/zotta.spec.ts:13878 | [Consumer Dashboard Buttons – UI tests] DASH-UI-POS-003: dashboard shows recent applications section
+- e2e/zotta.spec.ts:13892 | [Backoffice Sidebar Navigation – UI tests] NAV-UI-POS-001: all major sidebar links are visible
+- e2e/zotta.spec.ts:13904 | [Backoffice Sidebar Navigation – UI tests] NAV-UI-POS-002: GL module links visible in sidebar
+- e2e/zotta.spec.ts:13914 | [Backoffice Sidebar Navigation – UI tests] NAV-UI-POS-003: error monitor link visible in sidebar
+- e2e/zotta.spec.ts:13928 | [Consumer Sidebar Navigation – UI tests] CNAV-UI-POS-001: consumer nav shows all key links
+- e2e/zotta.spec.ts:13940 | [Consumer Sidebar Navigation – UI tests] CNAV-UI-POS-002: consumer layout has navigation links
+
+### Python Playwright UI suites in e2e/tests
+- e2e/tests/test_decision_tree_builder_ui.py:51 | test_data
+- e2e/tests/test_decision_tree_builder_ui.py:129 | test_01_login
+- e2e/tests/test_decision_tree_builder_ui.py:132 | test_02_builder_loads_with_valid_tree
+- e2e/tests/test_decision_tree_builder_ui.py:139 | test_03_toolbar_shows_tree_name_and_status
+- e2e/tests/test_decision_tree_builder_ui.py:147 | test_04_toolbar_buttons_present
+- e2e/tests/test_decision_tree_builder_ui.py:155 | test_05_back_button_navigates_to_listing
+- e2e/tests/test_decision_tree_builder_ui.py:170 | test_06_palette_visible
+- e2e/tests/test_decision_tree_builder_ui.py:177 | test_07_palette_has_three_node_types
+- e2e/tests/test_decision_tree_builder_ui.py:186 | test_08_add_condition_node
+- e2e/tests/test_decision_tree_builder_ui.py:199 | test_09_add_strategy_node
+- e2e/tests/test_decision_tree_builder_ui.py:211 | test_10_add_scorecard_gate_node
+- e2e/tests/test_decision_tree_builder_ui.py:228 | test_11_condition_node_shows_label
+- e2e/tests/test_decision_tree_builder_ui.py:235 | test_12_condition_node_shows_type_badge
+- e2e/tests/test_decision_tree_builder_ui.py:242 | test_13_condition_node_shows_branch_count
+- e2e/tests/test_decision_tree_builder_ui.py:249 | test_14_condition_node_shows_attribute
+- e2e/tests/test_decision_tree_builder_ui.py:256 | test_15_strategy_nodes_show_labels
+- e2e/tests/test_decision_tree_builder_ui.py:264 | test_16_strategy_node_shows_strategy_badge
+- e2e/tests/test_decision_tree_builder_ui.py:277 | test_17_strategies_section_visible
+- e2e/tests/test_decision_tree_builder_ui.py:284 | test_18_test_strategies_listed
+- e2e/tests/test_decision_tree_builder_ui.py:292 | test_19_strategies_show_version_and_mode
+- e2e/tests/test_decision_tree_builder_ui.py:304 | test_20_validate_valid_tree
+- e2e/tests/test_decision_tree_builder_ui.py:314 | test_21_validation_panel_shows_stats
+- e2e/tests/test_decision_tree_builder_ui.py:320 | test_22_validation_stats_values
+- e2e/tests/test_decision_tree_builder_ui.py:324 | test_23_close_validation_panel
+- e2e/tests/test_decision_tree_builder_ui.py:335 | test_24_validate_empty_tree_shows_errors
+- e2e/tests/test_decision_tree_builder_ui.py:345 | test_25_empty_tree_shows_error_code
+- e2e/tests/test_decision_tree_builder_ui.py:354 | test_26_save_tree
+- e2e/tests/test_decision_tree_builder_ui.py:370 | test_27_activate_button_visible_for_draft
+- e2e/tests/test_decision_tree_builder_ui.py:379 | test_28_activate_tree
+- e2e/tests/test_decision_tree_builder_ui.py:392 | test_29_activate_button_hidden_for_active_tree
+- e2e/tests/test_decision_tree_builder_ui.py:408 | test_30_click_node_shows_delete_button
+- e2e/tests/test_decision_tree_builder_ui.py:422 | test_31_click_canvas_hides_delete_button
+- e2e/tests/test_decision_tree_builder_ui.py:440 | test_32_listing_page_loads
+- e2e/tests/test_decision_tree_builder_ui.py:445 | test_33_listing_shows_test_trees
+- e2e/tests/test_decision_tree_builder_ui.py:452 | test_34_listing_shows_node_counts
+- e2e/tests/test_decision_tree_builder_ui.py:456 | test_35_listing_shows_status_badges
+- e2e/tests/test_decision_tree_builder_ui.py:460 | test_36_click_tree_opens_builder
+- e2e/tests/test_decision_tree_builder_ui.py:470 | test_37_listing_search_filter
+- e2e/tests/test_decision_tree_builder_ui.py:480 | test_38_listing_status_filter
+- e2e/tests/test_decision_tree_builder_ui.py:496 | test_39_decision_trees_link_in_sidebar
+- e2e/tests/test_decision_tree_builder_ui.py:503 | test_40_sidebar_link_navigates
+- e2e/tests/test_merchant_tree_routing_ui.py:85 | test_01_login_as_admin
+- e2e/tests/test_merchant_tree_routing_ui.py:91 | test_02_create_strategy_a_via_ui
+- e2e/tests/test_merchant_tree_routing_ui.py:108 | test_03_configure_strategy_a_rules
+- e2e/tests/test_merchant_tree_routing_ui.py:123 | test_04_create_strategy_b_via_ui
+- e2e/tests/test_merchant_tree_routing_ui.py:140 | test_05_configure_strategy_b_rules
+- e2e/tests/test_merchant_tree_routing_ui.py:156 | test_06_activate_strategy_a_via_ui
+- e2e/tests/test_merchant_tree_routing_ui.py:168 | test_07_activate_strategy_b_via_ui
+- e2e/tests/test_merchant_tree_routing_ui.py:180 | test_08_verify_both_active_in_filter
+- e2e/tests/test_merchant_tree_routing_ui.py:191 | test_09_create_tree
+- e2e/tests/test_merchant_tree_routing_ui.py:240 | test_10_tree_visible_in_listing
+- e2e/tests/test_merchant_tree_routing_ui.py:245 | test_11_open_tree_in_builder
+- e2e/tests/test_merchant_tree_routing_ui.py:250 | test_12_validate_tree_in_builder
+- e2e/tests/test_merchant_tree_routing_ui.py:257 | test_13_activate_tree_in_builder
+- e2e/tests/test_merchant_tree_routing_ui.py:267 | test_14_simulation_trace_strategy_a
+- e2e/tests/test_merchant_tree_routing_ui.py:279 | test_15_simulation_trace_strategy_b
+- e2e/tests/test_merchant_tree_routing_ui.py:293 | test_16_deactivate_strategy_a_via_ui
+- e2e/tests/test_merchant_tree_routing_ui.py:312 | test_17_deactivate_strategy_b_via_ui
+- e2e/tests/test_merchant_tree_routing_ui.py:331 | test_18_verify_strategies_archived
+- e2e/tests/test_multilevel_tree_e2e.py:68 | test_data
+- e2e/tests/test_multilevel_tree_e2e.py:239 | test_01_login
+- e2e/tests/test_multilevel_tree_e2e.py:242 | test_02_fixture_created_7_nodes
+- e2e/tests/test_multilevel_tree_e2e.py:249 | test_03_validate_tree_structure
+- e2e/tests/test_multilevel_tree_e2e.py:263 | test_04_tree_renders_in_strategy_editor
+- e2e/tests/test_multilevel_tree_e2e.py:275 | test_05_tree_shows_condition_labels
+- e2e/tests/test_multilevel_tree_e2e.py:280 | test_06_tree_shows_assessment_labels
+- e2e/tests/test_multilevel_tree_e2e.py:285 | test_07_all_four_assessments_listed
+- e2e/tests/test_multilevel_tree_e2e.py:293 | test_08_open_builder_link_present
+- e2e/tests/test_multilevel_tree_e2e.py:300 | test_09_activate_strategy
+- e2e/tests/test_multilevel_tree_e2e.py:313 | test_10_trace_existing_customer_path
+- e2e/tests/test_multilevel_tree_e2e.py:327 | test_11_deactivate_and_archive
+- e2e/tests/test_multilevel_tree_e2e.py:346 | test_12_verify_archived
+- e2e/tests/test_strategy_assessment_e2e.py:53 | test_data
+- e2e/tests/test_strategy_assessment_e2e.py:172 | test_01_login
+- e2e/tests/test_strategy_assessment_e2e.py:175 | test_02_strategy_created_with_assessments
+- e2e/tests/test_strategy_assessment_e2e.py:183 | test_03_validate_tree
+- e2e/tests/test_strategy_assessment_e2e.py:192 | test_04_assessments_visible_in_strategy_panel
+- e2e/tests/test_strategy_assessment_e2e.py:204 | test_05_assessment_shows_rule_count
+- e2e/tests/test_strategy_assessment_e2e.py:209 | test_06_activate_strategy_via_ui
+- e2e/tests/test_strategy_assessment_e2e.py:220 | test_07_verify_active_in_filter
+- e2e/tests/test_strategy_assessment_e2e.py:227 | test_08_simulation_trace
+- e2e/tests/test_strategy_assessment_e2e.py:238 | test_09_deactivate_and_archive_via_ui
+- e2e/tests/test_strategy_assessment_e2e.py:257 | test_10_verify_archived
+- e2e/tests/test_tree_builder_interactive.py:57 | test_data
+- e2e/tests/test_tree_builder_interactive.py:112 | test_01_login
+- e2e/tests/test_tree_builder_interactive.py:115 | test_02_strategy_has_auto_tree
+- e2e/tests/test_tree_builder_interactive.py:120 | test_03_open_strategy_shows_tree_builder
+- e2e/tests/test_tree_builder_interactive.py:132 | test_04_tree_has_add_buttons
+- e2e/tests/test_tree_builder_interactive.py:138 | test_05_add_condition_node
+- e2e/tests/test_tree_builder_interactive.py:148 | test_06_edit_condition_node
+- e2e/tests/test_tree_builder_interactive.py:159 | test_07_select_attribute
+- e2e/tests/test_tree_builder_interactive.py:169 | test_08_apply_condition
+- e2e/tests/test_tree_builder_interactive.py:178 | test_09_add_assessment_nodes
+- e2e/tests/test_tree_builder_interactive.py:191 | test_10_edit_first_assessment
+- e2e/tests/test_tree_builder_interactive.py:209 | test_11_edit_second_assessment
+- e2e/tests/test_tree_builder_interactive.py:227 | test_12_save_tree
+- e2e/tests/test_tree_builder_interactive.py:235 | test_13_verify_tree_persisted
+- e2e/tests/test_tree_builder_interactive.py:244 | test_14_assessments_section_visible
+- e2e/tests/test_tree_builder_interactive.py:251 | test_15_cleanup_delete_strategy

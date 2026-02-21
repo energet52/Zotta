@@ -58,7 +58,9 @@ async def list_merchants(
 ):
     try:
         result = await db.execute(
-            select(Merchant).where(Merchant.is_active == True).order_by(Merchant.name)
+            # Keep deterministic insertion order so seeded merchants with full catalog
+            # data are returned first even if later ad-hoc merchants are created.
+            select(Merchant).where(Merchant.is_active == True).order_by(Merchant.id.asc())
         )
         return result.scalars().all()
     except HTTPException:

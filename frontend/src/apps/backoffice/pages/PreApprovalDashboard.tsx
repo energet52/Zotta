@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  BarChart3, CheckCircle, XCircle, Clock, ArrowRight, Users,
   TrendingUp, Loader2, RefreshCw, Eye, ThumbsUp, ThumbsDown,
 } from 'lucide-react';
 import Card from '../../../components/ui/Card';

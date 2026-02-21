@@ -98,7 +98,7 @@ export default function QueueConfigPage() {
     if (!config) return;
     try {
       setSaving(true);
-      await queueApi.updateConfig(config);
+      await queueApi.updateConfig(config as unknown as Record<string, unknown>);
       setSuccess('Configuration saved');
     } catch {
       setError('Failed to save');

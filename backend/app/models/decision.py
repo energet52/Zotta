@@ -54,6 +54,13 @@ class Decision(Base):
     # Rules version used
     rules_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    # Decision Strategy Management (nullable for backward compat)
+    strategy_id: Mapped[int | None] = mapped_column(
+        ForeignKey("decision_strategies.id"), nullable=True,
+    )
+    tree_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    routing_path: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

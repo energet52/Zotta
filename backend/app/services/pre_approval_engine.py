@@ -153,11 +153,67 @@ async def run_pre_approval(
     )
     velocity_count = vel_result.scalar() or 0
     if velocity_count >= MAX_VELOCITY_PER_30_DAYS:
+        message = "You've reached the maximum number of eligibility checks for this month. Please try again later."
+        reasons = ["Maximum 3 checks per 30-day period exceeded"]
+        suggestions = ["Wait until next month or visit a branch for assistance"]
+        expires_at = datetime.now(timezone.utc) + timedelta(days=DEFAULT_EXPIRY_DAYS)
+
+        # Persist velocity declines too so status lookup by reference always works.
+        pa = PreApproval(
+            reference_code=ref,
+            phone=data.phone,
+            email=data.email,
+            first_name=data.first_name,
+            last_name=data.last_name,
+            date_of_birth=data.date_of_birth,
+            national_id=data.national_id,
+            merchant_id=data.merchant_id,
+            merchant_name_manual=data.merchant_name_manual,
+            branch_id=data.branch_id,
+            item_description=data.item_description,
+            goods_category=data.goods_category,
+            price=data.price,
+            currency=data.currency,
+            downpayment=data.downpayment,
+            monthly_income=data.monthly_income,
+            income_frequency=data.income_frequency,
+            employment_status=data.employment_status,
+            employment_tenure=data.employment_tenure,
+            employer_name=data.employer_name,
+            monthly_expenses=data.monthly_expenses,
+            existing_loan_payments=data.existing_loan_payments,
+            financing_amount=financing_amount,
+            estimated_monthly_payment=0,
+            estimated_tenure_months=0,
+            estimated_rate=0,
+            credit_product_id=None,
+            outcome="declined",
+            outcome_details={
+                "message": message,
+                "reasons": reasons,
+                "suggestions": suggestions,
+                "alternative_amount": None,
+                "alternative_payment": None,
+                "document_checklist": [],
+                "bureau_checked": False,
+            },
+            dti_ratio=0,
+            ndi_amount=0,
+            bureau_data_cached=None,
+            decision_strategy_version=STRATEGY_VERSION,
+            consent_given_at=datetime.now(timezone.utc),
+            consent_soft_inquiry=True,
+            consent_data_processing=True,
+            status="active",
+            expires_at=expires_at,
+            photo_url=data.photo_url,
+            photo_extraction_data=data.photo_extraction_data,
+        )
+        db.add(pa)
+        await db.flush()
+
         return _build_result(
-            ref, "declined", financing_amount, 0, 0, 0, None, None, 0, 0,
-            "You've reached the maximum number of eligibility checks for this month. Please try again later.",
-            ["Maximum 3 checks per 30-day period exceeded"],
-            ["Wait until next month or visit a branch for assistance"],
+            ref, "declined", financing_amount, 0, 0, 0, None, None, 0, 0, message, reasons, suggestions,
         )
 
     # ── 2. Basic validations ─────────────────────────────
@@ -423,10 +479,12 @@ async def run_pre_approval(
         credit_product_id=product.id if product else None,
         outcome=outcome,
         outcome_details={
+            "message": message,
             "reasons": decline_reasons or refer_reasons,
             "suggestions": suggestions,
             "alternative_amount": alternative_amount,
             "alternative_payment": alternative_payment,
+            "document_checklist": doc_checklist,
             "bureau_checked": bool(bureau_data),
         },
         dti_ratio=round(dti, 4),

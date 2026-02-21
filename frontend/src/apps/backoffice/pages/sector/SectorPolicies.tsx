@@ -19,7 +19,6 @@ const SECTORS = [
 ];
 
 const RISK_RATINGS = ['low', 'medium', 'high', 'very_high', 'critical'];
-const REVIEW_FREQUENCIES = ['weekly', 'bi-weekly', 'monthly', 'quarterly'];
 const METRICS = [
   { value: 'exposure_pct', label: 'Exposure %' },
   { value: 'delinquency_rate', label: 'Delinquency Rate' },
@@ -457,10 +456,10 @@ export default function SectorPolicies() {
                         </td>
                         <td className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-1">
-                            {p.origination_paused && <PauseCircle size={14} className="text-red-400" title="Paused" />}
-                            {p.on_watchlist && <Eye size={14} className="text-yellow-400" title="Watchlist" />}
-                            {p.require_collateral && <Lock size={14} className="text-orange-400" title="Collateral req." />}
-                            {p.require_guarantor && <Users size={14} className="text-orange-400" title="Guarantor req." />}
+                            {p.origination_paused && <PauseCircle size={14} className="text-red-400" />}
+                            {p.on_watchlist && <Eye size={14} className="text-yellow-400" />}
+                            {p.require_collateral && <Lock size={14} className="text-orange-400" />}
+                            {p.require_guarantor && <Users size={14} className="text-orange-400" />}
                           </div>
                         </td>
                         <td className="px-4 py-3 text-xs text-[var(--color-text-muted)]">

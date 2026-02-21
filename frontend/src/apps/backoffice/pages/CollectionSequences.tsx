@@ -22,13 +22,10 @@ import {
   Phone,
   Mail,
   Zap,
-  Shield,
   Users,
   TrendingUp,
   Eye,
-  ArrowUpDown,
   Target,
-  Filter,
   Pencil,
   Save,
 } from 'lucide-react';

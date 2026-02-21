@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
-  ArrowLeft, CheckCircle, XCircle, Clock, Shield, User, ShoppingBag,
-  Banknote, FileText, ThumbsUp, ThumbsDown, Loader2,
+  ArrowLeft, XCircle, Shield, User, ShoppingBag,
+  Banknote, ThumbsUp, ThumbsDown, Loader2,
 } from 'lucide-react';
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
@@ -74,10 +74,10 @@ export default function PreApprovalDetail() {
           <h3 className="font-semibold text-[var(--color-text)] mb-3 flex items-center"><User size={16} className="mr-2 text-[var(--color-primary)]" /> Consumer</h3>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div><span className="text-xs text-[var(--color-text-muted)]">Name</span><p className="text-[var(--color-text)] font-medium">{pa.first_name} {pa.last_name}</p></div>
-            <div><span className="text-xs text-[var(--color-text-muted)]">Phone</span><p className="text-[var(--color-text)]">{d.phone || pa.phone || '—'}</p></div>
-            {d.national_id && <div><span className="text-xs text-[var(--color-text-muted)]">National ID</span><p className="text-[var(--color-text)]">{d.national_id}</p></div>}
-            {d.employment_status && <div><span className="text-xs text-[var(--color-text-muted)]">Employment</span><p className="text-[var(--color-text)] capitalize">{d.employment_status.replace(/_/g, ' ')}</p></div>}
-            {d.employment_tenure && <div><span className="text-xs text-[var(--color-text-muted)]">Tenure</span><p className="text-[var(--color-text)] capitalize">{d.employment_tenure.replace(/_/g, ' ')}</p></div>}
+            <div><span className="text-xs text-[var(--color-text-muted)]">Phone</span><p className="text-[var(--color-text)]">{pa.phone || '—'}</p></div>
+            {pa.national_id && <div><span className="text-xs text-[var(--color-text-muted)]">National ID</span><p className="text-[var(--color-text)]">{pa.national_id}</p></div>}
+            {pa.employment_status && <div><span className="text-xs text-[var(--color-text-muted)]">Employment</span><p className="text-[var(--color-text)] capitalize">{(pa.employment_status as string).replace(/_/g, ' ')}</p></div>}
+            {pa.employment_tenure && <div><span className="text-xs text-[var(--color-text-muted)]">Tenure</span><p className="text-[var(--color-text)] capitalize">{(pa.employment_tenure as string).replace(/_/g, ' ')}</p></div>}
           </div>
         </Card>
 
@@ -94,23 +94,23 @@ export default function PreApprovalDetail() {
       </div>
 
       {/* Financial Details (from referred detail if available) */}
-      {d.monthly_income != null && (
+      {pa.monthly_income != null && (
         <Card>
           <h3 className="font-semibold text-[var(--color-text)] mb-3 flex items-center"><Banknote size={16} className="mr-2 text-[var(--color-primary)]" /> Financial Assessment</h3>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
-            <div><span className="text-xs text-[var(--color-text-muted)]">Monthly Income</span><p className="text-[var(--color-text)] font-medium">{fmtCurrency(d.monthly_income)}</p></div>
-            <div><span className="text-xs text-[var(--color-text-muted)]">Monthly Expenses</span><p className="text-[var(--color-text)]">{fmtCurrency(d.monthly_expenses)}</p></div>
-            <div><span className="text-xs text-[var(--color-text-muted)]">Existing Loans</span><p className="text-[var(--color-text)]">{fmtCurrency(d.existing_loan_payments)}</p></div>
+            <div><span className="text-xs text-[var(--color-text-muted)]">Monthly Income</span><p className="text-[var(--color-text)] font-medium">{fmtCurrency(pa.monthly_income)}</p></div>
+            <div><span className="text-xs text-[var(--color-text-muted)]">Monthly Expenses</span><p className="text-[var(--color-text)]">{fmtCurrency(pa.monthly_expenses)}</p></div>
+            <div><span className="text-xs text-[var(--color-text-muted)]">Existing Loans</span><p className="text-[var(--color-text)]">{fmtCurrency(pa.existing_loan_payments)}</p></div>
             <div>
               <span className="text-xs text-[var(--color-text-muted)]">DTI Ratio</span>
-              <p className={`font-bold ${d.dti_ratio != null && d.dti_ratio > 0.45 ? 'text-[var(--color-danger)]' : 'text-[var(--color-success)]'}`}>
-                {d.dti_ratio != null ? `${(d.dti_ratio * 100).toFixed(1)}%` : '—'}
+              <p className={`font-bold ${pa.dti_ratio != null && pa.dti_ratio > 0.45 ? 'text-[var(--color-danger)]' : 'text-[var(--color-success)]'}`}>
+                {pa.dti_ratio != null ? `${(pa.dti_ratio * 100).toFixed(1)}%` : '—'}
               </p>
             </div>
-            {d.ndi_amount != null && (
+            {pa.ndi_amount != null && (
               <div>
                 <span className="text-xs text-[var(--color-text-muted)]">Net Disposable Income</span>
-                <p className={`font-bold ${d.ndi_amount < 3000 ? 'text-[var(--color-warning)]' : 'text-[var(--color-success)]'}`}>{fmtCurrency(d.ndi_amount)}</p>
+                <p className={`font-bold ${pa.ndi_amount < 3000 ? 'text-[var(--color-warning)]' : 'text-[var(--color-success)]'}`}>{fmtCurrency(pa.ndi_amount)}</p>
               </div>
             )}
           </div>
@@ -118,14 +118,14 @@ export default function PreApprovalDetail() {
       )}
 
       {/* Outcome Details */}
-      {d.outcome_details && (
+      {pa.outcome_details && (
         <Card>
           <h3 className="font-semibold text-[var(--color-text)] mb-3 flex items-center"><Shield size={16} className="mr-2 text-[var(--color-primary)]" /> Decision Details</h3>
-          {d.outcome_details.reasons?.length > 0 && (
+          {pa.outcome_details.reasons?.length > 0 && (
             <div className="mb-3">
               <p className="text-xs font-medium text-[var(--color-text-muted)] mb-1 uppercase">Reasons</p>
               <ul className="space-y-1">
-                {d.outcome_details.reasons.map((r: string, i: number) => (
+                {pa.outcome_details.reasons.map((r: string, i: number) => (
                   <li key={i} className="text-sm text-[var(--color-text)] flex items-start gap-2">
                     <XCircle size={14} className="text-[var(--color-warning)] mt-0.5 shrink-0" /> {r}
                   </li>
@@ -133,22 +133,22 @@ export default function PreApprovalDetail() {
               </ul>
             </div>
           )}
-          {d.outcome_details.suggestions?.length > 0 && (
+          {pa.outcome_details.suggestions?.length > 0 && (
             <div className="mb-3">
               <p className="text-xs font-medium text-[var(--color-text-muted)] mb-1 uppercase">Suggestions</p>
               <ul className="space-y-1">
-                {d.outcome_details.suggestions.map((s: string, i: number) => (
+                {pa.outcome_details.suggestions.map((s: string, i: number) => (
                   <li key={i} className="text-sm text-[var(--color-text-muted)]">• {s}</li>
                 ))}
               </ul>
             </div>
           )}
-          {d.outcome_details.admin_decision && (
+          {pa.outcome_details.admin_decision && (
             <div className="mt-3 p-3 rounded-lg bg-[var(--color-bg)] text-sm">
               <p className="text-xs font-medium text-[var(--color-text-muted)] mb-1">Admin Decision</p>
               <p className="text-[var(--color-text)]">
-                Decided: <strong>{d.outcome_details.admin_decision.reason || d.outcome}</strong>
-                {' '}on {new Date(d.outcome_details.admin_decision.decided_at).toLocaleString()}
+                Decided: <strong>{pa.outcome_details.admin_decision.reason || pa.outcome}</strong>
+                {' '}on {new Date(pa.outcome_details.admin_decision.decided_at).toLocaleString()}
               </p>
             </div>
           )}

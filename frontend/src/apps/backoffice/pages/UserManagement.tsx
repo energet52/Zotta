@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Users, Plus, Search, Shield, ShieldAlert, ShieldOff,
-  Lock, Unlock, ChevronDown, RefreshCw, MoreHorizontal,
+  Lock, Unlock, RefreshCw, MoreHorizontal,
   UserCheck, UserX, Eye, Clock,
 } from 'lucide-react';
 import { userApi } from '../../../api/endpoints';

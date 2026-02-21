@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts';
 import {
-  TrendingUp, TrendingDown, AlertTriangle, Shield,
-  PauseCircle, Eye, Activity, Target, ChevronRight,
+  TrendingUp, TrendingDown, Shield,
+  PauseCircle, Eye, Activity, ChevronRight,
   RefreshCw, Bell, PieChart as PieIcon,
 } from 'lucide-react';
 import Card from '../../../../components/ui/Card';
@@ -194,7 +194,11 @@ export default function SectorDashboard() {
                   innerRadius={80}
                   outerRadius={150}
                   paddingAngle={2}
-                  label={({ sector, exposure_pct }) => `${sector.length > 15 ? sector.slice(0, 15) + '...' : sector} (${exposure_pct}%)`}
+                  label={(props: { payload?: { sector?: string; exposure_pct?: number } }) => {
+                    const sector = props.payload?.sector ?? '';
+                    const exposure_pct = props.payload?.exposure_pct ?? 0;
+                    return `${sector.length > 15 ? sector.slice(0, 15) + '...' : sector} (${exposure_pct}%)`;
+                  }}
                   labelLine={true}
                 >
                   {data.sectors.map((_entry, idx) => (
@@ -202,7 +206,7 @@ export default function SectorDashboard() {
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(value: number) => fmt(value)}
+                  formatter={(value: number = 0) => fmt(value)}
                   contentStyle={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '8px' }}
                   labelStyle={{ color: 'var(--color-text)' }}
                 />
@@ -214,7 +218,7 @@ export default function SectorDashboard() {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                 <XAxis type="number" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} stroke="var(--color-text-muted)" />
                 <YAxis type="category" dataKey="sector" width={120} tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }} />
-                <Tooltip formatter={(value: number) => fmt(value)} contentStyle={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '8px' }} />
+                <Tooltip formatter={(value: number = 0) => fmt(value)} contentStyle={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '8px' }} />
                 <Bar dataKey="total_outstanding" name="Outstanding" radius={[0, 4, 4, 0]}>
                   {data.sectors.slice(0, 10).map((_entry, idx) => (
                     <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
@@ -291,10 +295,10 @@ export default function SectorDashboard() {
                   <td className="py-3 pr-4 font-medium text-[var(--color-text)]">
                     {row.sector}
                     {row.on_watchlist && (
-                      <Eye size={14} className="inline ml-2 text-yellow-500" title="On watchlist" />
+                      <Eye size={14} className="inline ml-2 text-yellow-500" />
                     )}
                     {row.origination_paused && (
-                      <PauseCircle size={14} className="inline ml-2 text-red-500" title="Origination paused" />
+                      <PauseCircle size={14} className="inline ml-2 text-red-500" />
                     )}
                   </td>
                   <td className="py-3 pr-4 text-right tabular-nums">{row.exposure_pct}%</td>

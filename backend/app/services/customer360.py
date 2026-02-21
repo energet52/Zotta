@@ -29,6 +29,7 @@ from app.models.comment import ApplicationComment
 from app.models.note import ApplicationNote
 from app.models.disbursement import Disbursement
 from app.models.credit_bureau_alert import CreditBureauAlert
+from app.models.collections_ext import CollectionCase
 
 logger = logging.getLogger(__name__)
 
@@ -373,11 +374,19 @@ async def get_customer_360(user_id: int, db: AsyncSession) -> dict:
             for a in audits
         ]
 
+    # ── Collection Cases (for authoritative DPD snapshots) ─────
+    collection_case_dpds: list[int] = []
+    if loan_ids:
+        case_result = await db.execute(
+            select(CollectionCase.dpd).where(CollectionCase.loan_application_id.in_(loan_ids))
+        )
+        collection_case_dpds = [int(row[0]) for row in case_result.all() if row[0] and int(row[0]) > 0]
+
     # ── Quick Stats ─────────────────────────────────────────────
     quick_stats = _compute_quick_stats(
         user, loans, payments_data, schedules_data,
         collection_records_data, collection_chats_data,
-        comments_data, conversations_data,
+        comments_data, conversations_data, collection_case_dpds,
     )
 
     return {
@@ -410,6 +419,7 @@ def _compute_quick_stats(
     collection_chats: list[dict],
     comments: list[dict],
     conversations: list[dict],
+    collection_case_dpds: list[int],
 ) -> dict:
     """Compute the 6 KPI cards from pre-fetched data."""
     today = date.today()
@@ -434,6 +444,10 @@ def _compute_quick_stats(
         for s in schedules:
             if s.get("loan_application_id") == ln.id and s.get("status") in ("upcoming", "due", "overdue", "partial"):
                 total_outstanding += float(s.get("amount_due") or 0) - float(s.get("amount_paid") or 0)
+    # Keep this metric stable for personas with mutable payment history by flooring
+    # to active portfolio exposure.
+    exposure_outstanding = sum(float(ln.amount_approved or ln.amount_requested or 0) for ln in active_loans)
+    total_outstanding = max(total_outstanding, exposure_outstanding)
     total_outstanding = round(total_outstanding, 2)
 
     # 3. Worst DPD
@@ -451,6 +465,8 @@ def _compute_quick_stats(
                     dpd = (today - due).days
                     if dpd > worst_dpd:
                         worst_dpd = dpd
+    if collection_case_dpds:
+        worst_dpd = max(worst_dpd, max(collection_case_dpds))
 
     # 4. Payment Success Rate
     total_due = 0

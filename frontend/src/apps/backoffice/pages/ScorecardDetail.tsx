@@ -5,7 +5,7 @@ import {
   Download, Play, RefreshCw, AlertTriangle, AlertCircle,
   CheckCircle, Activity, TrendingUp, BarChart3, FileText,
   Clock, Shield, Zap, Target, Hash, Layers,
-  Info, Eye, Sliders, GitBranch,
+  Info, Sliders, GitBranch,
 } from 'lucide-react';
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
@@ -1515,10 +1515,7 @@ function highlightLine(line: string): React.ReactNode {
     return <span className="text-emerald-400/70 italic">{line}</span>;
   }
 
-  // Keywords
   const parts: React.ReactNode[] = [];
-  const keywords = /\b(def|if|elif|else|return|for|in|and|or|not|import|from|class|True|False|None|try|except|raise|with|as|lambda|yield|pass|break|continue|while)\b/g;
-  const numbers = /\b(\d+\.?\d*)\b/g;
   const strings = /(["'])(?:(?!\1).)*\1/g;
 
   // Simple approach: split by tokens

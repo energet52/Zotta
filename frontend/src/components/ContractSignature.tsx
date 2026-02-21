@@ -31,7 +31,7 @@ export default function ContractSignature({
   applicantAddress,
   referenceNumber,
   downpayment,
-  totalFinanced,
+  totalFinanced: _totalFinanced,
   productName,
   items,
   onSigned,

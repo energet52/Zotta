@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, RefreshCw, Sparkles, TrendingUp, TrendingDown,
-  AlertTriangle, CheckCircle, Clock, CreditCard, FileText,
+  ArrowLeft, RefreshCw, Sparkles, TrendingUp,
+  AlertTriangle, CheckCircle, CreditCard, FileText,
   MessageCircle, Shield, Send, ChevronDown, Plus, X,
-  Banknote, User, Phone, Mail, Building, Calendar,
+  Banknote, User, Phone, Building, Calendar,
   Activity, Bot, StickyNote, FileUp, Eye, EyeOff,
   Download, ExternalLink, Scroll, Edit3, Save, XCircle,
 } from 'lucide-react';
@@ -639,7 +639,7 @@ function OverviewTab({ u, p, qs, apps, payments, schedules, creditReports, timel
   // Charts data
   const exposureData = apps
     .filter((a: any) => a.status === 'disbursed')
-    .map((a: any, i: number) => ({
+    .map((a: any, _i: number) => ({
       name: a.reference_number || `Loan ${a.id}`,
       value: Number(a.amount_approved || a.amount_requested || 0),
     }));
@@ -713,7 +713,7 @@ function OverviewTab({ u, p, qs, apps, payments, schedules, creditReports, timel
             <h3 className="font-semibold mb-3 text-sm">Exposure Breakdown</h3>
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
-                <Pie data={exposureData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}>
+                <Pie data={exposureData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, percent }) => `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`}>
                   {exposureData.map((_: any, i: number) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                 </Pie>
                 <Tooltip formatter={(v: any) => fmtMoney(v)} />
@@ -1130,7 +1130,7 @@ function LoansTab({ apps, schedules, disbursements }: { apps: any[]; schedules: 
 // ══════════════════════════════════════════════════════════════════════════
 // TAB: Payments
 // ══════════════════════════════════════════════════════════════════════════
-function PaymentsTab({ payments, schedules }: { payments: any[]; schedules: any[] }) {
+function PaymentsTab({ payments, schedules: _schedules }: { payments: any[]; schedules: any[] }) {
   // Payment method distribution
   const methodCounts: Record<string, number> = {};
   payments.forEach((p: any) => { methodCounts[p.payment_type] = (methodCounts[p.payment_type] || 0) + 1; });
@@ -1300,7 +1300,7 @@ function CollectionsTab({ records, chats }: { records: any[]; chats: any[] }) {
 // TAB: Communications
 // ══════════════════════════════════════════════════════════════════════════
 function CommunicationsTab({
-  conversations, comments, notes, userId, onStartNew,
+  conversations, comments, notes, userId: _userId, onStartNew,
   activeConvId, activeConvMessages, onOpenConversation, onCloseConversation,
   inlineMsg, setInlineMsg, inlineSending, onSendInlineMessage,
 }: {

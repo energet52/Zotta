@@ -156,12 +156,6 @@ export default function MyLoans() {
     );
   }
 
-  // Check for any overdue loans
-  const overdueLoans = disbursed.filter(app => {
-    const sched = schedules[app.id];
-    return sched && getOverdueInfo(sched);
-  });
-
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-8">

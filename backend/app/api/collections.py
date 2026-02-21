@@ -151,10 +151,70 @@ async def get_collection_queue(
 
         result = await db.execute(query.order_by(LoanApplication.decided_at.asc()))
         rows = result.all()
+        app_ids = [r[0].id for r in rows]
+        applicant_ids = list({r[0].applicant_id for r in rows})
+
+        case_map: dict[int, CollectionCase] = {}
+        if app_ids:
+            case_result = await db.execute(
+                select(CollectionCase).where(CollectionCase.loan_application_id.in_(app_ids))
+            )
+            case_map = {c.loan_application_id: c for c in case_result.scalars().all()}
+
+        schedule_map: dict[int, list[PaymentSchedule]] = {}
+        if app_ids:
+            sched_result = await db.execute(
+                select(PaymentSchedule)
+                .where(PaymentSchedule.loan_application_id.in_(app_ids))
+                .order_by(PaymentSchedule.loan_application_id, PaymentSchedule.installment_number)
+            )
+            for s in sched_result.scalars().all():
+                schedule_map.setdefault(s.loan_application_id, []).append(s)
+
+        latest_record_map: dict[int, CollectionRecord] = {}
+        if app_ids:
+            record_result = await db.execute(
+                select(CollectionRecord)
+                .where(CollectionRecord.loan_application_id.in_(app_ids))
+                .order_by(CollectionRecord.loan_application_id, CollectionRecord.created_at.desc())
+            )
+            for rec in record_result.scalars().all():
+                if rec.loan_application_id not in latest_record_map:
+                    latest_record_map[rec.loan_application_id] = rec
+
+        profile_map: dict[int, ApplicantProfile] = {}
+        if applicant_ids:
+            profile_result = await db.execute(
+                select(ApplicantProfile).where(ApplicantProfile.user_id.in_(applicant_ids))
+            )
+            profile_map = {p.user_id: p for p in profile_result.scalars().all()}
+
+        agent_name_map: dict[int, str] = {}
+        agent_ids = {c.assigned_agent_id for c in case_map.values() if c.assigned_agent_id}
+        if agent_ids:
+            agent_result = await db.execute(
+                select(User.id, User.first_name, User.last_name).where(User.id.in_(agent_ids))
+            )
+            for uid, fn, ln in agent_result.all():
+                full_name = f"{fn or ''} {ln or ''}".strip()
+                agent_name_map[uid] = full_name or f"Agent {uid}"
+
+        latest_ptp_map: dict[int, PromiseToPay] = {}
+        case_ids = [c.id for c in case_map.values()]
+        if case_ids:
+            ptp_result = await db.execute(
+                select(PromiseToPay)
+                .where(PromiseToPay.collection_case_id.in_(case_ids))
+                .order_by(PromiseToPay.collection_case_id, PromiseToPay.created_at.desc())
+            )
+            for ptp in ptp_result.scalars().all():
+                if ptp.collection_case_id not in latest_ptp_map:
+                    latest_ptp_map[ptp.collection_case_id] = ptp
 
         entries = []
         today = date.today()
         now = datetime.now(timezone.utc)
+        sector_risk_cache: dict[str, str | None] = {}
 
         for row in rows:
             app = row[0]
@@ -163,12 +223,7 @@ async def get_collection_queue(
             phone = row[3]
 
             # Calculate overdue info from payment schedule
-            sched_result = await db.execute(
-                select(PaymentSchedule).where(
-                    PaymentSchedule.loan_application_id == app.id
-                ).order_by(PaymentSchedule.installment_number)
-            )
-            schedules = sched_result.scalars().all()
+            schedules = schedule_map.get(app.id, [])
 
             total_due = 0
             days_past_due = 0
@@ -189,16 +244,20 @@ async def get_collection_queue(
 
             outstanding = outstanding - total_paid
 
+            # Get preloaded CollectionCase if exists
+            case = case_map.get(app.id)
+
+            # If schedule data is stale/mutated, preserve known delinquency from case metadata.
+            if case:
+                case_dpd = int(case.dpd or 0)
+                case_overdue = float(case.total_overdue or 0)
+                days_past_due = max(days_past_due, case_dpd)
+                total_due = max(total_due, case_overdue)
+                if outstanding < total_due:
+                    outstanding = total_due
+
             if days_past_due <= 0 and total_due <= 0:
                 continue  # Not overdue
-
-            # Get CollectionCase if exists
-            case_result = await db.execute(
-                select(CollectionCase).where(
-                    CollectionCase.loan_application_id == app.id
-                )
-            )
-            case = case_result.scalar_one_or_none()
 
             # Apply stage filter
             if stage and case:
@@ -235,13 +294,7 @@ async def get_collection_queue(
                     continue
 
             # Last contact with details
-            last_record = await db.execute(
-                select(CollectionRecord)
-                .where(CollectionRecord.loan_application_id == app.id)
-                .order_by(CollectionRecord.created_at.desc())
-                .limit(1)
-            )
-            last = last_record.scalar_one_or_none()
+            last = latest_record_map.get(app.id)
             last_contact = last.created_at if last else None
             next_action = last.next_action_date if last else None
             last_contact_channel = (last.channel.value if last and hasattr(last.channel, "value") else str(last.channel) if last and last.channel else None)
@@ -250,18 +303,10 @@ async def get_collection_queue(
             # Agent name
             agent_name = None
             if case and case.assigned_agent_id:
-                agent_result = await db.execute(
-                    select(User.first_name, User.last_name).where(User.id == case.assigned_agent_id)
-                )
-                agent_row = agent_result.one_or_none()
-                if agent_row:
-                    agent_name = f"{agent_row[0]} {agent_row[1]}"
+                agent_name = agent_name_map.get(case.assigned_agent_id)
 
             # Profile data for sector/employer
-            profile_result = await db.execute(
-                select(ApplicantProfile).where(ApplicantProfile.user_id == app.applicant_id)
-            )
-            profile = profile_result.scalar_one_or_none()
+            profile = profile_map.get(app.applicant_id)
             employer_name = profile.employer_name if profile else None
             employer_sector = profile.employer_sector if profile else None
 
@@ -275,19 +320,16 @@ async def get_collection_queue(
             # Sector risk rating
             sector_risk_rating = None
             if employer_sector:
-                sr = await _get_sector_risk(employer_sector, db)
-                sector_risk_rating = sr.get("risk_rating")
+                cache_key = employer_sector.lower()
+                if cache_key not in sector_risk_cache:
+                    sr = await _get_sector_risk(employer_sector, db)
+                    sector_risk_cache[cache_key] = sr.get("risk_rating")
+                sector_risk_rating = sector_risk_cache.get(cache_key)
 
             # PTP status
             ptp_data = {"status": None, "amount": None, "date": None}
             if case:
-                ptp_q = await db.execute(
-                    select(PromiseToPay)
-                    .where(PromiseToPay.collection_case_id == case.id)
-                    .order_by(PromiseToPay.created_at.desc())
-                    .limit(1)
-                )
-                latest_ptp = ptp_q.scalar_one_or_none()
+                latest_ptp = latest_ptp_map.get(case.id)
                 if latest_ptp:
                     ptp_data = {
                         "status": _ev(latest_ptp.status),

@@ -110,11 +110,21 @@ class CreditProduct(Base):
     # AI-generated summary (cached)
     ai_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Decision Strategy Management (nullable — null means legacy single-strategy mode)
+    decision_tree_id: Mapped[int | None] = mapped_column(
+        ForeignKey("decision_trees.id"), nullable=True,
+    )
+    default_strategy_id: Mapped[int | None] = mapped_column(
+        ForeignKey("decision_strategies.id"), nullable=True,
+    )
+
     merchant = relationship("Merchant", back_populates="credit_products")
     score_ranges = relationship("ProductScoreRange", back_populates="credit_product", cascade="all, delete-orphan")
     fees = relationship("ProductFee", back_populates="credit_product", cascade="all, delete-orphan")
     rate_tiers = relationship("ProductRateTier", back_populates="credit_product", cascade="all, delete-orphan")
     loan_applications = relationship("LoanApplication", back_populates="credit_product")
+    decision_tree = relationship("DecisionTree", foreign_keys=[decision_tree_id])
+    default_strategy = relationship("DecisionStrategy", foreign_keys=[default_strategy_id])
 
 
 class ProductScoreRange(Base):

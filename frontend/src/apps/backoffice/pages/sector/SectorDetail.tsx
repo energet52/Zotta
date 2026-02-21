@@ -5,9 +5,9 @@ import {
   BarChart, Bar, Cell, Legend,
 } from 'recharts';
 import {
-  ArrowLeft, TrendingUp, TrendingDown, AlertTriangle,
+  ArrowLeft, TrendingUp, AlertTriangle,
   Shield, PauseCircle, Eye, RefreshCw, Activity,
-  ChevronRight, FileText, BarChart3,
+  ChevronRight, FileText,
 } from 'lucide-react';
 import Card from '../../../../components/ui/Card';
 import { sectorApi } from '../../../../api/endpoints';

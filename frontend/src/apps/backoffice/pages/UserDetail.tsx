@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
-  ArrowLeft, Shield, ShieldOff, ShieldAlert, Lock, Unlock,
-  UserCheck, UserX, Key, Monitor, Clock, RefreshCw,
+  ArrowLeft, Shield, ShieldOff, ShieldAlert, Unlock,
+  UserCheck, UserX, Key, Monitor, RefreshCw,
   Save, Trash2, Eye, EyeOff, AlertTriangle,
 } from 'lucide-react';
 import { userApi } from '../../../api/endpoints';

@@ -211,14 +211,6 @@ function dpdColor(dpd: number): string {
   return '#6b7280';
 }
 
-function dpdBadgeVariant(dpd: number): 'danger' | 'warning' | 'info' | 'default' {
-  if (dpd > 90) return 'danger';
-  if (dpd > 60) return 'warning';
-  if (dpd > 30) return 'warning';
-  if (dpd >= 1) return 'info';
-  return 'default';
-}
-
 function ptpBadgeVariant(status: string | null): 'success' | 'warning' | 'danger' | 'default' {
   if (status === 'kept') return 'success';
   if (status === 'pending') return 'warning';
@@ -342,7 +334,7 @@ export default function Collections() {
   const [syncing, setSyncing] = useState(false);
 
   /* ── Search debounce ────────────────────────────────────────── */
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
   useEffect(() => {

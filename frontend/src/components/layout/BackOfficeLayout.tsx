@@ -162,6 +162,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { to: '/backoffice/products', icon: Boxes, label: 'Products' },
       { to: '/backoffice/merchants', icon: Store, label: 'Merchants' },
+      { to: '/backoffice/rules', icon: Scale, label: 'Rules' },
       { to: '/backoffice/audit-trail', icon: ScrollText, label: 'Audit Trail' },
       { to: '/backoffice/error-monitor', icon: ShieldAlert, label: 'Error Monitor' },
     ],

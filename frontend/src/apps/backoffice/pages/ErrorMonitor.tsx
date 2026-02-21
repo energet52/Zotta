@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   AlertTriangle, Bug, CheckCircle, Clock, ChevronDown,
-  ChevronUp, Search, RefreshCw, XCircle, Filter, Trash2,
-  Shield, AlertOctagon, Info, ArrowRight,
+  ChevronUp, Search, RefreshCw, XCircle, Filter,
+  Shield, AlertOctagon, Info,
 } from 'lucide-react';
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';

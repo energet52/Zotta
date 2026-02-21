@@ -457,10 +457,13 @@ async def get_rules_stats(
                 SUM(CASE WHEN (elem->>'passed')::boolean THEN 1 ELSE 0 END) AS passed,
                 SUM(CASE WHEN NOT (elem->>'passed')::boolean THEN 1 ELSE 0 END) AS failed,
                 SUM(CASE WHEN NOT (elem->>'passed')::boolean AND elem->>'severity' = 'hard' THEN 1 ELSE 0 END) AS decline,
-                SUM(CASE WHEN NOT (elem->>'passed')::boolean AND elem->>'severity' IN ('soft', 'refer') THEN 1 ELSE 0 END) AS refer
+                SUM(CASE WHEN NOT (elem->>'passed')::boolean AND COALESCE(elem->>'severity', 'refer') <> 'hard' THEN 1 ELSE 0 END) AS refer
             FROM decisions,
-                 jsonb_array_elements((rules_results::jsonb)->'rules') AS elem
+                 jsonb_array_elements(COALESCE((rules_results::jsonb)->'rules', '[]'::jsonb)) AS elem
             WHERE rules_results IS NOT NULL
+              AND (elem->>'id') IS NOT NULL
+              AND (elem->>'id') LIKE 'R%'
+              AND (elem->>'passed') IN ('true', 'false')
             GROUP BY elem->>'id'
         """)
         result = await db.execute(raw_sql)
@@ -513,10 +516,13 @@ async def analyze_rules(
                 SUM(CASE WHEN (elem->>'passed')::boolean THEN 1 ELSE 0 END) AS passed,
                 SUM(CASE WHEN NOT (elem->>'passed')::boolean THEN 1 ELSE 0 END) AS failed,
                 SUM(CASE WHEN NOT (elem->>'passed')::boolean AND elem->>'severity' = 'hard' THEN 1 ELSE 0 END) AS decline,
-                SUM(CASE WHEN NOT (elem->>'passed')::boolean AND elem->>'severity' IN ('soft', 'refer') THEN 1 ELSE 0 END) AS refer
+                SUM(CASE WHEN NOT (elem->>'passed')::boolean AND COALESCE(elem->>'severity', 'refer') <> 'hard' THEN 1 ELSE 0 END) AS refer
             FROM decisions,
-                 jsonb_array_elements((rules_results::jsonb)->'rules') AS elem
+                 jsonb_array_elements(COALESCE((rules_results::jsonb)->'rules', '[]'::jsonb)) AS elem
             WHERE rules_results IS NOT NULL
+              AND (elem->>'id') IS NOT NULL
+              AND (elem->>'id') LIKE 'R%'
+              AND (elem->>'passed') IN ('true', 'false')
             GROUP BY elem->>'id'
         """)
         stats_result = await db.execute(raw_sql)

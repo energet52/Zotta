@@ -8,6 +8,7 @@ import {
   TrendingUp, TrendingDown, Calendar, CreditCard,
   Activity, Target, Flag, Edit, Zap, Brain,
   Building, MessageSquare, BarChart3, RefreshCw, Sparkles,
+  type LucideIcon,
 } from 'lucide-react';
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
@@ -163,6 +164,15 @@ interface HeatmapItem {
   status: 'on_time' | 'late' | 'missed' | 'none';
 }
 
+interface NbaSuggestedOffer {
+  offer_type?: string;
+  settlement_amount?: number;
+  discount_pct?: number;
+  plan_months?: number;
+  plan_monthly_amount?: number;
+  lump_sum?: number;
+}
+
 interface NbaInfo {
   action: string;
   confidence: number;
@@ -170,7 +180,7 @@ interface NbaInfo {
   timing: string;
   best_channel: string;
   best_number: string;
-  suggested_offer: string;
+  suggested_offer: string | NbaSuggestedOffer;
   confidence_label: string;
   tone_guidance?: string;
 }
@@ -1045,24 +1055,29 @@ export default function CollectionDetail() {
                   {typeof ai.nba.suggested_offer === 'string' ? (
                     <p className="text-sm text-[var(--color-text)]">{ai.nba.suggested_offer}</p>
                   ) : (
-                    <div className="text-sm text-[var(--color-text)] space-y-0.5">
-                      <p className="font-medium capitalize">
-                        {(ai.nba.suggested_offer.offer_type || '').replace(/_/g, ' ')}
-                      </p>
-                      {ai.nba.suggested_offer.settlement_amount != null && (
-                        <p>Amount: <span className="font-semibold">${Number(ai.nba.suggested_offer.settlement_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                          {ai.nba.suggested_offer.discount_pct > 0 && (
-                            <span className="text-emerald-400 ml-1">({ai.nba.suggested_offer.discount_pct}% discount)</span>
+                    (() => {
+                      const offer = ai.nba.suggested_offer as NbaSuggestedOffer;
+                      return (
+                        <div className="text-sm text-[var(--color-text)] space-y-0.5">
+                          <p className="font-medium capitalize">
+                            {(offer.offer_type || '').replace(/_/g, ' ')}
+                          </p>
+                          {offer.settlement_amount != null && (
+                            <p>Amount: <span className="font-semibold">${Number(offer.settlement_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                              {offer.discount_pct != null && offer.discount_pct > 0 && (
+                                <span className="text-emerald-400 ml-1">({offer.discount_pct}% discount)</span>
+                              )}
+                            </p>
                           )}
-                        </p>
-                      )}
-                      {ai.nba.suggested_offer.plan_months > 0 && (
-                        <p>{ai.nba.suggested_offer.plan_months}-month plan at ${Number(ai.nba.suggested_offer.plan_monthly_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}/mo</p>
-                      )}
-                      {ai.nba.suggested_offer.lump_sum > 0 && (
-                        <p>Lump sum: ${Number(ai.nba.suggested_offer.lump_sum).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-                      )}
-                    </div>
+                          {offer.plan_months != null && offer.plan_months > 0 && (
+                            <p>{offer.plan_months}-month plan at ${Number(offer.plan_monthly_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}/mo</p>
+                          )}
+                          {offer.lump_sum != null && offer.lump_sum > 0 && (
+                            <p>Lump sum: ${Number(offer.lump_sum).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                          )}
+                        </div>
+                      );
+                    })()
                   )}
                 </div>
               )}
@@ -1387,14 +1402,10 @@ export default function CollectionDetail() {
             <div className="flex gap-1 mb-2">
               {(
                 [
-                  {
-                    key: 'whatsapp' as const,
-                    label: 'WhatsApp',
-                    icon: MessageCircle,
-                  },
+                  { key: 'whatsapp' as const, label: 'WhatsApp', icon: MessageCircle },
                   { key: 'sms' as const, label: 'SMS', icon: MessageSquare },
                   { key: 'note' as const, label: 'Note', icon: FileText },
-                ] as const
+                ] as Array<{ key: 'whatsapp' | 'sms' | 'note'; label: string; icon: LucideIcon }>
               ).map((t) => (
                 <button
                   key={t.key}

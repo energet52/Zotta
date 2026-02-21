@@ -180,8 +180,8 @@ export default function CollectionsDashboard() {
                 <Tooltip
                   contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8 }}
                   labelStyle={{ color: 'var(--color-text)' }}
-                  formatter={(value: number, name: string) => [
-                    name === 'count' ? value : fmt(value),
+                  formatter={(value, name) => [
+                    name === 'count' ? (Number(value) ?? 0) : fmt(Number(value) ?? 0),
                     name === 'count' ? 'Accounts' : 'Amount',
                   ]}
                 />
@@ -206,7 +206,7 @@ export default function CollectionsDashboard() {
                 <YAxis tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }} />
                 <Tooltip
                   contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8 }}
-                  formatter={(value: number) => [fmt(value)]}
+                  formatter={(value) => [fmt(Number(value) ?? 0)]}
                 />
                 <Legend />
                 <Line type="monotone" dataKey="total_overdue" stroke="#ef4444" name="Overdue" strokeWidth={2} dot={false} />
