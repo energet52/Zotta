@@ -834,6 +834,7 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
   const [saving, setSaving] = useState(false);
   const [treeSaved, setTreeSaved] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [editingEdge, setEditingEdge] = useState<{ id: string; x: number; y: number; branches: string[]; current: string } | null>(null);
 
   const assessmentOptions = useMemo(
     () => assessments.map((a) => ({ id: a.id, name: a.name, ruleCount: (a.rules || []).length })),
@@ -1007,29 +1008,72 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
   };
 
   const onEdgeDoubleClick = useCallback(
-    (_: React.MouseEvent, edge: Edge) => {
+    (event: React.MouseEvent, edge: Edge) => {
       const sourceNode = nodes.find((n) => n.id === edge.source);
       const sourceData = sourceNode?.data as Record<string, unknown> | undefined;
       const branches = sourceData?.branches as Record<string, unknown> | undefined;
       const branchKeys = branches ? Object.keys(branches) : [];
 
-      let newLabel: string | null = null;
       if (branchKeys.length > 0) {
-        newLabel = window.prompt(
-          `Change branch label.\nAvailable branches: ${branchKeys.join(', ')}\n\nCurrent: "${edge.label || ''}"`,
-          (edge.label as string) || '',
-        );
-      } else {
-        newLabel = window.prompt('Edit branch label:', (edge.label as string) || '');
-      }
-
-      if (newLabel !== null) {
-        setEdges((eds) =>
-          eds.map((e) => e.id === edge.id ? { ...e, label: newLabel || undefined } : e),
-        );
+        setEditingEdge({
+          id: edge.id,
+          x: event.clientX,
+          y: event.clientY,
+          branches: branchKeys,
+          current: (edge.label as string) || '',
+        });
       }
     },
-    [nodes, setEdges],
+    [nodes],
+  );
+
+  const applyEdgeLabel = useCallback(
+    (label: string) => {
+      if (!editingEdge) return;
+      setEdges((eds) =>
+        eds.map((e) => e.id === editingEdge.id ? { ...e, label: label || undefined } : e),
+      );
+      setEditingEdge(null);
+    },
+    [editingEdge, setEdges],
+  );
+
+  const edgePicker = editingEdge && (
+    <div
+      className="fixed z-[100]"
+      style={{ left: editingEdge.x, top: editingEdge.y }}
+    >
+      <div
+        className="rounded-lg border shadow-xl p-2 min-w-[180px]"
+        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+      >
+        <div className="text-[10px] font-semibold text-[var(--color-text-secondary)] uppercase mb-1.5 px-1">
+          Select Branch
+        </div>
+        {editingEdge.branches.map((b) => (
+          <button
+            key={b}
+            onClick={() => applyEdgeLabel(b)}
+            className={`w-full text-left px-2.5 py-1.5 text-xs rounded transition-colors ${
+              b === editingEdge.current
+                ? 'bg-blue-500/10 text-blue-500 font-medium'
+                : 'text-[var(--color-text)] hover:bg-[var(--color-bg)]'
+            }`}
+          >
+            {b}
+            {b === editingEdge.current && <span className="ml-2 text-[10px] text-blue-400">(current)</span>}
+          </button>
+        ))}
+        <div className="border-t mt-1.5 pt-1.5" style={{ borderColor: 'var(--color-border)' }}>
+          <button
+            onClick={() => setEditingEdge(null)}
+            className="w-full text-left px-2.5 py-1 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text)] rounded hover:bg-[var(--color-bg)]"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
   );
 
   if (!tree) return null;
@@ -1119,6 +1163,7 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
             {toolbar}
           </div>
           <div className="flex-1">{canvas}</div>
+          {edgePicker}
         </div>
       </>
     );
@@ -1139,11 +1184,12 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
         {toolbar}
       </div>
       <div
-        className="rounded-lg border overflow-hidden"
+        className="rounded-lg border overflow-hidden relative"
         style={{ height: 350, borderColor: 'var(--color-border)' }}
       >
         {canvas}
       </div>
+      {edgePicker}
     </div>
   );
 }
