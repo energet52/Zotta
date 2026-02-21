@@ -21,6 +21,9 @@ import {
   ClipboardCheck,
   ExternalLink,
   Undo2,
+  Maximize2,
+  Minimize2,
+  Inbox,
 } from 'lucide-react';
 import {
   ReactFlow,
@@ -41,6 +44,7 @@ import { ConditionNode } from '../components/tree/ConditionNode';
 import { StrategyNode } from '../components/tree/StrategyNode';
 import { ScorecardGateNode } from '../components/tree/ScorecardGateNode';
 import { AssessmentNode } from '../components/tree/AssessmentNode';
+import { StartNode } from '../components/tree/StartNode';
 import api from '../../../api/client';
 import { adminApi } from '../../../api/endpoints';
 
@@ -49,6 +53,7 @@ const treeNodeTypes: NodeTypes = {
   strategy: StrategyNode,
   scorecardGate: ScorecardGateNode,
   assessment: AssessmentNode,
+  annotation: StartNode,
 };
 
 interface RuleEntry {
@@ -778,6 +783,7 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [treeSaved, setTreeSaved] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
 
   const assessmentOptions = useMemo(
     () => assessments.map((a) => ({ id: a.id, name: a.name, ruleCount: (a.rules || []).length })),
@@ -803,6 +809,7 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
       if (n.node_type === 'strategy') type = 'strategy';
       else if (n.node_type === 'assessment') type = 'assessment';
       else if (n.node_type === 'scorecard_gate') type = 'scorecardGate';
+      else if (n.node_type === 'annotation') type = 'annotation';
 
       return {
         id: n.node_key,
@@ -954,6 +961,95 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
 
   if (!tree) return null;
 
+  const toolbar = (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={() => addNode('condition')}
+        className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-bg)] transition-colors"
+      >
+        <GitBranch size={11} className="text-blue-500" /> Condition
+      </button>
+      <button
+        onClick={() => addNode('assessment')}
+        className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-bg)] transition-colors"
+      >
+        <ClipboardCheck size={11} className="text-orange-500" /> Assessment
+      </button>
+      {selectedNode && (
+        <button
+          onClick={deleteSelected}
+          className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-red-500 text-white hover:bg-red-600"
+          data-testid="btn-delete-tree-node"
+        >
+          <Trash2 size={11} /> Delete
+        </button>
+      )}
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className="flex items-center gap-1 px-2.5 py-1 text-xs rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50"
+        data-testid="btn-save-tree"
+      >
+        <Save size={11} /> {saving ? '...' : 'Save Tree'}
+      </button>
+      <button
+        onClick={() => setFullscreen(!fullscreen)}
+        className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-bg)] transition-colors"
+        data-testid="btn-fullscreen-tree"
+      >
+        {fullscreen ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
+        {fullscreen ? 'Exit' : 'Full Screen'}
+      </button>
+    </div>
+  );
+
+  const canvas = (
+    <ReactFlow
+      nodes={nodes}
+      edges={edges}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+      onConnect={onConnect}
+      onNodeClick={(_, node) => setSelectedNode(node.id)}
+      onPaneClick={() => setSelectedNode(null)}
+      deleteKeyCode="Backspace"
+      nodeTypes={treeNodeTypes}
+      fitView
+      snapToGrid
+      snapGrid={[15, 15]}
+      minZoom={0.2}
+      maxZoom={2}
+    >
+      <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
+      <Controls />
+      <MiniMap nodeStrokeWidth={3} style={{ background: 'var(--color-surface)', height: 80, width: 120 }} />
+    </ReactFlow>
+  );
+
+  if (fullscreen) {
+    return (
+      <>
+        <div data-testid="embedded-tree-section" />
+        <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'var(--color-bg)' }}>
+          <div
+            className="flex items-center justify-between px-4 py-2 border-b"
+            style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}
+          >
+            <div>
+              <h2 className="text-sm font-semibold text-[var(--color-text)]">Decision Tree Builder</h2>
+              <p className="text-xs text-[var(--color-text-secondary)]">
+                {tree.name} — {nodes.length} nodes
+                {treeSaved && <span className="ml-2 text-emerald-500">Saved</span>}
+              </p>
+            </div>
+            {toolbar}
+          </div>
+          <div className="flex-1">{canvas}</div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <div data-testid="embedded-tree-section">
       <div className="flex items-center justify-between mb-2">
@@ -966,65 +1062,13 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
             {treeSaved && <span className="ml-2 text-emerald-500">Saved</span>}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => addNode('condition')}
-            className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-bg)] transition-colors"
-          >
-            <GitBranch size={11} className="text-blue-500" /> Condition
-          </button>
-          <button
-            onClick={() => addNode('assessment')}
-            className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-bg)] transition-colors"
-          >
-            <ClipboardCheck size={11} className="text-orange-500" /> Assessment
-          </button>
-          {selectedNode && (
-            <button
-              onClick={deleteSelected}
-              className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-red-500 text-white hover:bg-red-600"
-              data-testid="btn-delete-tree-node"
-            >
-              <Trash2 size={11} /> Delete
-            </button>
-          )}
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-1 px-2.5 py-1 text-xs rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50"
-            data-testid="btn-save-tree"
-          >
-            <Save size={11} /> {saving ? '...' : 'Save Tree'}
-          </button>
-        </div>
+        {toolbar}
       </div>
       <div
         className="rounded-lg border overflow-hidden"
         style={{ height: 350, borderColor: 'var(--color-border)' }}
       >
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onNodeClick={(_, node) => setSelectedNode(node.id)}
-          onPaneClick={() => setSelectedNode(null)}
-          deleteKeyCode="Backspace"
-          nodeTypes={treeNodeTypes}
-          fitView
-          snapToGrid
-          snapGrid={[15, 15]}
-          minZoom={0.3}
-          maxZoom={1.5}
-        >
-          <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-          <Controls />
-          <MiniMap
-            nodeStrokeWidth={3}
-            style={{ background: 'var(--color-surface)', height: 60, width: 100 }}
-          />
-        </ReactFlow>
+        {canvas}
       </div>
     </div>
   );

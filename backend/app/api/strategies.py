@@ -127,16 +127,9 @@ async def create_strategy(
 
         root_node = DecisionTreeNode(
             tree_id=tree.id,
-            node_key="all_applications",
-            node_type=NodeType.CONDITION,
-            label="All Applications",
-            condition_type=ConditionType.BINARY,
-            attribute="is_existing_customer",
-            operator="eq",
-            branches={
-                "Existing Customer": {"value": True},
-                "New Customer": {"value": False},
-            },
+            node_key="application_received",
+            node_type=NodeType.ANNOTATION,
+            label="Application Received",
             is_root=True,
             position_x=300,
             position_y=50,

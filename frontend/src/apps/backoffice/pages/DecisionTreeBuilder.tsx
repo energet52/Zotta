@@ -36,12 +36,14 @@ import { ConditionNode } from '../components/tree/ConditionNode';
 import { StrategyNode } from '../components/tree/StrategyNode';
 import { ScorecardGateNode } from '../components/tree/ScorecardGateNode';
 import { AssessmentNode } from '../components/tree/AssessmentNode';
+import { StartNode } from '../components/tree/StartNode';
 
 const nodeTypes: NodeTypes = {
   condition: ConditionNode,
   strategy: StrategyNode,
   scorecardGate: ScorecardGateNode,
   assessment: AssessmentNode,
+  annotation: StartNode,
 };
 
 interface ValidationError {
@@ -568,6 +570,7 @@ function convertTreeToFlow(treeNodes: TreeNode[]): { flowNodes: Node[]; flowEdge
     if (n.node_type === 'strategy') type = 'strategy';
     else if (n.node_type === 'assessment') type = 'assessment';
     else if (n.node_type === 'scorecard_gate') type = 'scorecardGate';
+    else if (n.node_type === 'annotation') type = 'annotation';
 
     return {
       id: n.node_key,

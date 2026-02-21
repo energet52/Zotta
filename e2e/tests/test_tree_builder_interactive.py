@@ -158,7 +158,7 @@ class TestTreeBuilderInteractive:
 
     def test_07_select_attribute(self, page):
         """Select 'Customer Relationship' (is_existing_customer) as the attribute."""
-        editor = page.locator(".nopan").first
+        editor = page.locator(".react-flow__node-condition .nopan").first
         attr_select = editor.locator("select").first
         attr_select.select_option("is_existing_customer")
         page.wait_for_timeout(500)
@@ -168,7 +168,7 @@ class TestTreeBuilderInteractive:
 
     def test_08_apply_condition(self, page):
         """Click Apply to save the condition."""
-        apply_btn = page.locator(".nopan button", has_text="Apply").first
+        apply_btn = page.locator(".react-flow__node-condition .nopan button", has_text="Apply").first
         apply_btn.click()
         page.wait_for_timeout(1000)
 
