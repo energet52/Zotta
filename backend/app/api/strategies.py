@@ -417,16 +417,17 @@ async def create_assessment_from_template(
         raise HTTPException(404, "Strategy not found")
 
     template_rules = []
-    for rule_id, rule_def in RULES_REGISTRY.items():
+    for idx, (rule_id, rule_def) in enumerate(RULES_REGISTRY.items(), 1):
+        seq_id = f"R{idx:02d}"
         template_rules.append({
-            "rule_id": rule_id,
+            "rule_id": seq_id,
             "name": rule_def.get("name", ""),
             "field": rule_def.get("field", ""),
             "operator": rule_def.get("operator", "gte"),
             "threshold": rule_def.get("threshold"),
             "severity": rule_def.get("severity", "hard"),
             "outcome": rule_def.get("outcome", "decline"),
-            "reason_code": rule_id,
+            "reason_code": seq_id,
             "enabled": rule_def.get("enabled", True),
         })
 
