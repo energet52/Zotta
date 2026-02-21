@@ -337,20 +337,16 @@ async def _run_tree_path(
     """Route through the decision tree and execute the assigned strategy."""
     product = application.credit_product
 
-    # Load active tree version
     tree_result = await db.execute(
         select(DecisionTree)
-        .where(
-            DecisionTree.id == product.decision_tree_id,
-            DecisionTree.status == TreeStatus.ACTIVE,
-        )
+        .where(DecisionTree.id == product.decision_tree_id)
         .options(selectinload(DecisionTree.nodes))
     )
     tree = tree_result.scalar_one_or_none()
 
     if tree is None:
         logger.warning(
-            "Product %s has decision_tree_id=%s but no active tree found; falling back to legacy",
+            "Product %s has decision_tree_id=%s but tree not found; falling back to legacy",
             product.id, product.decision_tree_id,
         )
         return await _run_legacy_path(
@@ -514,8 +510,9 @@ async def _run_tree_path(
                 break
 
     # Create detailed audit trail
+    await db.flush()
     audit_trail = DecisionAuditTrail(
-        decision_id=decision.id if decision.id else 0,
+        decision_id=decision.id,
         tree_id=tree.id,
         tree_version=tree.version,
         routing_path=[

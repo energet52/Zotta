@@ -252,10 +252,25 @@ def route_application(
                 path=path,
             )
 
-        # Annotation nodes — skip to child
-        if current.node_type == NodeType.ANNOTATION:
+        # Annotation nodes or condition nodes with no branches — skip to child
+        is_passthrough = (
+            current.node_type == NodeType.ANNOTATION
+            or (current.node_type == NodeType.CONDITION and not current.attribute and not current.branches)
+        )
+        if is_passthrough:
             children = [n for n in nodes if n.parent_node_id == current.id]
-            current = children[0] if children else None
+            if children:
+                path.append(RoutingStep(
+                    node_key=current.node_key,
+                    node_label=current.label,
+                    attribute=None,
+                    actual_value=None,
+                    branch_taken="passthrough",
+                    node_type=current.node_type.value if hasattr(current.node_type, 'value') else str(current.node_type),
+                ))
+                current = children[0]
+            else:
+                current = None
             continue
 
         # Condition or scorecard gate — evaluate and branch
@@ -471,11 +486,13 @@ def _find_child(
     for n in nodes:
         if n.parent_node_id == parent.id and n.branch_label == branch_label:
             return n
-    # Fallback: case-insensitive match
     branch_lower = branch_label.lower()
     for n in nodes:
         if n.parent_node_id == parent.id and (n.branch_label or "").lower() == branch_lower:
             return n
+    children = [n for n in nodes if n.parent_node_id == parent.id]
+    if len(children) == 1:
+        return children[0]
     return None
 
 
