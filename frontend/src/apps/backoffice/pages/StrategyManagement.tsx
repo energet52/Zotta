@@ -880,6 +880,7 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
 
   const [nodes, setNodes, onNodesChange] = useNodesState([] as Node[]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([] as Edge[]);
+  const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [treeSaved, setTreeSaved] = useState(false);
 
@@ -1007,6 +1008,13 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
     [nodes, setNodes, updateNodeData, assessmentOptions],
   );
 
+  const deleteSelected = useCallback(() => {
+    if (!selectedNode) return;
+    setNodes((nds) => nds.filter((n) => n.id !== selectedNode));
+    setEdges((eds) => eds.filter((e) => e.source !== selectedNode && e.target !== selectedNode));
+    setSelectedNode(null);
+  }, [selectedNode, setNodes, setEdges]);
+
   const handleSave = async () => {
     setSaving(true);
     setTreeSaved(false);
@@ -1076,6 +1084,15 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
           >
             <ClipboardCheck size={11} className="text-orange-500" /> Assessment
           </button>
+          {selectedNode && (
+            <button
+              onClick={deleteSelected}
+              className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-red-500 text-white hover:bg-red-600"
+              data-testid="btn-delete-tree-node"
+            >
+              <Trash2 size={11} /> Delete
+            </button>
+          )}
           <button
             onClick={handleSave}
             disabled={saving}
@@ -1096,6 +1113,9 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onNodeClick={(_, node) => setSelectedNode(node.id)}
+          onPaneClick={() => setSelectedNode(null)}
+          deleteKeyCode="Backspace"
           nodeTypes={treeNodeTypes}
           fitView
           snapToGrid
