@@ -240,12 +240,20 @@ const OPERATORS = [
   { value: 'between', label: 'between' },
 ];
 
+interface ProductOption {
+  id: number;
+  name: string;
+  merchant_name?: string;
+}
+
 export default function StrategyManagement() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
+  const [activateStrategyId, setActivateStrategyId] = useState<number | null>(null);
+  const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
   const [createForm, setCreateForm] = useState({
     name: '',
     description: '',
@@ -274,11 +282,23 @@ export default function StrategyManagement() {
     },
   });
 
-  const activateMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await api.post(`/strategies/${id}/activate`);
+  const { data: products = [] } = useQuery({
+    queryKey: ['products-for-strategy'],
+    queryFn: async () => {
+      const res = await api.get('/admin/products');
+      return res.data as ProductOption[];
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['strategies'] }),
+  });
+
+  const activateMutation = useMutation({
+    mutationFn: async ({ id, productIds }: { id: number; productIds: number[] }) => {
+      await api.post(`/strategies/${id}/activate`, productIds);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['strategies'] });
+      setActivateStrategyId(null);
+      setSelectedProducts([]);
+    },
   });
 
   const deactivateMutation = useMutation({
@@ -459,20 +479,16 @@ export default function StrategyManagement() {
                     </p>
                   )}
                   <div className="flex items-center gap-3 mt-1 text-xs text-[var(--color-text-secondary)]">
-                    <span>{s.evaluation_mode.replace(/_/g, '-')}</span>
-                    {s.knock_out_rules && s.knock_out_rules.length > 0 && (
-                      <span>{s.knock_out_rules.length} knock-outs</span>
+                    {(s.assessments || []).length > 0 && (
+                      <span>{s.assessments.length} assessment{s.assessments.length !== 1 ? 's' : ''}</span>
                     )}
-                    {s.overlay_rules && s.overlay_rules.length > 0 && (
-                      <span>{s.overlay_rules.length} overlays</span>
-                    )}
-                    {s.score_cutoffs && <span>score cutoffs</span>}
+                    {s.decision_tree_id && <span>decision tree</span>}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
                   {s.status !== 'active' && s.status !== 'archived' && (
                     <button
-                      onClick={(e) => { e.stopPropagation(); activateMutation.mutate(s.id); }}
+                      onClick={(e) => { e.stopPropagation(); setActivateStrategyId(s.id); setSelectedProducts([]); }}
                       className="p-1.5 rounded text-emerald-500 hover:bg-emerald-500/10"
                       title="Activate"
                       data-testid={`btn-activate-${s.id}`}
@@ -549,6 +565,81 @@ export default function StrategyManagement() {
           );
         })}
       </div>
+
+      {/* Product Picker Modal */}
+      {activateStrategyId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setActivateStrategyId(null)}>
+          <div
+            className="w-full max-w-md rounded-lg border p-5 shadow-xl"
+            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+            onClick={(e) => e.stopPropagation()}
+            data-testid="product-picker-modal"
+          >
+            <h3 className="text-sm font-semibold text-[var(--color-text)] mb-1">Activate Strategy</h3>
+            <p className="text-xs text-[var(--color-text-secondary)] mb-4">
+              Select which products this strategy should apply to. Applications for these products will be evaluated using this strategy's decision tree.
+            </p>
+
+            <div className="space-y-1.5 max-h-64 overflow-y-auto mb-4">
+              {products.map((p) => (
+                <label
+                  key={p.id}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
+                    selectedProducts.includes(p.id) ? 'border-emerald-500 bg-emerald-500/5' : 'border-[var(--color-border)] hover:border-emerald-500/30'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedProducts.includes(p.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedProducts([...selectedProducts, p.id]);
+                      } else {
+                        setSelectedProducts(selectedProducts.filter((id) => id !== p.id));
+                      }
+                    }}
+                    className="w-4 h-4 rounded"
+                  />
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-[var(--color-text)]">{p.name}</div>
+                    {p.merchant_name && (
+                      <div className="text-xs text-[var(--color-text-secondary)]">{p.merchant_name}</div>
+                    )}
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => {
+                  const allIds = products.map((p) => p.id);
+                  setSelectedProducts(selectedProducts.length === allIds.length ? [] : allIds);
+                }}
+                className="text-xs text-blue-500 hover:text-blue-400"
+              >
+                {selectedProducts.length === products.length ? 'Deselect All' : 'Select All'}
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setActivateStrategyId(null)}
+                  className="px-3 py-1.5 text-xs rounded border border-[var(--color-border)] text-[var(--color-text)]"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => activateMutation.mutate({ id: activateStrategyId, productIds: selectedProducts })}
+                  disabled={activateMutation.isPending}
+                  className="px-3 py-1.5 text-xs rounded bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50"
+                  data-testid="btn-confirm-activate"
+                >
+                  {activateMutation.isPending ? 'Activating...' : `Activate${selectedProducts.length > 0 ? ` for ${selectedProducts.length} product${selectedProducts.length > 1 ? 's' : ''}` : ''}`}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

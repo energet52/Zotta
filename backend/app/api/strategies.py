@@ -220,6 +220,7 @@ async def update_strategy(
 @router.post("/strategies/{strategy_id}/activate", response_model=DecisionStrategyResponse)
 async def activate_strategy(
     strategy_id: int,
+    product_ids: list[int] | None = None,
     emergency: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
@@ -238,6 +239,16 @@ async def activate_strategy(
         strategy.is_emergency_override = True
         strategy.emergency_review_deadline = datetime.utcnow() + timedelta(days=5)
 
+    if product_ids and strategy.decision_tree_id:
+        for pid in product_ids:
+            prod = await db.execute(
+                select(CreditProduct).where(CreditProduct.id == pid)
+            )
+            product = prod.scalar_one_or_none()
+            if product:
+                product.decision_tree_id = strategy.decision_tree_id
+                product.default_strategy_id = strategy_id
+
     await db.flush()
     return await _reload_strategy(db, strategy.id)
 
@@ -253,9 +264,35 @@ async def deactivate_strategy(strategy_id: int, db: AsyncSession = Depends(get_d
     if strategy.status != StrategyStatus.ACTIVE:
         raise HTTPException(400, "Only active strategies can be deactivated")
 
+    if strategy.decision_tree_id:
+        await db.execute(
+            CreditProduct.__table__.update()
+            .where(CreditProduct.decision_tree_id == strategy.decision_tree_id)
+            .values(decision_tree_id=None, default_strategy_id=None)
+        )
+
     strategy.status = StrategyStatus.DRAFT
     await db.flush()
     return await _reload_strategy(db, strategy.id)
+
+
+@router.get("/strategies/{strategy_id}/products")
+async def get_strategy_products(strategy_id: int, db: AsyncSession = Depends(get_db)):
+    """Get which products are linked to this strategy's decision tree."""
+    result = await db.execute(
+        select(DecisionStrategy).where(DecisionStrategy.id == strategy_id)
+    )
+    strategy = result.scalar_one_or_none()
+    if not strategy:
+        raise HTTPException(404, "Strategy not found")
+
+    if not strategy.decision_tree_id:
+        return []
+
+    products = await db.execute(
+        select(CreditProduct).where(CreditProduct.decision_tree_id == strategy.decision_tree_id)
+    )
+    return [{"id": p.id, "name": p.name} for p in products.scalars().all()]
 
 
 @router.post("/strategies/{strategy_id}/archive", response_model=DecisionStrategyResponse)
