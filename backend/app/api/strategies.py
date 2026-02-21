@@ -288,6 +288,125 @@ async def get_strategy_products(strategy_id: int, db: AsyncSession = Depends(get
     return [{"id": p.id, "name": p.name} for p in products.scalars().all()]
 
 
+@router.get("/strategies/{strategy_id}/rule-stats")
+async def get_strategy_rule_stats(strategy_id: int, db: AsyncSession = Depends(get_db)):
+    """Get per-rule pass/fail/refer stats from decision history for this strategy."""
+    from sqlalchemy import cast, String
+
+    decisions_q = await db.execute(
+        select(Decision).where(
+            Decision.strategy_id == strategy_id,
+            Decision.rules_results.isnot(None),
+        ).order_by(Decision.id.desc()).limit(500)
+    )
+    decisions = decisions_q.scalars().all()
+
+    rule_stats: dict[str, dict] = {}
+    for d in decisions:
+        rules_data = d.rules_results or {}
+        rules_list = rules_data.get("rules", [])
+        eval_steps = rules_data.get("evaluation_steps", [])
+
+        for rule in rules_list:
+            rid = rule.get("rule_id") or rule.get("id") or "unknown"
+            rname = rule.get("name") or rid
+            if rid not in rule_stats:
+                rule_stats[rid] = {"rule_id": rid, "name": rname, "total": 0, "passed": 0, "failed": 0}
+            rule_stats[rid]["total"] += 1
+            if rule.get("passed", True):
+                rule_stats[rid]["passed"] += 1
+            else:
+                rule_stats[rid]["failed"] += 1
+
+    return {
+        "strategy_id": strategy_id,
+        "total_decisions": len(decisions),
+        "rules": sorted(rule_stats.values(), key=lambda r: r["failed"], reverse=True),
+    }
+
+
+@router.get("/strategy-audit-log")
+async def get_strategy_audit_log(
+    limit: int = 50,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get audit trail of all strategy-related changes."""
+    from app.models.audit import AuditLog
+
+    result = await db.execute(
+        select(AuditLog)
+        .where(
+            AuditLog.entity_type.in_([
+                "strategy", "decision_strategy", "assessment",
+                "decision_tree", "loan_application",
+            ])
+        )
+        .order_by(AuditLog.id.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    logs = result.scalars().all()
+
+    strategy_changes = []
+    for log in logs:
+        strategy_changes.append({
+            "id": log.id,
+            "entity_type": log.entity_type,
+            "entity_id": log.entity_id,
+            "action": log.action,
+            "new_values": log.new_values,
+            "created_at": log.created_at.isoformat() if log.created_at else None,
+            "user_id": log.user_id if hasattr(log, 'user_id') else None,
+        })
+
+    strategies_q = await db.execute(
+        select(DecisionStrategy).options(selectinload(DecisionStrategy.assessments))
+        .order_by(DecisionStrategy.updated_at.desc())
+    )
+    strategies = strategies_q.scalars().unique().all()
+
+    timeline = []
+    for s in strategies:
+        timeline.append({
+            "type": "strategy",
+            "action": "created" if s.status == "draft" else s.status,
+            "entity_id": s.id,
+            "entity_name": s.name,
+            "description": f"Strategy '{s.name}' v{s.version} — {s.status}",
+            "details": {
+                "version": s.version,
+                "status": s.status,
+                "assessments": len(s.assessments),
+                "has_tree": s.decision_tree_id is not None,
+                "is_fallback": s.is_fallback,
+            },
+            "timestamp": s.updated_at.isoformat() if s.updated_at else s.created_at.isoformat(),
+        })
+        for a in s.assessments:
+            timeline.append({
+                "type": "assessment",
+                "action": "configured",
+                "entity_id": a.id,
+                "entity_name": a.name,
+                "description": f"Assessment '{a.name}' on strategy '{s.name}' — {len(a.rules or [])} rules",
+                "details": {
+                    "strategy_id": s.id,
+                    "strategy_name": s.name,
+                    "rule_count": len(a.rules or []),
+                },
+                "timestamp": a.updated_at.isoformat() if a.updated_at else a.created_at.isoformat(),
+            })
+
+    timeline.sort(key=lambda x: x["timestamp"], reverse=True)
+
+    return {
+        "audit_entries": strategy_changes,
+        "timeline": timeline[:limit],
+        "total_strategies": len(strategies),
+    }
+
+
 @router.post("/strategies/{strategy_id}/archive", response_model=DecisionStrategyResponse)
 async def archive_strategy(strategy_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(

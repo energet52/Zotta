@@ -1262,6 +1262,16 @@ function AssessmentEditor({
   const [rules, setRules] = useState<RuleEntry[]>(assessment.rules || []);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+
+  const { data: ruleStats } = useQuery({
+    queryKey: ['rule-stats', assessment.strategy_id],
+    queryFn: async () => {
+      const res = await api.get(`/strategies/${assessment.strategy_id}/rule-stats`);
+      return res.data as { total_decisions: number; rules: Array<{ rule_id: string; name: string; total: number; passed: number; failed: number }> };
+    },
+    enabled: showStats,
+  });
 
   const handleSave = async () => {
     setSaving(true);
@@ -1306,17 +1316,55 @@ function AssessmentEditor({
           className="flex-1 px-2 py-1 text-sm font-medium rounded border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text)] disabled:opacity-50 mr-2"
           data-testid="assessment-name-input"
         />
-        {editable && (
+        <div className="flex items-center gap-2">
           <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-1 px-2.5 py-1 text-xs rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50"
-            data-testid="btn-save-assessment"
+            onClick={() => setShowStats(!showStats)}
+            className={`flex items-center gap-1 px-2.5 py-1 text-xs rounded border transition-colors ${
+              showStats ? 'border-purple-500 text-purple-500 bg-purple-500/5' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'
+            }`}
           >
-            <Save size={12} /> {saving ? '...' : saved ? 'Saved' : 'Save'}
+            <BarChart3 size={12} /> Stats
           </button>
-        )}
+          {editable && (
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-1 px-2.5 py-1 text-xs rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50"
+              data-testid="btn-save-assessment"
+            >
+              <Save size={12} /> {saving ? '...' : saved ? 'Saved' : 'Save'}
+            </button>
+          )}
+        </div>
       </div>
+
+      {showStats && ruleStats && (
+        <div className="rounded-lg border p-3 space-y-2" style={{ borderColor: 'var(--color-border)', background: 'var(--color-bg)' }}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase">Rule Performance</span>
+            <span className="text-xs text-[var(--color-text-secondary)]">{ruleStats.total_decisions} decisions analyzed</span>
+          </div>
+          {ruleStats.rules.length === 0 && (
+            <p className="text-xs text-[var(--color-text-secondary)] italic">No decision data yet</p>
+          )}
+          {ruleStats.rules.map((r) => {
+            const passRate = r.total > 0 ? (r.passed / r.total) * 100 : 0;
+            const failRate = r.total > 0 ? (r.failed / r.total) * 100 : 0;
+            return (
+              <div key={r.rule_id} className="flex items-center gap-2 text-xs">
+                <span className="w-10 font-mono text-[var(--color-text-secondary)]">{r.rule_id}</span>
+                <span className="flex-1 text-[var(--color-text)] truncate">{r.name}</span>
+                <div className="w-24 h-1.5 rounded-full bg-[var(--color-border)] overflow-hidden flex">
+                  <div className="h-full bg-emerald-500" style={{ width: `${passRate}%` }} />
+                  <div className="h-full bg-red-500" style={{ width: `${failRate}%` }} />
+                </div>
+                <span className="w-8 text-right text-emerald-500">{r.passed}</span>
+                <span className="w-8 text-right text-red-500">{r.failed}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <RuleListEditor
         title="Assessment Rules"

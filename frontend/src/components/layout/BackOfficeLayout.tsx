@@ -102,9 +102,9 @@ const SECTIONS: NavSection[] = [
     icon: Target,
     items: [
       { to: '/backoffice/strategies', icon: Shield, label: 'Strategies' },
+      { to: '/backoffice/strategy-audit', icon: ScrollText, label: 'Strategy Audit Log' },
       { to: '/backoffice/champion-challenger', icon: Zap, label: 'Champion-Challenger' },
       { to: '/backoffice/scorecards', icon: Target, label: 'Scorecards' },
-      { to: '/backoffice/rules', icon: Scale, label: 'Business Rules' },
     ],
   },
   {

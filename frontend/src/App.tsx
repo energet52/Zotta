@@ -35,6 +35,7 @@ import ProductManagement from './apps/backoffice/pages/ProductManagement';
 import ProductDetail from './apps/backoffice/pages/ProductDetail';
 import MerchantManagement from './apps/backoffice/pages/MerchantManagement';
 import RulesManagement from './apps/backoffice/pages/RulesManagement';
+import StrategyAuditLog from './apps/backoffice/pages/StrategyAuditLog';
 import CustomerList from './apps/backoffice/pages/CustomerList';
 import Customer360 from './apps/backoffice/pages/Customer360';
 import SmartQueue from './apps/backoffice/pages/SmartQueue';
@@ -166,6 +167,7 @@ export default function App() {
           <Route path="/backoffice/products/:id" element={<ProductDetail />} />
           <Route path="/backoffice/merchants" element={<MerchantManagement />} />
           <Route path="/backoffice/rules" element={<RulesManagement />} />
+          <Route path="/backoffice/strategy-audit" element={<StrategyAuditLog />} />
           <Route path="/backoffice/error-monitor" element={<ErrorMonitor />} />
           {/* User Management */}
           <Route path="/backoffice/users" element={<UserManagement />} />
