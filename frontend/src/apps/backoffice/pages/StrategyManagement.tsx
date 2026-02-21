@@ -1006,6 +1006,32 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
     }
   };
 
+  const onEdgeDoubleClick = useCallback(
+    (_: React.MouseEvent, edge: Edge) => {
+      const sourceNode = nodes.find((n) => n.id === edge.source);
+      const sourceData = sourceNode?.data as Record<string, unknown> | undefined;
+      const branches = sourceData?.branches as Record<string, unknown> | undefined;
+      const branchKeys = branches ? Object.keys(branches) : [];
+
+      let newLabel: string | null = null;
+      if (branchKeys.length > 0) {
+        newLabel = window.prompt(
+          `Change branch label.\nAvailable branches: ${branchKeys.join(', ')}\n\nCurrent: "${edge.label || ''}"`,
+          (edge.label as string) || '',
+        );
+      } else {
+        newLabel = window.prompt('Edit branch label:', (edge.label as string) || '');
+      }
+
+      if (newLabel !== null) {
+        setEdges((eds) =>
+          eds.map((e) => e.id === edge.id ? { ...e, label: newLabel || undefined } : e),
+        );
+      }
+    },
+    [nodes, setEdges],
+  );
+
   if (!tree) return null;
 
   const toolbar = (
@@ -1048,32 +1074,6 @@ function EmbeddedTreeViewer({ treeId, assessments }: { treeId: number; assessmen
         {fullscreen ? 'Exit' : 'Full Screen'}
       </button>
     </div>
-  );
-
-  const onEdgeDoubleClick = useCallback(
-    (_: React.MouseEvent, edge: Edge) => {
-      const sourceNode = nodes.find((n) => n.id === edge.source);
-      const sourceData = sourceNode?.data as Record<string, unknown> | undefined;
-      const branches = sourceData?.branches as Record<string, unknown> | undefined;
-      const branchKeys = branches ? Object.keys(branches) : [];
-
-      let newLabel: string | null = null;
-      if (branchKeys.length > 0) {
-        newLabel = window.prompt(
-          `Change branch label.\nAvailable branches: ${branchKeys.join(', ')}\n\nCurrent: "${edge.label || ''}"`,
-          (edge.label as string) || '',
-        );
-      } else {
-        newLabel = window.prompt('Edit branch label:', (edge.label as string) || '');
-      }
-
-      if (newLabel !== null) {
-        setEdges((eds) =>
-          eds.map((e) => e.id === edge.id ? { ...e, label: newLabel || undefined } : e),
-        );
-      }
-    },
-    [nodes, setEdges],
   );
 
   const canvas = (
