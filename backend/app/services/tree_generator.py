@@ -123,7 +123,7 @@ def generate_tree(
             messages=messages,
             response_format={"type": "json_object"},
             temperature=0.3,
-            max_tokens=4000,
+            max_completion_tokens=4000,
         )
 
         raw = response.choices[0].message.content or "{}"
