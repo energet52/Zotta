@@ -680,13 +680,21 @@ def execute_assessment(
     """
     steps: list[EvaluationStep] = []
 
-    trigger_rules = [
-        {**r, "trigger_mode": True}
-        for r in assessment_rules
-        if r.get("enabled", True)
-    ]
-    hard_rules = [r for r in trigger_rules if r.get("severity") == "hard"]
-    refer_rules = [r for r in trigger_rules if r.get("severity") != "hard"]
+    import re
+    _TEMPLATE_RULE_PATTERN = re.compile(r'^R\d{2}$')
+
+    processed_rules = []
+    for r in assessment_rules:
+        if not r.get("enabled", True):
+            continue
+        rule = dict(r)
+        rule_id = rule.get("rule_id", "")
+        if not _TEMPLATE_RULE_PATTERN.match(rule_id):
+            rule["trigger_mode"] = True
+        processed_rules.append(rule)
+
+    hard_rules = [r for r in processed_rules if r.get("severity") == "hard"]
+    refer_rules = [r for r in processed_rules if r.get("severity") != "hard"]
 
     hard_failures = _evaluate_rule_set(hard_rules, rule_input, "hard")
     steps.append(EvaluationStep(
